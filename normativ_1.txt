@@ -1,0 +1,84 @@
+3.1.3. Principii şi metode pentru verificarea satisfacerii cerinţei de calitate „rezistenţă şi 
+stabilitate" 
+3.1.3.1.Verificarea satisfacerii cerinţei de „rezistenţă şi stabilitate" se face, în general, pe baza 
+conceptului de stări limită. 
+3.1.3.2. Stările limita se definesc în conformitate cu STAS 10100/0 şi se împart în două 
+categorii: 
+a. stări limită ultime care se referă la condiţiile tehnice de performanţă de stabilitate, 
+rezistenţă şi ductilitate; 
+b. stări limită ale exploatării normale care se referă la condiţia tehnică de performanţă 
+de rigiditate. 
+3.1.3.3. Pentru verificarea satisfacerii cerinţei de „rezistenţă şi stabilitate", pe baza conceptului 
+de stări limită este necesară stabilirea unor modele de calcul adecvate, care includ toţi factorii 
+susceptibili de a interveni în timpul execuţiei şi pe durata exploatării efective.
+Modelul de calcul trebuie să fie suficient de precis pentru a estima comportarea clădirii şi 
+părţilor sale componente şi va ţine seama de: 
+ calitatea probabilă a execuţiei corespunzătoare unui nivel 
+tehnic minim acceptabil; 
+ gradul de incertitudine al informaţiilor care stau la baza 
+proiectării construcţiei; 
+ lucrările de întreţinere prevăzute. 
+3.1.3.4. În cazul în care, pentru unele configuraţii structurale 
+speciale, metodele analitice nu sunt aplicabile, verificarea satisfacerii 
+cerinţei de calitate „rezistenţă şi stabilitate" poate fi realizată prin 
+metode experimentale (încercări pe elemente, pe subansambluri sau 
+pe ansamblul structurii, „in situ" sau în laborator, la scară naturală 
+sau pe modele reduse).  Desfăşurarea încercărilor şi interpretările 
+rezultatelor se vor face pe baza reglementărilor tehnice specifice. 
+3.1.3.5.Satisfacerea cerinţei de calitate „rezistenţă şi stabilitate" 
+se asigură şi prin măsuri specifice referitoare la: 
+ concepţia generală şi de detaliu a construcţiei (părţile componente indicate la pct. 
+3.1.1.3.); 
+ proprietăţile, performanţele şi utilizarea materialelor şi produselor de construcţie; 
+ calitatea execuţiei; 
+ executarea lucrărilor de întreţinere. 
+3.1.3.6. Avariile cauzate clădirilor de locuinţe de evenimente accidentale şi care sunt 
+disproporţionate în raport cu cauza lor iniţială, vor fi evitate sau limitate prin măsuri adecvate privind: 
+ determinarea riscului de apariţie a unor astfel de evenimente şi asigurarea măsurilor 
+constructive pentru reducerea acestora; 
+ adoptarea unei configuraţii structurale care nu prezintă sensibilităţi la astfel de 
+evenimente; 
+ asigurarea structurii cu ductilitate corespunzătoare. 
+3.1.3.7. Asigurarea durabilităţii implică măsuri de protecţie faţă de acţiunile agenţilor fizici, 
+chimici şi biologici din mediul înconjură tor (mediul natural şi mediul de exploatare). 
+In particular, se vor respecta următoarele reglementări: 
+a. Pentru elementele de beton armat şi beton precomprimat se vor prevedea grosimile 
+minime ale stratului de acoperire cu beton a armăturilor, în conformitate cu STAS 10107/0; 
+b. Pentru elementele de zidărie se vor respecta prevederile 
+normativelor P2 şi CI7 referitoare la tencuieli; 
+c. Pentru protecţia anticorozivă a construcţiilor se vor respecta prevederile cuprinse în: 
+ Normativul GP 035  pentru construcţii din oţel; 
+ Normativul C 170  pentru construcţii şi elemente 
+de construcţii din beton, în medii agresive; 
+d. 
+Pentru  prezervarea elementelor, subansamblurilor şi construcţiilor din lemn 
+împotriva biodegradării se vor respecta prevederile cuprinse în: 
+ Cod pentru calculul şi alcătuirea elementelor de construcţie din lemn , indicativ 
+NP 005. 
+e. Pentru urmărirea comportării în timp a construcţiei se vor respecta prevederile cuprinse
+în: 
+ Normativ PI30 privind urmărirea comportării în timp a construcţiilor. 
+3.1.4. Factori care intervin la verificarea satisfacerii cerinţei de calitate „rezistenţă şi 
+stabilitate", pe baza conceptului de stări limită 
+Factorii care intervin la verificarea satisfacerii cerinţei pe baza conceptului de stări limită sunt: 
+1. acţiunile agenţilor mecanici, 
+2. influenţele mediului natural, 
+3. proprietăţile materialelor, 
+4. proprietăţile terenului de fundare, 
+5. geometria structurii în ansamblu şi geometria elementelor de construcţii, 
+6. metodele de calcul. 
+3.1.4.1. Acţiunile agenţilor mecanici 
+3.1.4.1.1. Clasificarea şi gruparea acţiunilor agenţilor mecanici pentru proiectarea clădirilor 
+de locuit se face conform STAS 10101/2 
+3.1.4.1.2. Evaluarea încărcărilor permanente se face conform STAS 10101/1. 
+în cazul utilizării unor materiale netradiţionale, datele privind greutatea proprie vor fi preluate 
+din agrementul tehnic respectiv. 
+3.1.4.1.3.Definirea încărcărilor datorite procesului de exploatare se face conform STAS 
+10101/2. 
+Valorile normate ale încărcărilor utile, uniform distribuite pe planşeele clădirilor de locuinţe sunt date 
+în tabelul A în conformitate cu prevederile STAS 10101/2A187. 
+Valorile normate se referă la încărcările utile curente şi reprezintă valorile maxime în 
+condiţii normale de exploatare. 
+Valorile normate nu ţin seama de: 
+ efectele dinamice produse în timpul exploatării; 
+ încărcările concentrate datorate unor obiecte grele (sobe, case de bani, etc);
