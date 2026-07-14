@@ -1,0 +1,134 @@
+11. ILUMINATUL SPAŢIILOR DESTINATEACTIVITĂŢILOR DE LUCRU INTELECTUAL 
+11.1. In astfel de încăperi activitatea de bază se desfăşoară pe plan orizontal. Este necesar 
+ca prin amplasarea corpurilor de iluminat să se evite reflexiile directe (către ochi) ce pot fi produse 
+de suprafaţa de lucru  pe care se află sarcina vizuală. 
+11.2. În birourile mari, cu multe corpuri de iluminat, se recomandă o dirijare a fluxului 
+luminos către masa de lucru ca în fig. 11.1. 
+Fig. 11.1. Dirijarea fluxului luminos către masa de lucru pentru a evita reflexia directă spre ochi 
+11.3. Reflexia directă către ochi se evită şi prin: 
+ utilizarea unui iluminat general indirect, combinat cu un iluminat local amplasat 
+corespunzător (vezi cap. 8); 
+ utilizarea unor materiale difuzante pentru suprafaţa de lucru pe care se află sarcina 
+vizuală. 
+11.4. Luminanţele suprafeţelor adiacente sarcinii vizuale se recomandă a fi mai mici 
+decât luminanţa sarcinii dar nu mai mici de 1/3 din valoarea acesteia. Când calculul luminanţelor 
+este greu sau imposibil de efectuat se urmăreşte ca reflectantele fondului din zona apropiată 
+sarcinii vizuale să se afle în domeniul de valori 0,3  0,5. 
+11.5. Reflectantele  scăzute  ale suprafeţei  biroului  (mesei), atunci când se lucrează pe 
+hârtie albă, creează un mediu luminos inconfortabil şi reduce eficienţa activităţii. 
+11.6. Luminanţa medie a câmpului vizual periferic se recoman dă să nu fie mai mică de 1/10 
+din luminanţa sarcinii vizuale.
+11.7. Iluminatul birourilor de proiectare/desen se realizează astfel încât pe planşeta de 
+desen să nu se creeze umbre. Se poate realiza: 
+1. prin utilizarea unui iluminat indirect. Soluţia este deosebită din punctul de vedere 
+tehnic, dar scumpă atât la investiţie cât şi la întreţinere; 
+2. prin utilizarea unui iluminat general direct indirect combinat cu un iluminat local 
+cu un corp de iluminat mobil ce să fie acţionat de proiectant, dirijânduşi lumina 
+(şi formarea umbrelor) după necesităţi; 
+3. prin amplasarea planşetelor lângă ferestre, lumina fiind dirijată din stânga (pentru 
+dreptaci). În lipsa luminii naturale se poate utiliza un iluminat ce să direcţioneze 
+fluxul în mod asemănător celui natural. 
+Corpurile de iluminat se prevăd cu distribuţie asimetrică (fig. 9.3.) 
+11.8. În birourile sau sălile cu calculatoare sarcinile vizuale pentru un operator constau 
+în acţionarea tastaturii, cititul pe ecran şi cititul unor note (texte, documente) anexe. 
+11.9. Factorii care influenţează eficienţa activităţii unui operator, ce lucrează cu calculatorul 
+sunt: 
+ vizibilitatea ecranului, dimensiunile acestuia, strălucirea, contrastul şi claritatea conturului 
+caracterelor de pe ecran, culoarea, reflexia ecranului (ca o oglindă după anumite direcţii de 
+privire), densitatea informaţiilor, pâlpâirea; 
+ prezenţa imaginii mediului pe ecranul calculatorului, reflexia de voal, raportul 
+luminanţelor între ecran, documente şi fondul acestora; 
+ organizarea locului de muncă (poziţie, distanţe şi unghiuri) pentru diferite activităţi; 
+ capacitatea sistemului vizual al operatorului de acomodare şi sensibilitatea sa la pâlpâire. 
+11.10. La un punct de lucru cu calculatorul luminanţa trebuie luată în considerare în două 
+situaţii ale operatorului: 
+ una statică, în care operatorul se uită la ecran, tastatură sau document şi 
+ una dinamică în care operatorul îşi schimbă privirea între ecran, tastatură şi document. 
+11.11. In situaţia statică a operatorului, confortul vizual se realizează atunci când: 
+ luminanţa ecranului este mai mare decât cea a fondului imediat din mediu. Acest lucru se 
+realizează dacă sunt utilizate ecrane cu contrast pozitiv (caractere strălucitoare pe un fond mai 
+închis); 
+ tastatura şi documentele se află pe fonduri cu luminanţa mai mică, dar nu mai mică de 1/3 
+din luminanţa acestora; 
+ operatorul nu vede pe ecran imagini ale ferestrelor (acestea se acoperă cu perdele, 
+draperii etc), corpurilor de iluminat sau alte corpuri cu luminanţe mari. 
+11.12. In situaţia dinamică a operatorului confortul vizual se realizează atunci când 
+luminanţele pe care alternează privirea (ecran, tastatură şi documente) nu sunt foarte diferite. 
+Luminanţele pot fi comparate cu produsele dintre reflectante şi iluminări. în general, diferenţe 
+mari există între luminanţele documentelor şi tastaturii în raport cu cea a ecranului, aceasta din 
+urmă fiind mult mai mică. Este explicabil prin aceea că reflectanta ecranului are valori de 0,2  0,3 iar 
+documentele şi tastarea au reflectante cu valori de 0,3  0,5. Totodată ecranul se află în plan vertical
+unde iluminarea este mai mică decât cea din plan orizontal (unde se află documentele sau tastatura). 
+Este necesar să se utilizeze un ecran cu o luminiscenţă cât mai mare. 
+11.13. Ecranele calculatoarelor se comportă ca o oglindă astfel că obiecte cu luminanţă mare 
+pot fi văzute de operator pe ecran, având ca efect distragerea atenţiei, scăderea acuităţii vizuale şi 
+o stare generală de inconfort. Acestea se pot evita: 
+ prin amplasarea de ecrane (pereţi) mate în spatele operatorului; 
+ utilizarea unor corpuri de iluminat de luminanţă redusă (cu ecrane difuzante sau unghi 
+de protecţie corespunzător). 
+Limitele luminanţei medii a corpului de iluminat, care poate fi reflectat pe ecranele 
+calculatoarelor, pentru direcţii normale de privire, sunt prevăzute în tabelul 11.1. 
+Tabelul 11.1. 
+Clasa ecranului după 
+ISO 92417 
+I 
+Calitatea ecranului 
+bună 
+II 
+medie 
+III 
+Limita luminanţei medii a 
+corpului de iluminat 
+slabă 
+<1000cd/m 2 
+< 200 cd/m 2 
+Limitele din tabelul 11.1 sunt date pentru unghiuri de înălţime de cel puţin 65° faţă de 
+verticala inferioară a corpului de iluminat pentru posturi de lucru unde se utilizează ecrane verticale 
+sau înclinate cu până la 15°. 
+12. ILUMINATUL INDUSTRIAL 
+12.1. În spaţiile industriale se recomandă unul sau mai multe din următoarele sisteme de 
+iluminat: 
+ general, care asigură condiţii de vedere similare pentru toate locurile de muncă şi 
+garantează o mare flexibilitate în amplasarea acestor locuri; 
+ general localizat, care asigură o concentrare a fluxului luminos deasupra zonelor 
+tipice de muncă (caracterizate prin aceiaşi sarcină vizuală). Zonele adiacente (pentru 
+circulaţie, depozitare etc.) sunt iluminate la un nivel inferior, dar suficient pentru a nu crea 
+inconfort; 
+ local, care se realizează în completarea iluminatului general, atunci când mărimea şi 
+diversitatea sarcinilor vizuale o impun. 
+12.2. Sistemele de iluminat general şi general localizat se realizează de regulă cu corpuri 
+de iluminat cu o distribuţie a fluxului luminos directă sau semidirectă. 
+12.3. Distribuţia directă se recomandă în halele înalte, când corpurile de iluminat nu se 
+află în câmpul vizual al muncitorilor şi umbrele pronunţate create de acestea nu influenţează 
+negativ eficienţa activităţii. 
+12.4. Distribuţia semidirectă are o componentă de flux în semisfera superioară care reduce
+contrastul dintre corp şi plafon şi ajută la evitarea aparenţei de zonă întunecată la plafon, 
+generatoare de inconfort. 
+12.5. Iluminatul plafonului se poate realiza şi cu corpuri special destinate (reflectoare cu 
+distribuţie largă etc.) atunci când este necesar să existe o luminanţă mai mare a plafonului. 
+12.6. Sistemul de iluminat local se alege în funcţie de caracteristicile sarcinilor vizuale, 
+folosind recomandările din cap. 8. 
+12.7. În  spaţiile industriale unde se cer niveluri mari de iluminare (mecanică fină, optică, 
+industria electrotehnică, electronică etc.) sistemele de iluminat pot fi integrate cu sistemele de 
+încălzireventilare, fie pentru a utiliza căldura degajată de corpuri, fie pentru a o evacua din încăpere. 
+12.8. În atmosferele periculoase din industrie, din punctul de vedere al pătrunderii prafului, 
+apei şi solicitării la şocuri mecanice, se utilizează corpuri cu gradul de protecţie corespunzător 
+mediului în care se vor monta. 
+12.9. Pentru atmosferele periculoase unde se pot produce explozii se prevăd corpuri de 
+iluminat cu protecţie suplimentară împotriva producerii exploziilor (vezi cap. 14.). 
+12.10. În mediile cu temperaturi scăzute (industrie grea, hale de congelare, magazii, 
+depozite etc.) se prevăd lămpi corespunzătoare din punctul de vedere al amorsării. În 
+dimensionarea sistemului de iluminat se ţine seama de faptul că fluxul luminos scade la temperaturi 
+joase. 
+12.11. În mediile cu temperaturi ridicate (turnătorii etc.) se prevăd lămpi cu echipamente 
+rezistente la astfel de solicitări. 
+12.12. Proiectarea sistemelor de iluminat pentru spaţiile din industrie ţine seama de: 
+ posibilitatea accesului la corpuri pentru curăţire, întreţinere şi schimbarea lămpii; 
+ frecvenţa mai redusă a curăţirii de murdărie, astfel încât fluxul iniţial trebuie să fie 
+majorat corespunzător. 
+12.13. În spaţiile în care se foloseşte televiziunea în circuit închis, pentru supravegherea 
+proceselor tehnologice sau instalaţiilor, sistemele de iluminat se stabileşte în funcţie de performanţa 
+aparaturii folosite astfel ca imaginile pe ecran să fie redate clar (până la nivel de detaliu). 
+12.14.Acţionarea corpurilor de iluminat se prevede astfel încât să se poată utiliza cât mai 
+mult lumina naturală (hale cu pereţi vitraţi, încăperi cu ferestre mari în care degajările de praf sunt 
+reduse). 
