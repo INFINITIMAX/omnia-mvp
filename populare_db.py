@@ -17,7 +17,7 @@ conn = psycopg2.connect(
 cursor = conn.cursor()
 
 # Lista de documente de procesat
-documente = ["normativ_1.txt", "normativ_2.txt"]
+documente = ["normativ_1.txt", "normativ_2.txt", "normativ_3.txt"]
 
 pattern = r'(\d+\.\d+(?:\.\d+)?(?:\.\d+)?\.)'
 
