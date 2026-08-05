@@ -54,7 +54,7 @@ def construieste_context(chunks_relevante):
     return context
 
     
-def cauta_exhaustiv(intrebare, prag_similaritate=0.35):
+def cauta_exhaustiv(intrebare, prag_similaritate=0.5):
     embedding_intrebare = vo.embed([intrebare], model="voyage-3.5", input_type="query").embeddings[0]
 
     cursor.execute(
