@@ -78,3 +78,6 @@ print(f"\nAm salvat {total_chunks} chunk-uri din {len(documente)} documente. ({t
 
 cursor.close()
 conn.close()
+
+
+#functional but placeholder, this part will become an agent at a moment in time
