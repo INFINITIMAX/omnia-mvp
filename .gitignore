@@ -6,3 +6,6 @@ NP0572002_extras.txt
 __pycache__/
 
 documente_noi/
+
+.agents/
+skills-lock.json
