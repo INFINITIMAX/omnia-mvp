@@ -4,6 +4,7 @@ import voyageai
 import psycopg2
 from anthropic import Anthropic
 from fastapi import FastAPI, Depends
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 load_dotenv()
@@ -16,6 +17,14 @@ vo = voyageai.Client(api_key=os.getenv("VOYAGE_API_KEY"))
 client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
 app = FastAPI()
+
+
+# GET "/" e ruta pe care browserul o cere automat cand accesezi
+# http://127.0.0.1:8000/ direct. FileResponse trimite continutul
+# fisierului HTML ca raspuns, exact ca un site normal.
+@app.get("/")
+def pagina_principala():
+    return FileResponse("static/index.html")
 
 
 # "Dependency" FastAPI: o functie care ruleaza AUTOMAT inainte de fiecare
