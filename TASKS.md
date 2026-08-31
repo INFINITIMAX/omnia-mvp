@@ -32,11 +32,26 @@
 - poate fi revizuită și aplicată ulterior fără ambiguități;
 - testele locale existente rămân verzi.
 
+## Următorul task după aprobarea schemei
+
+**Titlu:** Retrieval core pentru hybrid search, fără API public.
+
+**Scope:**
+- parser pur pentru document/articol și normalizare conform `docs/HYBRID_SEARCH_SPEC.md`;
+- exact lookup pe `document_id + articol_normalizat`;
+- semantic top-K limitat și compatibil cu indexul pgvector;
+- deduplicare după `content_hash` și detectare `ambiguous_article`;
+- zero Anthropic și zero schimbări UI/quota în acest task;
+- teste complet mockuite pentru ramurile exact, semantic, not-found și ambiguitate.
+
+**Gate:** începe numai după verdictul final al Reviewer-ului și validarea/aplicarea controlată a schemei Supabase.
+
 ## Backlog ordonat
 
-1. Faza 1: migrare Supabase pentru metadata documente și chunk identity.
-2. Faza 3: hybrid search + citări oficiale.
-3. Faza 4: cost control, endpoint-uri, quota anonimă de 10 întrebări per browser și coduri unice per tester.
+1. Faza 1: finalizează migrarea Supabase pentru metadata documente și chunk identity.
+2. Faza 3A: retrieval core descris mai sus.
+3. Faza 3B: generare cu citări oficiale validate și contract API.
+4. Faza 4: cost control, endpoint-uri, quota anonimă de 10 întrebări per browser și coduri unice per tester.
 4. Faza 5: testare agresivă.
 5. Faza 6: UI real.
 6. Faza 7: review și deployment.
