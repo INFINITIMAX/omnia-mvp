@@ -63,9 +63,17 @@
 - [x] Service cu ramuri exact/semantic exclusive, deduplicare, ambiguitate și limită de context.
 - [x] Teste sintetice mockuite pentru parser, SQL, exact, semantic, deduplicare, ambiguitate și erori.
 
+## Transparență și aprobare documente
+
+- [x] Lucian a aprobat explicit `np010_2022` și `np057_02` pentru retrieval.
+- [x] Statusurile Supabase sunt `approved`; cele 694 chunk-uri au fost reconfirmate.
+- [x] Aprobarea este reproductibilă prin migrarea fail-safe `20260831220000_approve_initial_documents.sql`.
+- [x] Deciziile active sunt centralizate în `docs/DECISIONS.md`.
+- [x] Starea funcțională și limitele proiectului sunt descrise în `docs/PROJECT_OVERVIEW.md`.
+
 ## Backlog ordonat
 
-1. Faza 1: finalizează migrarea Supabase pentru metadata documente și chunk identity.
+1. Faza 1: migrarea Supabase pentru metadata și chunk identity. **Finalizată.**
 2. Faza 3A: retrieval core descris mai sus. **Finalizată în branch-ul `feat/retrieval-core`; fără API public.**
 3. Faza 3B: generare cu citări oficiale validate și contract API.
 4. Faza 4: cost control, endpoint-uri, quota anonimă de 10 întrebări per browser și coduri unice per tester.
@@ -77,5 +85,5 @@
 ## Observații
 
 - `np057_02` nu are PDF original local; are doar `extracted.txt` și metadata notează acest lucru.
-- Supabase are 694 chunk-uri: NP010 = 408, NP057 = 286.
+- Supabase are 694 chunk-uri aprobate pentru retrieval: NP010 = 408, NP057 = 286.
 - `claude_herdr.md` este handoff istoric neversionat; `PLAN.md` și acest fișier sunt sursele active de coordonare.

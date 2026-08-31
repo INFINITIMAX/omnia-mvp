@@ -16,6 +16,10 @@ Omnia este numele intern al proiectului/repository-ului; brandul public al aplic
 8. Nu face `git push`, deploy, migrare Supabase sau apeluri API plătite fără aprobarea explicită a lui Lucian.
 9. Nu slăbi, șterge sau restrânge teste doar pentru a le face să treacă.
 10. Actualizează `TASKS.md` la predarea unui task și `PLAN.md` numai când se schimbă o decizie de produs/tehnică aprobată.
+11. Nu introduce implicit comportamente de produs privind eligibilitatea documentelor, statusuri, acces, costuri, quota, fallback-uri sau date publice. Prezintă impactul în limbaj simplu și cere aprobarea explicită a lui Lucian înainte de implementare.
+12. Un finding de Reviewer care schimbă comportamentul de produs devine propunere pentru Lucian, nu remediere automată.
+13. Înainte de merge, raportează separat: comportamente noi, valori implicite, efecte DB, filtre ascunse, costuri/API și funcționalități încă neconectate.
+14. Înregistrează deciziile aprobate în `docs/DECISIONS.md` și menține `docs/PROJECT_OVERVIEW.md` sincronizat cu starea reală.
 
 ## Roluri
 
