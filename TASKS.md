@@ -20,8 +20,9 @@
 - [x] Test contractual local și teste pentru metadata viitoare adăugate în `tests/`.
 - [x] `populare_db.py` actualizat strict pentru a popula metadata noilor coloane la importurile viitoare.
 - [x] Remedieri Reviewer: FK compus document–sursă, importer fail-fast, contract ASCII, preflight RLS și rollback separat pentru granturi.
-- [x] Validări locale după remediere: `python -m pytest -q` → 16 passed; `git diff --check` fără erori.
-- [ ] Gate obligatoriu: execuție SQL locală într-o tranzacție cu `ROLLBACK`, apoi review final, înainte de orice aplicare.
+- [x] Validări locale după remediere: `python -m pytest -q` → 17 passed; `git diff --check` fără erori.
+- [x] Gate SQL tranzacțional executat pe Supabase cu `ROLLBACK`; 694 rânduri și schema originală reconfirmate după rollback.
+- [ ] Review final al corecției `U+00A0` și al dovezii gate înainte de aplicarea persistentă.
 
 **Titlu:** Draft migrare Supabase pentru metadata documentelor.
 

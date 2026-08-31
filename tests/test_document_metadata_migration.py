@@ -34,6 +34,7 @@ def test_migrarea_contine_contractul_chunk_si_securitatea():
     assert "md5(text)" in sql
     assert "row_number() over (partition by document_id order by id)::integer" in sql
     assert "^[a-z0-9().-]+$" in sql
+    assert "chr(160) || chr(8239)" in sql
     assert "status in ('indexed_pending_validation', 'approved', 'disabled')" in sql
     assert "btrim(chunk.text) = ''" in sql
     assert "documente_chunks_document_id_articol_normalizat_idx" in sql
@@ -47,8 +48,9 @@ def test_migrarea_contine_contractul_chunk_si_securitatea():
 def test_documentatia_separa_gate_rollback_si_granturi():
     documentatie = DOCUMENTATIE.read_text(encoding="utf-8")
 
-    assert "## Gate obligatoriu de validare SQL" in documentatie
-    assert "în tranzacție" in documentatie
+    assert "## Gate de validare SQL executat" in documentatie
+    assert "în interiorul unei singure tranzacții" in documentatie
+    assert "exact 694 rânduri originale" in documentatie
     assert "ROLLBACK" in documentatie
     assert "## Rollback structural" in documentatie
     assert "## Restaurare granturi: separată și numai cu aprobare explicită" in documentatie

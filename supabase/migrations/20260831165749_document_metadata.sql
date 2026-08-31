@@ -123,11 +123,17 @@ set document_id = document.document_id
 from public.documente as document
 where chunk.sursa = document.source_key;
 
--- Contractul ASCII este identic cu cel din Python: se elimină numai whitespace
--- ASCII, apoi literele devin mici și punctele terminale sunt eliminate.
+-- Contract identic cu Python: elimină whitespace ASCII și cele două spații
+-- non-breaking întâlnite frecvent în PDF-uri (U+00A0, U+202F), apoi normalizează.
 update public.documente_chunks
 set articol_normalizat = regexp_replace(
-    lower(regexp_replace(articol, E'[ \t\n\r\f\v]+', '', 'g')),
+    lower(
+        translate(
+            articol,
+            E' \t\n\r\f\v' || chr(160) || chr(8239),
+            ''
+        )
+    ),
     E'\\.+$',
     ''
 );

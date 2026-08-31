@@ -10,10 +10,10 @@ Migrarea este **fail-fast** și se aplică o singură dată. Preflight-ul verifi
 
 `articol_normalizat` are contractul ASCII `^[a-z0-9().-]+$`.
 
-1. se elimină **numai** whitespace ASCII: spațiu, tab, LF, CR, FF, VT;
+1. se elimină whitespace ASCII (spațiu, tab, LF, CR, FF, VT) și spațiile non-breaking întâlnite în PDF-uri (`U+00A0`, `U+202F`);
 2. literele devin minuscule;
 3. punctele terminale sunt eliminate;
-4. orice alt caracter, inclusiv whitespace Unicode, oprește importul/backfill-ul.
+4. orice alt caracter în afara contractului ASCII final oprește importul/backfill-ul.
 
 Exemplu acceptat: ` 3.2. (B). L. ` devine `3.2.(b).l`.
 
@@ -47,13 +47,27 @@ where schemaname = 'public'
 
 Rezultatul așteptat: owner `true`, `rolbypassrls = true`, read/write `true`, RLS activ și zero politici.
 
-## Gate obligatoriu de validare SQL
+## Gate de validare SQL executat
 
-Nu s-a executat SQL real în acest worktree. Înainte de aplicare remote, este obligatorie rularea migrației într-o instanță locală, în tranzacție, urmată de verificări și `ROLLBACK`. Acest gate nu este înlocuit de testele Python.
+La 31-08-2026 (EET), după aprobarea explicită a lui Lucian, migrarea a fost executată pe Supabase în interiorul unei singure tranzacții, cu `lock_timeout` și `statement_timeout`, urmată obligatoriu de `ROLLBACK`. Nu au rămas modificări persistente.
+
+Rezultate verificate în tranzacție:
+
+- 2 documente mapate;
+- 408 + 286 = 694 chunk-uri complete;
+- zero perechi document–sursă invalide;
+- zero ordine duplicate;
+- toate cele 3 constrângeri și ambele indexuri prezente;
+- RLS activ și zero granturi `anon`/`authenticated` după migrare;
+- FK-ul compus blochează o pereche document–sursă incompatibilă.
+
+După `ROLLBACK`, o conexiune read-only nouă a confirmat: tabelul `documente` absent, zero coloane noi și exact 694 rânduri originale. Prima simulare a identificat 29 articole cu `U+00A0`; normalizarea a fost corectată și simularea finală a trecut.
+
+Fluxul de verificare folosit a fost echivalent cu:
 
 ```sql
 begin;
--- Operatorul aplică aici conținutul exact al migrării în baza locală.
+-- Conținutul exact al migrării.
 
 select document_id, source_key
 from public.documente
@@ -89,6 +103,8 @@ where document_id = '<document_id_local>'
 
 rollback;
 ```
+
+Acest gate trebuie repetat dacă migrarea este modificată după commit-ul validat.
 
 ## Rollback structural
 

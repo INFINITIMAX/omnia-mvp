@@ -51,8 +51,13 @@ def test_normalizeaza_articol_si_content_hash_fara_servicii_externe(modul_ingest
     assert modul_ingestie.calculeaza_content_hash("text local") == "728be0c85f3fa1f0bcb8188db123b44e"
 
 
-@pytest.mark.parametrize("articol", ["3.2.\u00a0(B).", "3.2.Ä.", "3.2./"])
-def test_normalizeaza_articol_refuza_whitespace_unicode_si_caractere_invalide(modul_ingestie, articol):
+@pytest.mark.parametrize("spatiu_pdf", ["\u00a0", "\u202f"])
+def test_normalizeaza_articol_accepta_spatii_non_breaking_din_pdf(modul_ingestie, spatiu_pdf):
+    assert modul_ingestie.normalizeaza_articol(f"3.2.{spatiu_pdf}(B).") == "3.2.(b)"
+
+
+@pytest.mark.parametrize("articol", ["3.2.Ä.", "3.2./"])
+def test_normalizeaza_articol_refuza_caractere_invalide(modul_ingestie, articol):
     with pytest.raises(ValueError):
         modul_ingestie.normalizeaza_articol(articol)
 

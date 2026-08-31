@@ -27,6 +27,7 @@ PATTERN_ARTICOL = re.compile(
 PATTERN_LINIE_CUPRINS = re.compile(r"\.{2,}\s*\d{1,4}\s*(?=\n|$)")
 PATTERN_SUBPUNCT = re.compile(r"\n\s*\((\d+)\)\s+")
 PATTERN_ARTICOL_NORMALIZAT = re.compile(r"^[a-z0-9().-]+$")
+PATTERN_SPATIERE_ARTICOL = re.compile(r"[ \t\n\r\f\v\u00a0\u202f]+")
 CAMPURI_METADATA_TEXT = ("document_id", "source_key", "cod_oficial", "titlu_oficial", "status")
 STATUSURI_DOCUMENT_PERMISE = {"indexed_pending_validation", "approved", "disabled"}
 PROCENT_MAXIM_CAUTARE_CUPRINS = 0.20
@@ -58,7 +59,7 @@ def normalizeaza_articol(articol):
     if not isinstance(articol, str):
         raise ValueError("articol trebuie să fie text")
 
-    normalizat = re.sub(r"[ \t\n\r\f\v]+", "", articol).lower().rstrip(".")
+    normalizat = PATTERN_SPATIERE_ARTICOL.sub("", articol).lower().rstrip(".")
     if not PATTERN_ARTICOL_NORMALIZAT.fullmatch(normalizat):
         raise ValueError("articolul normalizat trebuie să respecte [a-z0-9().-]+")
 
