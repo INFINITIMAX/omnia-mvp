@@ -9,7 +9,8 @@
 - Chunk-urile au articol normalizat, hash de conținut și ordine stabilă.
 - RLS este activ; `anon` și `authenticated` nu au granturi sau politici.
 - Retrieval Core este implementat și testat: parser, exact lookup, semantic pgvector, deduplicare, ambiguitate și limite.
-- Suita curentă are 62 de teste complet locale/mockuite.
+- Generation Core este implementat și testat: ID-uri temporare deterministe, prompt cu date neîncrezătoare, citări validate fail-safe și obiecte publice derivate exclusiv din Evidence.
+- Suita curentă are 75 de teste complet locale/mockuite.
 
 ## Ce nu este încă funcțional în aplicația publică
 

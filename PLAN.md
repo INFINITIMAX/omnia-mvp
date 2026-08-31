@@ -84,6 +84,7 @@ Omnia devine o aplicație publică pentru normative tehnice românești: răspun
 ## Faza 8 — Business și CV
 
 - README, diagramă arhitectură, demo/capturi, metrici de test și limitări.
+- Documentație și reexplicare pas cu pas, la nivel de începător, a deciziilor și implementărilor aprobate de Lucian.
 - Rezultate tehnice transformate în bullets CV.
 
 ## Criterii obligatorii

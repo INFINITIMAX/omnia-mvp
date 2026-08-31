@@ -63,6 +63,16 @@
 - [x] Service cu ramuri exact/semantic exclusive, deduplicare, ambiguitate și limită de context.
 - [x] Teste sintetice mockuite pentru parser, SQL, exact, semantic, deduplicare, ambiguitate și erori.
 
+## Predare — Faza 3B1 Generation Core și citări validate
+
+- [x] `generation_core.py` pur, cu generator injectabil și fără integrare FastAPI.
+- [x] ID-uri temporare deterministe `C1`, `C2` pentru Evidence deja recuperate.
+- [x] Prompt JSON sigur: metadata oficială și text tratate ca date neîncrezătoare, fără identificatori tehnici.
+- [x] Validare fail-safe tipată pentru răspuns gol, lipsă citare sau ID de citare necunoscut.
+- [x] Citări publice construite exclusiv din Evidence folosită, deduplicate în ordinea primei apariții și limitate la 600 caractere.
+- [x] Teste sintetice/mockuite pentru toate ramurile de generare, citări și prompt injection.
+- [x] Gate local, audit de scurgeri și commit local executate.
+
 ## Transparență și aprobare documente
 
 - [x] Lucian a aprobat explicit `np010_2022` și `np057_02` pentru retrieval.
@@ -75,12 +85,13 @@
 
 1. Faza 1: migrarea Supabase pentru metadata și chunk identity. **Finalizată.**
 2. Faza 3A: retrieval core descris mai sus. **Finalizată în branch-ul `feat/retrieval-core`; fără API public.**
-3. Faza 3B: generare cu citări oficiale validate și contract API.
-4. Faza 4: cost control, endpoint-uri, quota anonimă de 10 întrebări per browser și coduri unice per tester.
-4. Faza 5: testare agresivă.
-5. Faza 6: UI real.
-6. Faza 7: review și deployment.
-7. Faza 8: business/CV material.
+3. Faza 3B1: Generation Core și citări oficiale validate. **Finalizată; fără FastAPI.**
+4. Faza 3B2: contract și integrare API pentru retrieval/generare.
+5. Faza 4: cost control, endpoint-uri, quota anonimă de 10 întrebări per browser și coduri unice per tester.
+6. Faza 5: testare agresivă.
+7. Faza 6: UI real.
+8. Faza 7: review și deployment.
+9. Faza 8: business/CV material.
 
 ## Observații
 
