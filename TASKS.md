@@ -15,16 +15,22 @@
 
 ## Următorul task aprobat pentru Coder
 
-**Titlu:** Fundația reproductibilă pentru Faza 0.
+**Titlu:** Draft migrare Supabase pentru metadata documentelor.
 
-**Scope:** creează `requirements.txt`, configurația minimă de test, un smoke test fără servicii externe și documentația minimă pentru rulare locală. Nu modifica Supabase, API-ul de producție sau UI-ul.
+**Scope:** creează doar migrarea SQL versionată și testele/documentația ei. Schema aprobată:
+- tabel `documente`: identificator tehnic, `source_key`, cod/titlu oficial, an, status și timestamp;
+- coloană `document_id` în `documente_chunks`, cu foreign key către `documente`;
+- backfill pentru `NP010_extras.txt` și `NP0572002_extras.txt`;
+- indexuri B-tree pentru exact lookup pe document/articol;
+- RLS activ fără politici publice.
+
+**Constrângeri:** nu aplica SQL în Supabase, nu modifica `.env`, documente locale, API-ul sau UI-ul; nu apela API-uri plătite; nu face commit/push/deploy; oprește-te cu SQL-ul, planul de rollback, comenzile de validare și riscurile.
 
 **Criterii de acceptare:**
-- instalarea dependențelor este documentată;
-- un test local mockuit rulează cu `python -m pytest -q`;
-- niciun test implicit nu apelează Anthropic/Voyage/Supabase;
-- diff-ul este mic și explicat;
-- fără commit/push fără aprobarea lui Lucian.
+- migrarea este sigură pentru datele existente;
+- nu expune acces public la documente/chunk-uri;
+- poate fi revizuită și aplicată ulterior fără ambiguități;
+- testele locale existente rămân verzi.
 
 ## Backlog ordonat
 
