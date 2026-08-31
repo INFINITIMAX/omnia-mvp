@@ -29,6 +29,18 @@ Omnia este numele intern al proiectului/repository-ului; brandul public al aplic
 
 Nu lăsa doi agenți să editeze aceeași zonă sau Supabase simultan.
 
+## Structura fixă de agenți
+
+- Există maximum 4 roluri live: Planner, un singur Coder, un singur Tester/QA și un singur Reviewer.
+- Planner-ul coordonează, explică impactul și cere aprobările; nu deleagă deciziile de produs.
+- Coder-ul este singurul agent care modifică implementarea task-ului curent.
+- Tester/QA rulează testele, verifică ramurile și raportează golurile; rămâne read-only, iar remedierile merg înapoi la Coder.
+- Reviewer-ul face review read-only pentru arhitectură, securitate, cost și comportament; nu dublează rolul Testerului.
+- Refolosește agenții și worktree-urile rolurilor; nu crea câte un agent nou pentru fiecare fază.
+- Fiecare agent primește un singur obiectiv hiperspecializat, pentru a evita poluarea contextului.
+- Nu porni subagenți sau consilii din Coder/Tester/Reviewer.
+- După predare, închide/release agenții care nu mai au scop; un worktree existent nu justifică un agent idle.
+
 ## Cerințe Omnia
 
 - Răspunsurile trebuie bazate exclusiv pe context recuperat și să indice documentul/articolul oficial.
