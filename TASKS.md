@@ -9,11 +9,21 @@
 - [x] Adaptare `procesare_documente.py`, `populare_db.py`, `chunkingv2.py`.
 - [x] Dry-run: 694 chunk-uri validate fără cost API.
 - [x] Import real: 694 chunk-uri în Supabase.
-- [ ] Review explicat și commit pentru schimbările de ingestion.
+- [x] Review și commit pentru schimbările de ingestion (`e9b4932`).
 - [x] Adăugare `requirements.txt`, structură `tests/` mockuită și documentație locală minimă.
 - [x] Verificare Git: fără secrete; documentul-demo eliminat; fișierele locale sunt ignorate.
 
-## Următorul task aprobat pentru Coder
+## Predare — draft migrare Supabase metadata documente
+
+- [x] Draft creat în `supabase/migrations/20260831165749_document_metadata.sql`.
+- [x] Rollback și validare locală documentate în `supabase/DOCUMENT_METADATA_MIGRATION.md`.
+- [x] Test contractual local și teste pentru metadata viitoare adăugate în `tests/`.
+- [x] `populare_db.py` actualizat strict pentru a popula metadata noilor coloane la importurile viitoare.
+- [x] Remedieri Reviewer: FK compus document–sursă, importer fail-fast, contract ASCII, preflight RLS și rollback separat pentru granturi.
+- [x] Validări locale după remediere: `python -m pytest -q` → 18 passed; `git diff --check` fără erori.
+- [x] Gate SQL tranzacțional executat pe Supabase cu `ROLLBACK`; 694 rânduri și schema originală reconfirmate după rollback.
+- [x] Review final `APPROVE` pentru corecția `U+00A0` și dovada gate-ului.
+- [x] Migrare aplicată persistent și verificată: 2 documente, 694 chunk-uri, RLS activ, zero granturi publice.
 
 **Titlu:** Draft migrare Supabase pentru metadata documentelor.
 
