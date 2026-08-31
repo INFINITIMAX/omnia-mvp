@@ -9,7 +9,7 @@
 - [x] Adaptare `procesare_documente.py`, `populare_db.py`, `chunkingv2.py`.
 - [x] Dry-run: 694 chunk-uri validate fără cost API.
 - [x] Import real: 694 chunk-uri în Supabase.
-- [ ] Review explicat și commit pentru schimbările de ingestion.
+- [x] Review și commit pentru schimbările de ingestion (`e9b4932`).
 - [x] Adăugare `requirements.txt`, structură `tests/` mockuită și documentație locală minimă.
 - [x] Verificare Git: fără secrete; documentul-demo eliminat; fișierele locale sunt ignorate.
 
@@ -19,7 +19,9 @@
 - [x] Rollback și validare locală documentate în `supabase/DOCUMENT_METADATA_MIGRATION.md`.
 - [x] Test contractual local și teste pentru metadata viitoare adăugate în `tests/`.
 - [x] `populare_db.py` actualizat strict pentru a popula metadata noilor coloane la importurile viitoare.
-- [ ] Necesită review și validare într-o instanță Supabase locală înainte de orice aplicare.
+- [x] Remedieri Reviewer: FK compus document–sursă, importer fail-fast, contract ASCII, preflight RLS și rollback separat pentru granturi.
+- [x] Validări locale după remediere: `python -m pytest -q` → 16 passed; `git diff --check` fără erori.
+- [ ] Gate obligatoriu: execuție SQL locală într-o tranzacție cu `ROLLBACK`, apoi review final, înainte de orice aplicare.
 
 **Titlu:** Draft migrare Supabase pentru metadata documentelor.
 

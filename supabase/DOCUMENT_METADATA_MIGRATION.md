@@ -1,142 +1,134 @@
 # Migrare metadata documente
 
-## Ce conține
+## Garanții structurale
 
-`migrations/20260831165749_document_metadata.sql` creează catalogul `public.documente` și adaugă în `public.documente_chunks`:
+Migrarea este **fail-fast** și se aplică o singură dată. Preflight-ul verifică înainte de orice `ALTER` că `public.documente_chunks` există, are tipurile vechi așteptate (`id integer NOT NULL`, `sursa/articol/text text`) și cheia primară exactă `(id)`. De asemenea, refuză coloane rămase dintr-o aplicare parțială.
 
-- `document_id`: legătura FK către document;
-- `articol_normalizat`: cheia pentru căutarea exactă;
-- `content_hash`: hash MD5 al textului pentru detectarea duplicatelor identice;
-- `chunk_order`: poziție stabilă, unică în document.
+`public.documente` conține atât `UNIQUE(document_id, source_key)`, cât și cheile individuale. `documente_chunks` primește FK-ul compus `(document_id, sursa) -> documente(document_id, source_key)`. Backfill-ul refuză orice sursă sau pereche document–sursă incompatibilă.
 
-`id` rămâne cheia primară a chunk-ului; `articol` nu devine unic. Migrarea este o singură tranzacție: un chunk nemapabil sau fără valori derivate oprește totul.
+## Normalizare și metadata chunk
 
-## Normalizarea aleasă
+`articol_normalizat` are contractul ASCII `^[a-z0-9().-]+$`.
 
-Pentru `articol_normalizat`, atât backfill-ul SQL, cât și importerul viitor aplică exact acești pași, în ordine:
+1. se elimină **numai** whitespace ASCII: spațiu, tab, LF, CR, FF, VT;
+2. literele devin minuscule;
+3. punctele terminale sunt eliminate;
+4. orice alt caracter, inclusiv whitespace Unicode, oprește importul/backfill-ul.
 
-1. elimină toate caracterele de spațiere;
-2. transformă literele în minuscule;
-3. elimină toate punctele de la final;
-4. păstrează punctuația internă.
+Exemplu acceptat: ` 3.2. (B). L. ` devine `3.2.(b).l`.
 
-Exemplu: ` 3.2. (B). L. ` devine `3.2.(b).l`.
+`content_hash` este `md5(text)`, funcție PostgreSQL built-in; nu necesită extensie. Nu este unic: hash-uri egale sunt candidate pentru deduplicare controlată la retrieval. `chunk_order` este `row_number()` după `id`, unic în document.
 
-`content_hash` este `md5(text)`, funcție PostgreSQL built-in, fără `pgcrypto` sau altă extensie nouă. Pentru importurile viitoare, `populare_db.py` calculează același MD5 din textul UTF-8. Hash-ul servește la **detectare/deduplicare**, nu are constrângere `UNIQUE`: duplicatele istorice rămân inspectabile.
+Importerul validează `document_id`, `source_key`, `cod_oficial`, `titlu_oficial`, `an` și `status`. Statusurile permise sunt `indexed_pending_validation`, `approved` și `disabled`. De asemenea, refuză documentele fără chunk-uri și validează toate articolele/textele înainte de DB sau Voyage. Apoi verifică/upsertează documentul înainte de `DELETE` și înainte de primul apel Voyage. Un conflict document–sursă oprește importul fără cost Voyage.
 
-`chunk_order` se completează cu `row_number() over (partition by document_id order by id)`. Pentru importurile noi, importerul atribuie `1, 2, …` în ordinea deterministă a chunk-urilor produse.
+## Preflight operator înainte de aplicare
 
-## Validări executate local
-
-La 31-08-2026 (EET) au rulat cu succes:
-
-```text
-python -m pytest -q  -> 7 passed
-git diff --check     -> fără erori
-```
-
-Nu s-a aplicat SQL local sau remote: acest worktree nu are o configurație Supabase locală versionată. Înainte de o aplicare aprobată, rulează următoarele interogări **doar pe o instanță locală** și verifică rezultatele.
+Planner-ul a verificat că rolul backend curent este owner, are `BYPASSRLS` și drepturi read/write. Operatorul confirmă aceeași situație local, înainte de aplicare, fără a crea roluri sau parole:
 
 ```sql
--- Catalogul și backfill-ul: exact două documente și 408/286 chunk-uri.
-select document_id, source_key, cod_oficial, an, status
+select
+    current_user as rol_curent,
+    c.relowner::regrole = current_user::regrole as este_owner,
+    r.rolbypassrls,
+    has_table_privilege(current_user, 'public.documente_chunks', 'select,insert,update,delete') as are_read_write
+from pg_class as c
+join pg_roles as r on r.rolname = current_user
+where c.oid = 'public.documente_chunks'::regclass;
+
+select relrowsecurity
+from pg_class
+where oid = 'public.documente_chunks'::regclass;
+
+select policyname
+from pg_policies
+where schemaname = 'public'
+  and tablename = 'documente_chunks';
+```
+
+Rezultatul așteptat: owner `true`, `rolbypassrls = true`, read/write `true`, RLS activ și zero politici.
+
+## Gate obligatoriu de validare SQL
+
+Nu s-a executat SQL real în acest worktree. Înainte de aplicare remote, este obligatorie rularea migrației într-o instanță locală, în tranzacție, urmată de verificări și `ROLLBACK`. Acest gate nu este înlocuit de testele Python.
+
+```sql
+begin;
+-- Operatorul aplică aici conținutul exact al migrării în baza locală.
+
+select document_id, source_key
 from public.documente
 order by document_id;
 
-select document_id, count(*) as numar_chunkuri
-from public.documente_chunks
-group by document_id
-order by document_id;
-
--- Toate valorile derivate trebuie să fie complete.
 select count(*) as chunkuri_incomplete
 from public.documente_chunks
 where document_id is null
-   or articol_normalizat is null
+   or sursa is null
+   or articol_normalizat !~ '^[a-z0-9().-]+$'
    or content_hash is null
    or chunk_order is null;
 
--- Ordinea trebuie să fie unică în fiecare document.
 select document_id, chunk_order, count(*)
 from public.documente_chunks
 group by document_id, chunk_order
 having count(*) > 1;
 
--- Hash-uri egale: candidate pentru deduplicare la retrieval, nu erori SQL.
-select content_hash, count(*) as duplicate_identice
-from public.documente_chunks
-group by content_hash
-having count(*) > 1;
-
--- FK-ul, PK-ul, indexurile și RLS trebuie să existe.
-select conname, contype, pg_get_constraintdef(oid)
+select conname, pg_get_constraintdef(oid)
 from pg_constraint
 where conrelid = 'public.documente_chunks'::regclass
   and conname in (
-      'documente_chunks_pkey',
-      'documente_chunks_document_id_fkey',
-      'documente_chunks_document_id_chunk_order_key'
-  )
-order by conname;
+      'documente_chunks_document_id_sursa_fkey',
+      'documente_chunks_document_id_chunk_order_key',
+      'documente_chunks_articol_normalizat_ascii_check'
+  );
 
-select indexname, indexdef
-from pg_indexes
-where schemaname = 'public'
-  and tablename = 'documente_chunks'
-  and indexname in (
-      'documente_chunks_document_id_articol_normalizat_idx',
-      'documente_chunks_content_hash_idx'
-  )
-order by indexname;
-
-select relname, relrowsecurity
-from pg_class
-where oid in ('public.documente'::regclass, 'public.documente_chunks'::regclass)
-order by relname;
-
--- Nu trebuie să existe politici pentru aceste tabele.
-select tablename, policyname
-from pg_policies
-where schemaname = 'public'
-  and tablename in ('documente', 'documente_chunks');
-
--- Lookup-ul exact trebuie să folosească indexul nou.
 explain (costs false)
 select id
 from public.documente_chunks
 where document_id = '<document_id_local>'
   and articol_normalizat = '<articol_normalizat_local>';
+
+rollback;
 ```
 
-## Rollback manual
+## Rollback structural
 
-Rulează rollback **numai după backup** și numai dacă nicio migrare ulterioară nu depinde de aceste coloane sau de `public.documente`. Acesta șterge catalogul și metadata nouă, dar nu șterge chunk-urile existente.
+Folosește numai după backup și numai dacă nicio migrare ulterioară nu depinde de schemă. Nu restaurează acces public.
 
 ```sql
 begin;
 
 alter table public.documente_chunks
-    drop constraint if exists documente_chunks_document_id_fkey;
+    drop constraint documente_chunks_document_id_sursa_fkey,
+    drop constraint documente_chunks_document_id_chunk_order_key,
+    drop constraint documente_chunks_articol_normalizat_ascii_check;
+drop index public.documente_chunks_document_id_articol_normalizat_idx;
+drop index public.documente_chunks_content_hash_idx;
 alter table public.documente_chunks
-    drop constraint if exists documente_chunks_document_id_chunk_order_key;
-drop index if exists public.documente_chunks_document_id_articol_normalizat_idx;
-drop index if exists public.documente_chunks_content_hash_idx;
-alter table public.documente_chunks
-    drop column if exists document_id,
-    drop column if exists articol_normalizat,
-    drop column if exists content_hash,
-    drop column if exists chunk_order;
-drop table if exists public.documente;
+    drop column document_id,
+    drop column articol_normalizat,
+    drop column content_hash,
+    drop column chunk_order;
+drop table public.documente;
 
 commit;
 ```
 
-Rollback-ul nu elimină cheia primară `documente_chunks_pkey`, nu restabilește granturile/politicile/setarea RLS anterioare și nu inversează importuri noi realizate după migrare.
+## Restaurare granturi: separată și numai cu aprobare explicită
 
-## Riscuri și limite
+Snapshot-ul inițial verificat de Planner: `documente_chunks` avea RLS activ, zero politici, iar `anon`/`authenticated` aveau granturi, dar nu vedeau rânduri din cauza RLS. Migrarea revocă granturile pentru ambele roluri.
 
-- Migrarea refuză surse istorice neaprobate și valori `articol`/`text` lipsă; ele necesită corectare sau backfill explicit.
-- MD5 este suficient aici ca identificator practic de conținut identic, nu ca mecanism criptografic. O coliziune teoretică poate deduplica greșit; textul și articolul rămân disponibile pentru verificare internă.
-- Reordonarea sau reinserarea chunk-urilor schimbă `chunk_order`; ordinea stabilă este garantată numai pentru setul de rânduri și `id`-urile existente.
-- RLS activ fără politici și granturile revocate blochează clienții `anon`/`authenticated`; backend-ul administrativ trebuie validat separat.
-- `source_key` rămâne intern și nu trebuie expus clientului.
+Rollback-ul structural de mai sus **nu** restaurează granturi. Numai dacă Lucian cere explicit rollback total, operatorul poate restaura snapshot-ul cunoscut:
+
+```sql
+-- Numai cu aprobare explicită de rollback total; RLS rămâne activ, fără politici.
+grant select, insert, update, delete on table public.documente_chunks to anon, authenticated;
+```
+
+Nu se acordă niciun grant pentru `public.documente`, care nu exista înainte de migrare.
+
+## Riscuri rămase
+
+- Gate-ul SQL local cu rollback este obligatoriu și încă neexecutat.
+- MD5 este identificator practic de duplicate, nu mecanism criptografic; coliziunile rămân teoretic posibile.
+- Orice document nou trebuie să respecte metadata completă și contractul ASCII al articolului.
+- RLS fără politici și granturile revocate blochează clienții `anon`/`authenticated`; backend-ul owner/BYPASSRLS trebuie păstrat exclusiv server-side.

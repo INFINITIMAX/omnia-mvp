@@ -26,19 +26,64 @@ PATTERN_ARTICOL = re.compile(
 )
 PATTERN_LINIE_CUPRINS = re.compile(r"\.{2,}\s*\d{1,4}\s*(?=\n|$)")
 PATTERN_SUBPUNCT = re.compile(r"\n\s*\((\d+)\)\s+")
+PATTERN_ARTICOL_NORMALIZAT = re.compile(r"^[a-z0-9().-]+$")
+CAMPURI_METADATA_TEXT = ("document_id", "source_key", "cod_oficial", "titlu_oficial", "status")
+STATUSURI_DOCUMENT_PERMISE = {"indexed_pending_validation", "approved", "disabled"}
 PROCENT_MAXIM_CAUTARE_CUPRINS = 0.20
 LUNGIME_MINIMA_CHUNK = 15
 LUNGIME_PENTRU_SPLIT_SECUNDAR = 2000
 
 
+def valideaza_metadata(metadata):
+    """Refuză metadata incompletă înainte de orice conexiune sau cost extern."""
+    if not isinstance(metadata, dict):
+        raise ValueError("metadata trebuie să fie un obiect JSON")
+
+    for camp in CAMPURI_METADATA_TEXT:
+        if not isinstance(metadata.get(camp), str) or not metadata[camp].strip():
+            raise ValueError(f"metadata.{camp} trebuie să fie text nevid")
+
+    an = metadata.get("an")
+    if isinstance(an, bool) or not isinstance(an, int) or not 1800 <= an <= 9999:
+        raise ValueError("metadata.an trebuie să fie un întreg între 1800 și 9999")
+
+    if metadata["status"] not in STATUSURI_DOCUMENT_PERMISE:
+        raise ValueError(f"metadata.status trebuie să fie unul dintre: {sorted(STATUSURI_DOCUMENT_PERMISE)}")
+
+    return metadata
+
+
 def normalizeaza_articol(articol):
-    """Produce cheia exactă: fără spații, cu litere mici și fără punct final."""
-    return "".join(articol.split()).lower().rstrip(".")
+    """Aplică contractul ASCII comun cu SQL sau refuză intrările neacceptate."""
+    if not isinstance(articol, str):
+        raise ValueError("articol trebuie să fie text")
+
+    normalizat = re.sub(r"[ \t\n\r\f\v]+", "", articol).lower().rstrip(".")
+    if not PATTERN_ARTICOL_NORMALIZAT.fullmatch(normalizat):
+        raise ValueError("articolul normalizat trebuie să respecte [a-z0-9().-]+")
+
+    return normalizat
 
 
 def calculeaza_content_hash(text):
     """Calculează MD5-ul textului UTF-8, compatibil cu md5(text) din PostgreSQL UTF-8."""
+    if not isinstance(text, str) or not text.strip():
+        raise ValueError("textul chunk-ului trebuie să fie text nevid")
     return hashlib.md5(text.encode("utf-8")).hexdigest()
+
+
+def valideaza_chunkuri(chunkuri):
+    """Validează toate chunk-urile înainte de DB sau Voyage, evitând costuri parțiale."""
+    if not isinstance(chunkuri, list) or not chunkuri:
+        raise ValueError("documentul trebuie să producă cel puțin un chunk valid")
+
+    for index, chunk in enumerate(chunkuri, start=1):
+        if not isinstance(chunk, dict):
+            raise ValueError(f"chunk-ul {index} trebuie să fie obiect")
+        normalizeaza_articol(chunk.get("articol"))
+        calculeaza_content_hash(chunk.get("text"))
+
+    return chunkuri
 
 
 def gaseste_documente():
@@ -55,9 +100,7 @@ def gaseste_documente():
 
         try:
             metadata = json.loads(cale_metadata.read_text(encoding="utf-8-sig"))
-            if not metadata.get("document_id") or not metadata.get("source_key"):
-                raise ValueError("lipsesc document_id sau source_key")
-            yield metadata, cale_text
+            yield valideaza_metadata(metadata), cale_text
         except (OSError, ValueError, json.JSONDecodeError) as eroare:
             print(f"  EROARE metadata: {folder.name} — {eroare}")
 
@@ -114,10 +157,59 @@ def conecteaza_baza_de_date():
     )
 
 
+def asigura_document(cursor, metadata):
+    """Validează perechea document–sursă și face upsert înainte de orice embedding."""
+    valideaza_metadata(metadata)
+    document_id = metadata["document_id"]
+    sursa = metadata["source_key"]
+
+    cursor.execute(
+        """
+        SELECT document_id, source_key
+        FROM documente
+        WHERE document_id = %s OR source_key = %s
+        FOR UPDATE
+        """,
+        (document_id, sursa),
+    )
+    for document_id_existent, sursa_existenta in cursor.fetchall():
+        if (document_id_existent, sursa_existenta) != (document_id, sursa):
+            raise ValueError("conflict document_id/source_key; importul a fost oprit înainte de Voyage")
+
+    cursor.execute(
+        """
+        INSERT INTO documente (
+            document_id, source_key, cod_oficial, titlu_oficial, an, status
+        )
+        VALUES (%s, %s, %s, %s, %s, %s)
+        ON CONFLICT (document_id) DO UPDATE
+        SET cod_oficial = EXCLUDED.cod_oficial,
+            titlu_oficial = EXCLUDED.titlu_oficial,
+            an = EXCLUDED.an,
+            status = EXCLUDED.status
+        WHERE documente.source_key = EXCLUDED.source_key
+        RETURNING document_id
+        """,
+        (
+            document_id,
+            sursa,
+            metadata["cod_oficial"],
+            metadata["titlu_oficial"],
+            metadata["an"],
+            metadata["status"],
+        ),
+    )
+    if cursor.fetchone() is None:
+        raise ValueError("upsert document refuzat; importul a fost oprit înainte de Voyage")
+
+
 def importa_document(cursor, client_voyage, metadata, chunkuri):
     """Reinlocuieste atomic doar chunk-urile sursei curente."""
+    valideaza_metadata(metadata)
+    valideaza_chunkuri(chunkuri)
     sursa = metadata["source_key"]
     document_id = metadata["document_id"]
+    asigura_document(cursor, metadata)
     cursor.execute("DELETE FROM documente_chunks WHERE sursa = %s", (sursa,))
 
     for chunk_order, chunk in enumerate(chunkuri, start=1):
@@ -152,6 +244,7 @@ def main():
     for metadata, cale_text in gaseste_documente():
         continut = cale_text.read_text(encoding="utf-8")
         chunkuri = creeaza_chunkuri(continut)
+        valideaza_chunkuri(chunkuri)
         documente.append((metadata, chunkuri))
         print(f"  {metadata['document_id']}: {len(chunkuri)} chunk-uri")
 
