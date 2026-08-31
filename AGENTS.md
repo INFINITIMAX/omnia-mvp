@@ -29,5 +29,6 @@ Nu lăsa doi agenți să editeze aceeași zonă sau Supabase simultan.
 
 - Răspunsurile trebuie bazate exclusiv pe context recuperat și să indice documentul/articolul oficial.
 - Numele tehnice de sursă nu ajung la client.
+- Clientul nu are niciodată acces direct la Supabase, chunk-uri, texte normative sau fișiere originale și nu există endpoint de download. Ingestion-ul este exclusiv decis și executat de Lucian prin backend-ul administrativ.
 - Testele implicite folosesc mock-uri; testele API plătite sunt opt-in.
 - Pentru schimbări Supabase, urmează skill-urile locale `.agents/skills/supabase` și `.agents/skills/supabase-postgres-best-practices`.
