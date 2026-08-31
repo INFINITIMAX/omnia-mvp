@@ -49,8 +49,11 @@ Omnia devine o aplicație publică pentru normative tehnice românești: răspun
 - Endpoint-uri `/health`, `/documents`, `/intreaba`.
 - Erori/timeouts clare, logging fără secrete sau text normativ integral.
 - Testele plătite sunt opt-in.
+- Tier anonim: maximum 10 întrebări în total per browser, urmărite server-side printr-un identificator semnat; resetarea cookie-ului/alt browser rămâne o limitare acceptată a MVP-ului.
+- Rate limit separat per IP pentru protecție contra automatizării.
+- Tier pentru testeri/invitați: cod unic per tester, revocabil, stocat numai ca hash, cu maximum 50 de întrebări în total și utilizare urmărită separat.
 
-**Gata când:** testele standard nu consumă Anthropic sau Voyage.
+**Gata când:** testele standard nu consumă Anthropic sau Voyage, iar limita anonimă este impusă înainte de apelurile plătite.
 
 ## Faza 5 — Testare agresivă
 
@@ -67,11 +70,12 @@ Omnia devine o aplicație publică pentru normative tehnice românești: răspun
 - Coduri/titluri oficiale și citări clare.
 - Eliminarea datelor demonstrative false.
 - Loading, erori și refuz explicit.
-- Decizie de brand: Omnia sau NormativAI.
+- Brand public aprobat: **NormativAI**. `Omnia` rămâne numele intern al proiectului/repository-ului.
 
 ## Faza 7 — Review și deployment
 
 - Review independent pentru cod, securitate și cost.
+- Aplicația publică și viitorul hosting/domeniu folosesc brandul **NormativAI**; verificarea de trademark a fost realizată de Lucian.
 - Hosting, secrete, pooling Supabase, health check și budget alerts.
 - Smoke tests pe URL public.
 

@@ -2,7 +2,7 @@
 
 ## Scop
 
-Omnia este simultan produs vandabil și proiect de portofoliu/CV. Prioritatea este corectitudinea, trasabilitatea surselor și siguranța costurilor.
+Omnia este numele intern al proiectului/repository-ului; brandul public al aplicației este **NormativAI**. Proiectul este simultan produs vandabil și material de portofoliu/CV. Prioritatea este corectitudinea, trasabilitatea surselor și siguranța costurilor.
 
 ## Reguli de lucru
 

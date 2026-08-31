@@ -36,7 +36,7 @@
 
 1. Faza 1: migrare Supabase pentru metadata documente și chunk identity.
 2. Faza 3: hybrid search + citări oficiale.
-3. Faza 4: cost control și endpoint-uri.
+3. Faza 4: cost control, endpoint-uri, quota anonimă de 10 întrebări per browser și coduri unice per tester.
 4. Faza 5: testare agresivă.
 5. Faza 6: UI real.
 6. Faza 7: review și deployment.
