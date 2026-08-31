@@ -22,7 +22,8 @@
 - [x] Remedieri Reviewer: FK compus document–sursă, importer fail-fast, contract ASCII, preflight RLS și rollback separat pentru granturi.
 - [x] Validări locale după remediere: `python -m pytest -q` → 18 passed; `git diff --check` fără erori.
 - [x] Gate SQL tranzacțional executat pe Supabase cu `ROLLBACK`; 694 rânduri și schema originală reconfirmate după rollback.
-- [ ] Review final al corecției `U+00A0` și al dovezii gate înainte de aplicarea persistentă.
+- [x] Review final `APPROVE` pentru corecția `U+00A0` și dovada gate-ului.
+- [x] Migrare aplicată persistent și verificată: 2 documente, 694 chunk-uri, RLS activ, zero granturi publice.
 
 **Titlu:** Draft migrare Supabase pentru metadata documentelor.
 

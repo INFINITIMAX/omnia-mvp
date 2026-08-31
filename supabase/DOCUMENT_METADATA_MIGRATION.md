@@ -106,6 +106,19 @@ rollback;
 
 Fișierul complet, care conține propriul `COMMIT;`, nu trebuie inclus neschimbat într-un wrapper `BEGIN ... ROLLBACK`. Acest gate trebuie repetat dacă migrarea este modificată după commit-ul validat.
 
+## Aplicare persistentă executată
+
+După verdictul final `APPROVE` și aprobarea explicită a lui Lucian, fișierul complet al migrării a fost aplicat persistent pe Supabase. Prima încercare a fost refuzată înainte de primul DDL deoarece pooler-ul reutilizase o sesiune read-only; rollback-ul și cele 694 rânduri originale au fost reconfirmate înainte de reluare.
+
+Aplicarea finală a setat explicit sesiunea read-write, a executat migrarea atomic și a resetat setările de sesiune. O conexiune nouă `BEGIN READ ONLY` a confirmat:
+
+- 2 documente și 694 chunk-uri (408 + 286);
+- zero chunk-uri invalide și zero ordine duplicate;
+- 3 constrângeri și 2 indexuri noi;
+- RLS activ pe ambele tabele, zero politici și zero granturi `anon`/`authenticated`.
+
+Pentru verificări prin pooler se folosește o tranzacție locală `BEGIN READ ONLY`, nu o setare read-only persistentă la nivel de sesiune.
+
 ## Rollback structural
 
 Folosește numai după backup și numai dacă nicio migrare ulterioară nu depinde de schemă. Nu restaurează acces public.
@@ -144,8 +157,8 @@ Nu se acordă niciun grant pentru `public.documente`, care nu exista înainte de
 
 ## Riscuri rămase
 
-- Gate-ul tranzacțional a fost executat pe Supabase și trebuie repetat după orice modificare ulterioară a migrării.
-- Aplicarea persistentă este încă neexecutată și necesită aprobare explicită.
+- Gate-ul tranzacțional și aplicarea persistentă au fost executate; migrarea nu este reaplicabilă intenționat.
+- Orice rollback structural necesită backup și aprobare explicită.
 - MD5 este identificator practic de duplicate, nu mecanism criptografic; coliziunile rămân teoretic posibile.
 - Orice document nou trebuie să respecte metadata completă și contractul ASCII al articolului.
 - RLS fără politici și granturile revocate blochează clienții `anon`/`authenticated`; backend-ul owner/BYPASSRLS trebuie păstrat exclusiv server-side.

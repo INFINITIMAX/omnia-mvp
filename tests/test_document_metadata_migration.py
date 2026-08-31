@@ -61,7 +61,9 @@ def test_documentatia_separa_gate_rollback_si_granturi():
     assert "## Gate de validare SQL executat" in documentatie
     assert "în interiorul unei singure tranzacții controlate extern" in documentatie
     assert "a eliminat exclusiv liniile standalone `BEGIN;` și `COMMIT;`" in documentatie
-    assert "Aplicarea persistentă este încă neexecutată" in documentatie
+    assert "## Aplicare persistentă executată" in documentatie
+    assert "aplicarea persistentă au fost executate" in documentatie
+    assert "BEGIN READ ONLY" in documentatie
     assert "exact 694 rânduri originale" in documentatie
     assert "ROLLBACK" in documentatie
     assert "## Rollback structural" in documentatie
