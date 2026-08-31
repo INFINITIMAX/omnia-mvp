@@ -56,10 +56,17 @@
 
 **Gate:** începe numai după verdictul final al Reviewer-ului și validarea/aplicarea controlată a schemei Supabase.
 
+## Predare — Faza 3A Retrieval Core
+
+- [x] Parser pur pentru document/articol, normalizare compatibilă cu DB și aliasuri injectate din metadata.
+- [x] Repository PostgreSQL cu lookup exact parametrizat și semantic pgvector parametrizat.
+- [x] Service cu ramuri exact/semantic exclusive, deduplicare, ambiguitate și limită de context.
+- [x] Teste sintetice mockuite pentru parser, SQL, exact, semantic, deduplicare, ambiguitate și erori.
+
 ## Backlog ordonat
 
 1. Faza 1: finalizează migrarea Supabase pentru metadata documente și chunk identity.
-2. Faza 3A: retrieval core descris mai sus.
+2. Faza 3A: retrieval core descris mai sus. **Finalizată în branch-ul `feat/retrieval-core`; fără API public.**
 3. Faza 3B: generare cu citări oficiale validate și contract API.
 4. Faza 4: cost control, endpoint-uri, quota anonimă de 10 întrebări per browser și coduri unice per tester.
 4. Faza 5: testare agresivă.
