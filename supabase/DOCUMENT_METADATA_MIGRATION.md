@@ -49,7 +49,7 @@ Rezultatul așteptat: owner `true`, `rolbypassrls = true`, read/write `true`, RL
 
 ## Gate de validare SQL executat
 
-La 31-08-2026 (EET), după aprobarea explicită a lui Lucian, migrarea a fost executată pe Supabase în interiorul unei singure tranzacții, cu `lock_timeout` și `statement_timeout`, urmată obligatoriu de `ROLLBACK`. Nu au rămas modificări persistente.
+După aprobarea explicită a lui Lucian, corpul migrării a fost executat pe Supabase în interiorul unei singure tranzacții controlate extern, cu `lock_timeout` și `statement_timeout`, urmată obligatoriu de `ROLLBACK`. Runner-ul Python a eliminat exclusiv liniile standalone `BEGIN;` și `COMMIT;` din fișier înainte de execuție; altfel, `COMMIT;` ar fi încheiat tranzacția și rollback-ul nu ar mai fi fost posibil. Nu au rămas modificări persistente.
 
 Rezultate verificate în tranzacție:
 
@@ -67,7 +67,7 @@ Fluxul de verificare folosit a fost echivalent cu:
 
 ```sql
 begin;
--- Conținutul exact al migrării.
+-- Corpul exact al migrării, fără wrapper-ele standalone BEGIN/COMMIT.
 
 select document_id, source_key
 from public.documente
@@ -104,7 +104,7 @@ where document_id = '<document_id_local>'
 rollback;
 ```
 
-Acest gate trebuie repetat dacă migrarea este modificată după commit-ul validat.
+Fișierul complet, care conține propriul `COMMIT;`, nu trebuie inclus neschimbat într-un wrapper `BEGIN ... ROLLBACK`. Acest gate trebuie repetat dacă migrarea este modificată după commit-ul validat.
 
 ## Rollback structural
 
@@ -144,7 +144,8 @@ Nu se acordă niciun grant pentru `public.documente`, care nu exista înainte de
 
 ## Riscuri rămase
 
-- Gate-ul SQL local cu rollback este obligatoriu și încă neexecutat.
+- Gate-ul tranzacțional a fost executat pe Supabase și trebuie repetat după orice modificare ulterioară a migrării.
+- Aplicarea persistentă este încă neexecutată și necesită aprobare explicită.
 - MD5 este identificator practic de duplicate, nu mecanism criptografic; coliziunile rămân teoretic posibile.
 - Orice document nou trebuie să respecte metadata completă și contractul ASCII al articolului.
 - RLS fără politici și granturile revocate blochează clienții `anon`/`authenticated`; backend-ul owner/BYPASSRLS trebuie păstrat exclusiv server-side.

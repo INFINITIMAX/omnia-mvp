@@ -45,11 +45,23 @@ def test_migrarea_contine_contractul_chunk_si_securitatea():
     assert "revoke all on table public.documente_chunks from anon, authenticated" in sql
 
 
+def test_migrarea_include_probe_postgresql_pentru_spatiile_pdf():
+    sql = MIGRATION.read_text(encoding="utf-8")
+
+    assert "'3.2.' || chr(160) || '(B).'" in sql
+    assert "'3.2.' || chr(8239) || '(B).'" in sql
+    assert "rezultat_nbsp <> '3.2.(b)'" in sql
+    assert "rezultat_nnbsp <> '3.2.(b)'" in sql
+    assert "Test intern normalizare oprit" in sql
+
+
 def test_documentatia_separa_gate_rollback_si_granturi():
     documentatie = DOCUMENTATIE.read_text(encoding="utf-8")
 
     assert "## Gate de validare SQL executat" in documentatie
-    assert "în interiorul unei singure tranzacții" in documentatie
+    assert "în interiorul unei singure tranzacții controlate extern" in documentatie
+    assert "a eliminat exclusiv liniile standalone `BEGIN;` și `COMMIT;`" in documentatie
+    assert "Aplicarea persistentă este încă neexecutată" in documentatie
     assert "exact 694 rânduri originale" in documentatie
     assert "ROLLBACK" in documentatie
     assert "## Rollback structural" in documentatie

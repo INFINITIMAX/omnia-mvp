@@ -68,6 +68,31 @@ begin
     end if;
 end $$;
 
+-- Test comportamental executat chiar de PostgreSQL pentru spațiile PDF. O
+-- diferență de semantică față de Python oprește migrarea înainte de orice DDL.
+do $$
+declare
+    spatii_eliminate text := E' \t\n\r\f\v' || chr(160) || chr(8239);
+    rezultat_nbsp text;
+    rezultat_nnbsp text;
+begin
+    select regexp_replace(
+        lower(translate('3.2.' || chr(160) || '(B).', spatii_eliminate, '')),
+        E'\\.+$',
+        ''
+    ) into rezultat_nbsp;
+
+    select regexp_replace(
+        lower(translate('3.2.' || chr(8239) || '(B).', spatii_eliminate, '')),
+        E'\\.+$',
+        ''
+    ) into rezultat_nnbsp;
+
+    if rezultat_nbsp <> '3.2.(b)' or rezultat_nnbsp <> '3.2.(b)' then
+        raise exception 'Test intern normalizare oprit: U+00A0/U+202F nu respectă contractul.';
+    end if;
+end $$;
+
 -- Catalogul păstrează atât cheile individuale, cât și perechea necesară FK-ului
 -- compus document–sursă.
 create table public.documente (
