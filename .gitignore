@@ -9,4 +9,5 @@ __pycache__/
 documente_noi/
 
 .agents/
+.claude/
 skills-lock.json
