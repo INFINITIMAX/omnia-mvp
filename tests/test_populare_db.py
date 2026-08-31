@@ -35,6 +35,38 @@ def modul_ingestie(monkeypatch):
     return modul
 
 
+def test_normalizeaza_articol_si_content_hash_fara_servicii_externe(modul_ingestie):
+    assert modul_ingestie.normalizeaza_articol(" 3.2. (B). L. ") == "3.2.(b).l"
+    assert modul_ingestie.calculeaza_content_hash("text local") == "728be0c85f3fa1f0bcb8188db123b44e"
+
+
+def test_importul_populeaza_metadata_noilor_coloane(modul_ingestie):
+    apeluri_sql = []
+
+    class CursorFals:
+        def execute(self, instructiune, parametri):
+            apeluri_sql.append((instructiune, parametri))
+
+    class ClientVoyageFals:
+        def embed(self, *_args, **_kwargs):
+            return types.SimpleNamespace(embeddings=[[0.1, 0.2]])
+
+    modul_ingestie.importa_document(
+        CursorFals(),
+        ClientVoyageFals(),
+        {"document_id": "document-test", "source_key": "document_test"},
+        [{"articol": " 1.1. ", "text": "Text local valid."}],
+    )
+
+    instructiune, parametri = apeluri_sql[1]
+    assert "articol_normalizat" in instructiune
+    assert "content_hash" in instructiune
+    assert "chunk_order" in instructiune
+    assert parametri[1] == "1.1"
+    assert parametri[3] == modul_ingestie.calculeaza_content_hash("Text local valid.")
+    assert parametri[4:6] == (1, "document-test")
+
+
 def test_creeaza_chunkuri_elimina_cuprinsul_si_pastreaza_articolul(modul_ingestie):
     continut = "Cuprins........................ 1\n1.1.\nTextul articolului valid."
 

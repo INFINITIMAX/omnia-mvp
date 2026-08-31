@@ -13,7 +13,13 @@
 - [x] Adăugare `requirements.txt`, structură `tests/` mockuită și documentație locală minimă.
 - [x] Verificare Git: fără secrete; documentul-demo eliminat; fișierele locale sunt ignorate.
 
-## Următorul task aprobat pentru Coder
+## Predare — draft migrare Supabase metadata documente
+
+- [x] Draft creat în `supabase/migrations/20260831165749_document_metadata.sql`.
+- [x] Rollback și validare locală documentate în `supabase/DOCUMENT_METADATA_MIGRATION.md`.
+- [x] Test contractual local și teste pentru metadata viitoare adăugate în `tests/`.
+- [x] `populare_db.py` actualizat strict pentru a popula metadata noilor coloane la importurile viitoare.
+- [ ] Necesită review și validare într-o instanță Supabase locală înainte de orice aplicare.
 
 **Titlu:** Draft migrare Supabase pentru metadata documentelor.
 

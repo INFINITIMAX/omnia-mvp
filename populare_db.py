@@ -7,6 +7,7 @@ complet. Foloseste --dry-run pentru validare fara DB, Voyage sau costuri API.
 
 import argparse
 import glob
+import hashlib
 import json
 import os
 import re
@@ -28,6 +29,16 @@ PATTERN_SUBPUNCT = re.compile(r"\n\s*\((\d+)\)\s+")
 PROCENT_MAXIM_CAUTARE_CUPRINS = 0.20
 LUNGIME_MINIMA_CHUNK = 15
 LUNGIME_PENTRU_SPLIT_SECUNDAR = 2000
+
+
+def normalizeaza_articol(articol):
+    """Produce cheia exactă: fără spații, cu litere mici și fără punct final."""
+    return "".join(articol.split()).lower().rstrip(".")
+
+
+def calculeaza_content_hash(text):
+    """Calculează MD5-ul textului UTF-8, compatibil cu md5(text) din PostgreSQL UTF-8."""
+    return hashlib.md5(text.encode("utf-8")).hexdigest()
 
 
 def gaseste_documente():
@@ -106,13 +117,29 @@ def conecteaza_baza_de_date():
 def importa_document(cursor, client_voyage, metadata, chunkuri):
     """Reinlocuieste atomic doar chunk-urile sursei curente."""
     sursa = metadata["source_key"]
+    document_id = metadata["document_id"]
     cursor.execute("DELETE FROM documente_chunks WHERE sursa = %s", (sursa,))
 
-    for chunk in chunkuri:
+    for chunk_order, chunk in enumerate(chunkuri, start=1):
         embedding = client_voyage.embed([chunk["text"]], model="voyage-3.5", input_type="document").embeddings[0]
         cursor.execute(
-            "INSERT INTO documente_chunks (articol, text, embedding, sursa) VALUES (%s, %s, %s, %s)",
-            (chunk["articol"], chunk["text"], embedding, sursa),
+            """
+            INSERT INTO documente_chunks (
+                articol, articol_normalizat, text, content_hash, chunk_order,
+                document_id, embedding, sursa
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                chunk["articol"],
+                normalizeaza_articol(chunk["articol"]),
+                chunk["text"],
+                calculeaza_content_hash(chunk["text"]),
+                chunk_order,
+                document_id,
+                embedding,
+                sursa,
+            ),
         )
 
 
