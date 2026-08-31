@@ -106,6 +106,7 @@ def test_parserul_accepta_markerii_si_articol_neambiguu_din_metadata():
     annex = parser.parse("ANEXA 1.1.")
     assert annex.article_normalized == "anexa1.1"
     assert annex.has_explicit_article
+    assert parser.parse("anexa 3").article_normalized == "anexa3"
     assert parser.parse("consulta 4.4.7.2").article_normalized == "4.4.7.2"
 
 
@@ -124,6 +125,22 @@ def test_aliasurile_metadata_recunosc_np010_si_np_010_2022():
     parser = ArticleParser(ALIASES, KNOWN)
     assert parser.parse("NP010, art. 4.4.7.2").document_id == "doc-np010"
     assert parser.parse("NP 010-2022, art. 4.4.7.2").document_id == "doc-np010"
+
+
+@pytest.mark.parametrize("question", ["XNP010, art. 4.4.7.2", "NP0100, art. 4.4.7.2"])
+def test_aliasul_nu_se_potriveste_interiorul_altui_token(question):
+    parsed = ArticleParser(ALIASES, KNOWN).parse(question)
+
+    assert parsed.document_id is None
+
+
+def test_aliasurile_suprapuse_din_documente_diferite_cer_clarificare():
+    parser = ArticleParser(
+        {"doc-scurt": ("NP010",), "doc-lung": ("NP 010-2022",)},
+        {"doc-scurt": ("4.4.7.2",), "doc-lung": ("4.4.7.2",)},
+    )
+
+    assert parser.parse("NP 010-2022, art. 4.4.7.2").requires_clarification
 
 
 def test_parserul_cere_clarificare_pentru_doua_documente():
@@ -170,6 +187,21 @@ def test_repository_exact_foloseste_numai_sql_parametrizat_cu_document_optional(
     assert parameters == ("1.1",)
 
 
+def test_repository_propaga_eroarea_db_si_inchide_cursorul():
+    class CursorDefect(CursorFake):
+        def execute(self, sql, parameters):
+            super().execute(sql, parameters)
+            raise RuntimeError("db indisponibil")
+
+    connection = ConnectionFake([])
+    connection.cursor_instance = CursorDefect([])
+
+    with pytest.raises(RuntimeError, match="db indisponibil"):
+        PostgresRetrievalRepository(connection).find_exact("doc", "1.1")
+
+    assert connection.cursor_instance.closed
+
+
 def test_repository_semantic_foloseste_pgvector_parametrizat_scor_si_limita():
     connection = ConnectionFake([(1, "doc", "COD", "Titlu", "1.1", "1.1", "text", "hash", 0.75)])
     found = PostgresRetrievalRepository(connection).find_semantic([0.1, 2], 3)
@@ -185,12 +217,50 @@ def test_repository_semantic_foloseste_pgvector_parametrizat_scor_si_limita():
     assert found[0].score == 0.75
 
 
+@pytest.mark.parametrize("top_k", [0, -1, True, "5"])
+def test_repository_refuza_top_k_nepozitiv_sau_cu_tip_invalid(top_k):
+    repository = PostgresRetrievalRepository(ConnectionFake([]))
+
+    with pytest.raises(ValueError, match="top_k"):
+        repository.find_semantic([0.1], top_k)
+
+
 @pytest.mark.parametrize("embedding", [[float("nan")], [float("inf")], []])
 def test_repository_refuza_embedding_gol_sau_nefinit(embedding):
     repository = PostgresRetrievalRepository(ConnectionFake([]))
 
     with pytest.raises(ValueError):
         repository.find_semantic(embedding, 3)
+
+
+@pytest.mark.parametrize("top_k", [0, -1, True, "5"])
+def test_service_refuza_semantic_top_k_invalid(top_k):
+    with pytest.raises(ValueError, match="semantic_top_k"):
+        service(RepositoryFake([], []), semantic_top_k=top_k)
+
+
+@pytest.mark.parametrize("max_chars", [0, -1, True, "100"])
+def test_service_refuza_limita_context_invalida(max_chars):
+    with pytest.raises(ValueError, match="max_context_chars"):
+        service(RepositoryFake([], []), max_context_chars=max_chars)
+
+
+def test_limita_intrebarii_accepta_1000_si_respinge_1001_inainte_de_dependente():
+    repository = RepositoryFake([evidence()], [])
+    embedder = EmbedderFake()
+    retrieval = service(repository, embedder)
+    accepted = "x" * (1000 - len(" art. 4.4.7.2")) + " art. 4.4.7.2"
+
+    assert retrieval.retrieve(accepted).status == "found"
+    assert repository.exact_calls == 1
+    assert embedder.calls == 0
+
+    with pytest.raises(ValueError, match="limita"):
+        retrieval.retrieve(accepted + "x")
+
+    assert repository.exact_calls == 1
+    assert repository.semantic_calls == 0
+    assert embedder.calls == 0
 
 
 def test_exact_gasit_nu_apeleaza_embedderul():

@@ -24,10 +24,12 @@ _UNMARKED_ARTICLE = re.compile(
     re.IGNORECASE,
 )
 _ANNEX_REFERENCE = re.compile(
-    r"\banexa\s*([0-9]+(?:\s*\.\s*[0-9]+)+\s*\.?)", re.IGNORECASE
+    r"\banexa\s*([0-9]+(?:\s*\.\s*[0-9]+)*\s*\.?)", re.IGNORECASE
 )
 _WHITESPACE = re.compile(r"[ \t\n\r\f\v\u00a0\u202f]+")
 _ALIAS_CHARACTERS = re.compile(r"[^a-z0-9]+")
+_ALIAS_PARTS = re.compile(r"[a-z]+|[0-9]+")
+_ALIAS_SEPARATOR = r"[ \t\n\r\f\v\u00a0\u202f-]*"
 
 
 @dataclass(frozen=True)
@@ -77,11 +79,11 @@ class ArticleParser:
         document_aliases: Mapping[str, Sequence[str]],
         known_articles: Mapping[str, Sequence[str]] | None = None,
     ) -> None:
-        self._aliases = {
-            self.normalize_document_alias(alias): document_id
+        self._alias_patterns = tuple(
+            (self._compile_document_alias(alias), document_id)
             for document_id, aliases in document_aliases.items()
             for alias in aliases
-        }
+        )
         self._known_articles = {
             document_id: frozenset(self.normalize_article(article) for article in articles)
             for document_id, articles in (known_articles or {}).items()
@@ -106,6 +108,13 @@ class ArticleParser:
         if not normalized:
             raise ValueError("aliasul documentului nu poate fi gol")
         return normalized
+
+    @staticmethod
+    def _compile_document_alias(value: str) -> re.Pattern[str]:
+        ArticleParser.normalize_document_alias(value)
+        parts = _ALIAS_PARTS.findall(value.lower())
+        pattern = _ALIAS_SEPARATOR.join(re.escape(part) for part in parts)
+        return re.compile(rf"(?<![a-z0-9]){pattern}(?![a-z0-9])", re.IGNORECASE)
 
     def parse(self, question: str) -> ParsedReference:
         """Acceptă un articol doar cu marker sau, fără marker, doar din catalogul injectat."""
@@ -141,11 +150,10 @@ class ArticleParser:
         return ParsedReference(document_id, None, False)
 
     def _find_documents(self, question: str) -> frozenset[str]:
-        compact_question = self.normalize_document_alias(question)
         return frozenset(
             document_id
-            for alias, document_id in self._aliases.items()
-            if alias in compact_question
+            for pattern, document_id in self._alias_patterns
+            if pattern.search(question)
         )
 
     def _is_known_article(self, article: str, document_id: str | None) -> bool:
@@ -192,6 +200,7 @@ class PostgresRetrievalRepository:
             cursor.close()
 
     def find_semantic(self, embedding: Sequence[float], top_k: int) -> list[Evidence]:
+        self._require_positive_integer(top_k, "top_k")
         vector = self._vector_literal(embedding)
         sql = "SELECT " + self._SELECT_FIELDS + """
             , 1 - (chunk.embedding <=> %s::vector) AS score
@@ -206,6 +215,12 @@ class PostgresRetrievalRepository:
             return [self._evidence_from_row(row, score=row[8]) for row in cursor.fetchall()]
         finally:
             cursor.close()
+
+    @staticmethod
+    def _require_positive_integer(value: object, name: str) -> int:
+        if type(value) is not int or value <= 0:
+            raise ValueError(f"{name} trebuie să fie întreg pozitiv")
+        return value
 
     @staticmethod
     def _vector_literal(embedding: Sequence[float]) -> str:
@@ -245,9 +260,15 @@ class RetrievalService:
         self._parser = parser
         self._repository = repository
         self._embedder = embedder
-        self._semantic_top_k = semantic_top_k
-        self._semantic_min_score = semantic_min_score
-        self._max_context_chars = max_context_chars
+        self._semantic_top_k = PostgresRetrievalRepository._require_positive_integer(
+            semantic_top_k, "semantic_top_k"
+        )
+        if not isinstance(semantic_min_score, (int, float)) or not math.isfinite(semantic_min_score):
+            raise ValueError("semantic_min_score trebuie să fie un număr finit")
+        self._semantic_min_score = float(semantic_min_score)
+        self._max_context_chars = PostgresRetrievalRepository._require_positive_integer(
+            max_context_chars, "max_context_chars"
+        )
 
     def retrieve(self, question: str) -> RetrievalResult:
         if not isinstance(question, str) or not question.strip():
