@@ -8,7 +8,7 @@ pattern_articol = re.compile(
     r'\n\s*(\d+\.\d+\.\s*\([A-Za-z]\)\.\s*(?:[IVXLl]\.|\d+\.)?(?:\d+\.)?|ANEXA\s+\d+\.\d+\.|\d+\.\d+\.(?:\d+\.){0,4})'
 )
 
-nume_fisier = "documente_noi/NP010_extras.txt"
+nume_fisier = "documente_noi/np010_2022/extracted.txt"
 
 with open(nume_fisier, "r", encoding="utf-8") as fisier:
     continut = fisier.read()
