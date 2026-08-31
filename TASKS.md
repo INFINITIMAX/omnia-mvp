@@ -10,7 +10,7 @@
 - [x] Dry-run: 694 chunk-uri validate fără cost API.
 - [x] Import real: 694 chunk-uri în Supabase.
 - [ ] Review explicat și commit pentru schimbările de ingestion.
-- [ ] Adăugare `requirements.txt` și structură `tests/`.
+- [x] Adăugare `requirements.txt`, structură `tests/` mockuită și documentație locală minimă.
 - [ ] Verificare Git pentru fișiere normative/secrete.
 
 ## Următorul task aprobat pentru Coder
