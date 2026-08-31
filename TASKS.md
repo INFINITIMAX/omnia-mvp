@@ -11,7 +11,7 @@
 - [x] Import real: 694 chunk-uri în Supabase.
 - [ ] Review explicat și commit pentru schimbările de ingestion.
 - [x] Adăugare `requirements.txt`, structură `tests/` mockuită și documentație locală minimă.
-- [ ] Verificare Git pentru fișiere normative/secrete.
+- [x] Verificare Git: fără secrete; documentul-demo eliminat; fișierele locale sunt ignorate.
 
 ## Următorul task aprobat pentru Coder
 
