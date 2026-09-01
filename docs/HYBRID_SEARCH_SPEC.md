@@ -115,7 +115,7 @@ Cerințe suplimentare:
 - fiecare cerere validă acceptată consumă o întrebare; erorile tehnice interne nu consumă quota;
 - ștergerea cookie-ului sau folosirea altui browser poate reseta identitatea anonimă; aceasta este o limitare acceptată și documentată pentru MVP;
 - un rate limit separat per IP blochează automatizarea și se aplică înainte de Voyage/Anthropic;
-- fiecare tester/invitat primește un cod unic, revocabil, stocat server-side numai ca hash; fiecare cod permite maximum 50 de întrebări în total, cu utilizarea urmărită separat;
+- nu există coduri sau conturi separate pentru testeri în MVP; aplicația este publică pentru oricâți vizitatori, fiecare cu limita de 10 întrebări per browser; cei 4 testeri inițiali folosesc același URL și același flux anonim;
 - timeout-urile furnizorilor sunt finite;
 - testele standard nu efectuează apeluri plătite;
 - smoke tests reale sunt opt-in, de exemplu prin `RUN_PAID_TESTS=1`;

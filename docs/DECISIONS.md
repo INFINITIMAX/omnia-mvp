@@ -31,9 +31,16 @@ Acest fișier separă deciziile explicite ale lui Lucian de propunerile agențil
 
 - Testele implicite mockuiesc Supabase, Voyage și Anthropic; apelurile reale sunt opt-in.
 - Utilizator anonim: maximum 10 întrebări totale per browser, cu cookie semnat și contor server-side.
-- Tester: cod unic, revocabil și stocat ca hash; maximum 50 de întrebări per cod.
-- Rate limiting-ul per IP se aplică înainte de servicii plătite.
-- Erorile tehnice interne nu consumă quota.
+- Nu există tier de tester, coduri sau conturi în MVP. Aplicația este publică și poate avea oricâți vizitatori; fiecare browser primește maximum 10 întrebări.
+- Cei 4 testeri inițiali primesc direct același URL public și folosesc exact fluxul anonim, fără privilegii. Numărul lor nu este o limită tehnică sau de produs.
+- Consecințe acceptate: identitatea anonimă nu poate fi revocată individual, ștergerea cookie-ului/alt browser poate reseta limita, iar utilizatorii de pe același IP împart rate limit-ul.
+- Consumă quota: `answered`, `not_found`, `ambiguous_article` și `ambiguous_reference`.
+- Nu consumă quota: input invalid, HTTP 503, eroare DB/Voyage/Claude sau cerere blocată de rate limit.
+- Quota se rezervă atomic înainte de serviciile plătite și se restituie la eroare tehnică, pentru a controla cererile simultane.
+- Rate limiting per IP: maximum 5 cereri/minut și 30 cereri/oră, verificat înainte de Voyage/Claude.
+- Cookie-ul anonim expiră după 1 an; quota de 10 rămâne asociată lui pe această durată.
+- IP-ul nu este stocat brut; identificatorul pentru rate limiting este derivat prin HMAC-SHA-256 server-side, cu o cheie separată de cheia cookie-ului.
+- Contoarele/bucket-urile IP se păstrează maximum 24 de ore.
 
 ## Regula de schimbare
 

@@ -51,7 +51,7 @@ Omnia devine o aplicație publică pentru normative tehnice românești: răspun
 - Testele plătite sunt opt-in.
 - Tier anonim: maximum 10 întrebări în total per browser, urmărite server-side printr-un identificator semnat; resetarea cookie-ului/alt browser rămâne o limitare acceptată a MVP-ului.
 - Rate limit separat per IP pentru protecție contra automatizării.
-- Tier pentru testeri/invitați: cod unic per tester, revocabil, stocat numai ca hash, cu maximum 50 de întrebări în total și utilizare urmărită separat.
+- Nu există tier, coduri sau conturi separate pentru testeri în MVP; aplicația este publică pentru oricâți vizitatori, fiecare cu limita anonimă de 10 întrebări per browser. Cei 4 testeri inițiali folosesc același URL și același flux.
 
 **Gata când:** testele standard nu consumă Anthropic sau Voyage, iar limita anonimă este impusă înainte de apelurile plătite.
 
