@@ -1,6 +1,6 @@
 # Migrare aplicată — controale anonime
 
-Fișierul `20260831230000_anonymous_access_controls.sql` (prefix SHA-256 `a2840a5364f0`) a fost aplicat persistent la 01-09-2026 (România), printr-o tranzacție PostgreSQL directă.
+Artefactul exact executat înaintea corecției comment-only avea prefix SHA-256 `a2840a5364f0` și a fost aplicat persistent la 01-09-2026 (România), printr-o tranzacție PostgreSQL directă. Fișierul curent diferă doar prin comentariul de stare de la început; statement-urile SQL executabile sunt neschimbate. Nu se afirmă înregistrarea în istoricul migrărilor.
 
 ## Ce creează
 

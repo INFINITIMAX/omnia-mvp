@@ -97,7 +97,7 @@
 - [x] Gate concurență real cu hash-uri sintetice: quota 9, două conexiuni `[false, true]`, final 10; rate 4, două conexiuni `[false, true]`, contoare 6, apoi a treia blocked le-a crescut la 7. Cleanup sintetic verificat; ambele tabele au final zero rânduri. `supabase_migrations.schema_migrations` nu a fost vizibilă conexiunii, deci nu se afirmă istoric de migrare înregistrat și nu s-a modificat manual.
 - [x] Teste locale/mockuite pentru cookie, hash, quota, rate limit, cleanup, SQL, schema și audit; gate local trecut.
 - [ ] Integrarea FastAPI, emiterea atributelor cookie HTTP și tranzacțiile runtime nu fac parte din Faza 4A.
-- [ ] Draftul SQL nu este aplicat în Supabase.
+- [x] SQL-ul pentru controalele anonime este aplicat persistent și verificat; integrarea aplicației rămâne neimplementată.
 
 ## Backlog ordonat
 

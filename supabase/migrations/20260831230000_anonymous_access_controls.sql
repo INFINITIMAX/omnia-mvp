@@ -1,5 +1,5 @@
 -- Controale anonime NormativAI: quota per browser și rate limit HMAC per IP.
--- Draft neaplicat. Orice preflight incompatibil oprește tranzacția integral.
+-- Aplicată persistent la 01-09-2026; orice preflight incompatibil oprește tranzacția integral.
 -- Nu stochează niciodată cookie-ul sau IP-ul brut.
 
 begin;
