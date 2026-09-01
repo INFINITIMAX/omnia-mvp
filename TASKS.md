@@ -94,7 +94,7 @@
 2. Faza 3A: retrieval core descris mai sus. **Finalizată în branch-ul `feat/retrieval-core`; fără API public.**
 3. Faza 3B1: Generation Core și citări oficiale validate. **Finalizată; fără FastAPI.**
 4. Faza 3B2: contract și integrare API pentru retrieval/generare. **Finalizată mock-first.**
-5. Faza 4: cost control, endpoint-uri, quota anonimă de 10 întrebări per browser și coduri unice per tester.
+5. Faza 4: cost control: maximum 4 testeri folosesc fluxul anonim, cu quota de 10 întrebări per browser și rate limiting.
 6. Faza 5: testare agresivă.
 7. Faza 6: UI real.
 8. Faza 7: review și deployment.

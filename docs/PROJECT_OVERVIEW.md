@@ -15,7 +15,7 @@
 
 ## Ce nu este încă funcțional în aplicația publică
 
-- Quota anonimă, codurile testerilor și rate limiting-ul nu sunt implementate.
+- Quota anonimă de 10 întrebări per browser și rate limiting-ul nu sunt implementate; maximum 4 testeri vor folosi fluxul anonim.
 - UI-ul este încă prototip.
 - Nu există deployment public final.
 - Nu s-a rulat un smoke test plătit pentru noul Retrieval Core.
@@ -60,4 +60,4 @@
 
 ## Următorul obiectiv
 
-Faza 4: controale de cost aprobate separat: quota anonimă, coduri pentru testeri și rate limiting.
+Faza 4: controale de cost aprobate separat: maximum 4 testeri folosesc fluxul anonim, cu quota de 10 întrebări per browser și rate limiting.
