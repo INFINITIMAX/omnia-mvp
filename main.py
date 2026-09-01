@@ -23,6 +23,7 @@ from access_control import (
     RATE_LIMIT_PER_MINUTE,
     AccessControlConfig,
     PostgresAccessControlRepository,
+    RateLimitResult,
     hash_ip,
     issue_anonymous_cookie,
     verify_anonymous_cookie,
@@ -290,7 +291,24 @@ def _request_ip_hash(request: Request, runtime_config: AnonymousAccessControlRun
         raise ServiceDependencyError("IP client invalid") from error
 
 
-def _retry_after_seconds(rate_result: object, now: datetime) -> int:
+def _validate_rate_limit_result(rate_result: object) -> RateLimitResult:
+    """Acceptă numai rezultatul rate-limit coerent, după commit-ul tranzacției dedicate."""
+    if not isinstance(rate_result, RateLimitResult):
+        raise ServiceDependencyError("rezultat rate limit invalid")
+    if type(rate_result.minute_count) is not int or type(rate_result.hour_count) is not int:
+        raise ServiceDependencyError("rezultat rate limit invalid")
+    if rate_result.minute_count < 1 or rate_result.hour_count < 1:
+        raise ServiceDependencyError("rezultat rate limit invalid")
+    expected_allowed = (
+        rate_result.minute_count <= RATE_LIMIT_PER_MINUTE
+        and rate_result.hour_count <= RATE_LIMIT_PER_HOUR
+    )
+    if rate_result.allowed is not expected_allowed:
+        raise ServiceDependencyError("rezultat rate limit inconsistent")
+    return rate_result
+
+
+def _retry_after_seconds(rate_result: RateLimitResult, now: datetime) -> int:
     delays = []
     if rate_result.minute_count > RATE_LIMIT_PER_MINUTE:
         delays.append(rate_result.minute_bucket_start + timedelta(minutes=1) - now)
@@ -327,6 +345,8 @@ def intreaba(
 ) -> IntreabaResponse | JSONResponse:
     """Aplică controalele anonime înainte de retrieval și generare."""
     connection: object | None = None
+    rate_transaction_committed = False
+    quota_transaction_active = False
     try:
         dependencies: RuntimeDependencies = app.state.runtime_dependencies
         runtime_config = dependencies.access_control_config_factory()
@@ -337,6 +357,8 @@ def intreaba(
         access_repository = PostgresAccessControlRepository(connection)
         rate_result = access_repository.check_and_increment_rate_limit(ip_hash, now=now)
         connection.commit()
+        rate_transaction_committed = True
+        rate_result = _validate_rate_limit_result(rate_result)
         if not rate_result.allowed:
             return _control_error_response(
                 429,
@@ -346,10 +368,12 @@ def intreaba(
                 retry_after=_retry_after_seconds(rate_result, now),
             )
 
+        quota_transaction_active = True
         questions_used = access_repository.reserve_question(visitor.visitor_hash)
         if questions_used is None:
             if not _rollback_succeeds(connection):
                 raise HTTPException(status_code=503, detail="Serviciul este temporar indisponibil.")
+            quota_transaction_active = False
             return _control_error_response(
                 403,
                 {
@@ -393,17 +417,18 @@ def intreaba(
                 intrebari_ramase=intrebari_ramase,
             )
         connection.commit()
+        quota_transaction_active = False
         if token is not None:
             _set_anonymous_cookie(response, token, runtime_config)
         return answer
     except HTTPException:
         raise
     except (GenerationValidationError, ServiceDependencyError, psycopg2.Error) as error:
-        if connection is not None and not _rollback_succeeds(connection):
+        if connection is not None and (not rate_transaction_committed or quota_transaction_active) and not _rollback_succeeds(connection):
             raise HTTPException(status_code=503, detail="Serviciul este temporar indisponibil.") from error
         raise HTTPException(status_code=503, detail="Serviciul este temporar indisponibil.") from error
     except Exception as error:
-        if connection is not None and not _rollback_succeeds(connection):
+        if connection is not None and (not rate_transaction_committed or quota_transaction_active) and not _rollback_succeeds(connection):
             raise HTTPException(status_code=503, detail="Serviciul este temporar indisponibil.") from error
         raise
     finally:

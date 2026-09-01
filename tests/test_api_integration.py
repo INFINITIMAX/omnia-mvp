@@ -564,28 +564,51 @@ def test_ip_invalid_opreste_inainte_de_rate_quota_si_provideri(api, monkeypatch)
     assert embedder.calls == generator.calls == 0
 
 
-def test_rezultat_rate_inconsistent_devine_503_generic_fara_quota(api, monkeypatch):
+@pytest.mark.parametrize(
+    ("allowed", "minute_count", "hour_count"),
+    [
+        (True, 6, 6),  # Nu permite depășirea limitelor când flag-ul este contradictoriu.
+        (False, 1, 1),  # Nu blochează limite valide când flag-ul este contradictoriu.
+        (True, 0, 1),
+        (True, -1, 1),
+        (True, True, 1),
+        (True, 1, False),
+        (True, 1.0, 1),
+        (True, "1", 1),
+        (1, 1, 1),
+    ],
+)
+def test_rezultat_rate_invalid_devine_503_fara_quota_retrieval_sau_provideri(
+    api, monkeypatch, allowed, minute_count, hour_count
+):
     connection = ConnectionFake()
-
-    def inconsistent_rate(*_args, **_kwargs):
-        return RateLimitResult(
-            False,
-            NOW.replace(second=0, microsecond=0),
-            NOW.replace(minute=0, second=0, microsecond=0),
-            1,
-            1,
-        )
+    embedder = EmbedderFake()
+    generator = GeneratorFake()
+    rate_result = RateLimitResult(
+        allowed,
+        NOW.replace(second=0, microsecond=0),
+        NOW.replace(minute=0, second=0, microsecond=0),
+        minute_count,
+        hour_count,
+    )
 
     monkeypatch.setattr(
-        main.PostgresAccessControlRepository, "check_and_increment_rate_limit", inconsistent_rate
+        main.PostgresAccessControlRepository,
+        "check_and_increment_rate_limit",
+        lambda *_args, **_kwargs: rate_result,
     )
-    response = configure(api, connection).post("/intreaba", json={"intrebare": "art. 4.4.7.2"})
+    response = configure(api, connection, embedder, generator).post(
+        "/intreaba", json={"intrebare": "art. 4.4.7.2"}
+    )
 
     assert response.status_code == 503
     assert response.json() == {"detail": "Serviciul este temporar indisponibil."}
+    # Tranzacția rate a fost deja confirmată; rezultatul invalid nu deschide tranzacția quota.
     assert connection.commits == 1
-    assert connection.rollbacks == 1
+    assert connection.rollbacks == 0
     assert all("anonymous_usage" not in sql for sql, _ in connection.calls)
+    assert all("SELECT document.document_id" not in sql for sql, _ in connection.calls)
+    assert embedder.calls == generator.calls == 0
 
 
 def test_rate_limit_foloseste_numai_request_client_host_nu_antet_proxy(api):
