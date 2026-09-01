@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import os
+from dataclasses import dataclass
 from typing import Annotated, Callable, Literal, Protocol, Sequence
 
 import psycopg2
 from anthropic import Anthropic
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field, field_validator
 import voyageai
@@ -78,19 +79,21 @@ def _open_db_connection() -> object:
     )
 
 
-def get_connection_factory() -> Callable[[], object]:
-    return _open_db_connection
+@dataclass(frozen=True)
+class RuntimeDependencies:
+    """Fabrici injectabile; endpointul le apelează numai după validarea corpului."""
 
-
-def get_embedder() -> QueryEmbedder:
-    return VoyageQueryEmbedder()
-
-
-def get_text_generator() -> TextGenerator:
-    return AnthropicTextGenerator()
+    connection_factory: Callable[[], object]
+    embedder_factory: Callable[[], QueryEmbedder]
+    text_generator_factory: Callable[[], TextGenerator]
 
 
 app = FastAPI()
+app.state.runtime_dependencies = RuntimeDependencies(
+    connection_factory=_open_db_connection,
+    embedder_factory=VoyageQueryEmbedder,
+    text_generator_factory=AnthropicTextGenerator,
+)
 
 
 @app.get("/")
@@ -133,18 +136,18 @@ _AMBIGUOUS_REFERENCE = "Întrebarea conține referințe ambigue; te rog precizea
 
 
 @app.post("/intreaba", response_model=IntreabaResponse)
-def intreaba(
-    cerere: IntrebareRequest,
-    connection_factory: Annotated[Callable[[], object], Depends(get_connection_factory)],
-    embedder: Annotated[QueryEmbedder, Depends(get_embedder)],
-    text_generator: Annotated[TextGenerator, Depends(get_text_generator)],
-) -> IntreabaResponse:
+def intreaba(cerere: IntrebareRequest) -> IntreabaResponse:
     """Recuperează dovezi aprobate și generează cel mult un răspuns citat."""
     connection: object | None = None
     try:
-        connection = connection_factory()
+        dependencies: RuntimeDependencies = app.state.runtime_dependencies
+        connection = dependencies.connection_factory()
         parser = PostgresApprovedCatalogRepository(connection).load().create_parser()
-        retrieval = RetrievalService(parser, PostgresRetrievalRepository(connection), embedder)
+        retrieval = RetrievalService(
+            parser,
+            PostgresRetrievalRepository(connection),
+            dependencies.embedder_factory(),
+        )
         result = retrieval.retrieve(cerere.intrebare)
 
         if result.status == "not_found":
@@ -158,7 +161,9 @@ def intreaba(
                 status="ambiguous_reference", raspuns=_AMBIGUOUS_REFERENCE, citari=[]
             )
 
-        generated = GenerationService(text_generator).generate(cerere.intrebare, result.evidence)
+        generated = GenerationService(dependencies.text_generator_factory()).generate(
+            cerere.intrebare, result.evidence
+        )
         return IntreabaResponse(
             status="answered",
             raspuns=generated.raspuns,

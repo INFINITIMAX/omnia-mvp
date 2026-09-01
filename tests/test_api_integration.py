@@ -3,11 +3,12 @@
 import importlib
 from dataclasses import dataclass
 
+import anthropic
 import pytest
 from fastapi.testclient import TestClient
+import voyageai
 
 import main
-from generation_core import GenerationValidationError
 
 
 CATALOG_ROWS = [("doc-1", "NP 010-2022", "4.4.7.2")]
@@ -88,15 +89,17 @@ class GeneratorFake:
 
 @pytest.fixture
 def api():
-    main.app.dependency_overrides.clear()
+    original_dependencies = main.app.state.runtime_dependencies
     yield TestClient(main.app)
-    main.app.dependency_overrides.clear()
+    main.app.state.runtime_dependencies = original_dependencies
 
 
 def configure(api, connection, embedder=None, generator=None):
-    main.app.dependency_overrides[main.get_connection_factory] = lambda: lambda: connection
-    main.app.dependency_overrides[main.get_embedder] = lambda: embedder or EmbedderFake()
-    main.app.dependency_overrides[main.get_text_generator] = lambda: generator or GeneratorFake()
+    main.app.state.runtime_dependencies = main.RuntimeDependencies(
+        connection_factory=lambda: connection,
+        embedder_factory=lambda: embedder or EmbedderFake(),
+        text_generator_factory=lambda: generator or GeneratorFake(),
+    )
     return api
 
 
@@ -164,19 +167,30 @@ def test_statusurile_controlate_nu_apeleaza_claude(api, question, connection):
 
 
 @pytest.mark.parametrize("question", ["", "   ", "x" * 1001])
-def test_input_invalid_este_422_inainte_de_conexiune(api, question):
-    connection_calls = 0
+def test_input_invalid_este_422_inainte_de_toti_providerii(api, question):
+    calls = {"connection": 0, "embedder": 0, "generator": 0}
 
-    def factory():
-        nonlocal connection_calls
-        connection_calls += 1
+    def connection_factory():
+        calls["connection"] += 1
         return ConnectionFake()
 
-    main.app.dependency_overrides[main.get_connection_factory] = lambda: factory
+    def embedder_factory():
+        calls["embedder"] += 1
+        return EmbedderFake()
+
+    def generator_factory():
+        calls["generator"] += 1
+        return GeneratorFake()
+
+    main.app.state.runtime_dependencies = main.RuntimeDependencies(
+        connection_factory=connection_factory,
+        embedder_factory=embedder_factory,
+        text_generator_factory=generator_factory,
+    )
     response = api.post("/intreaba", json={"intrebare": question})
 
     assert response.status_code == 422
-    assert connection_calls == 0
+    assert calls == {"connection": 0, "embedder": 0, "generator": 0}
 
 
 @pytest.mark.parametrize(
@@ -208,10 +222,13 @@ def test_root_ramane_functional(api):
 def test_import_main_nu_creeaza_clienti_externi(monkeypatch):
     voyage_calls = []
     anthropic_calls = []
-    monkeypatch.setattr(main.voyageai, "Client", lambda *args, **kwargs: voyage_calls.append(1))
-    monkeypatch.setattr(main, "Anthropic", lambda *args, **kwargs: anthropic_calls.append(1))
+
+    with monkeypatch.context() as patch:
+        patch.setattr(voyageai, "Client", lambda *args, **kwargs: voyage_calls.append(1))
+        patch.setattr(anthropic, "Anthropic", lambda *args, **kwargs: anthropic_calls.append(1))
+        importlib.reload(main)
+
+        assert voyage_calls == []
+        assert anthropic_calls == []
 
     importlib.reload(main)
-
-    assert voyage_calls == []
-    assert anthropic_calls == []
