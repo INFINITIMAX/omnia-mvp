@@ -73,6 +73,13 @@
 - [x] Teste sintetice/mockuite pentru toate ramurile de generare, citări și prompt injection.
 - [x] Gate local, audit de scurgeri și commit local executate.
 
+## Predare — Faza 3B2 integrare FastAPI mock-first
+
+- [x] `POST /intreaba` orchestrează catalogul aprobat, Retrieval Core și Generation Core, cu statusuri publice controlate și citări oficiale.
+- [x] Adaptoarele lazy/injectabile Voyage (`voyage-3.5`) și Anthropic (`claude-sonnet-4-6`, maximum 800 tokenuri) nu creează clienți externi la import.
+- [x] Catalogul read-only interoghează explicit `public.documente` și `public.documente_chunks`, numai pentru statusul aprobat, fără `source_key` sau text brut.
+- [x] Testele FastAPI și unit sunt complet mockuite; validarea locală: `python -m pytest -q` → 106 passed (1 warning extern de deprecere TestClient), `git diff --check` fără erori.
+
 ## Transparență și aprobare documente
 
 - [x] Lucian a aprobat explicit `np010_2022` și `np057_02` pentru retrieval.
@@ -86,8 +93,8 @@
 1. Faza 1: migrarea Supabase pentru metadata și chunk identity. **Finalizată.**
 2. Faza 3A: retrieval core descris mai sus. **Finalizată în branch-ul `feat/retrieval-core`; fără API public.**
 3. Faza 3B1: Generation Core și citări oficiale validate. **Finalizată; fără FastAPI.**
-4. Faza 3B2: contract și integrare API pentru retrieval/generare.
-5. Faza 4: cost control, endpoint-uri, quota anonimă de 10 întrebări per browser și coduri unice per tester.
+4. Faza 3B2: contract și integrare API pentru retrieval/generare. **Finalizată mock-first.**
+5. Faza 4: cost control: fiecare browser are quota anonimă de 10 întrebări și rate limiting; cei 4 testeri inițiali folosesc același URL public, fără privilegii.
 6. Faza 5: testare agresivă.
 7. Faza 6: UI real.
 8. Faza 7: review și deployment.

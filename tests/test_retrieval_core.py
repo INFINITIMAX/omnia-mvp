@@ -4,7 +4,13 @@ from dataclasses import dataclass
 
 import pytest
 
-from retrieval_core import ArticleParser, Evidence, PostgresRetrievalRepository, RetrievalService
+from retrieval_core import (
+    ArticleParser,
+    Evidence,
+    PostgresApprovedCatalogRepository,
+    PostgresRetrievalRepository,
+    RetrievalService,
+)
 
 
 ALIASES = {"doc-np010": ("NP010", "NP 010-2022")}
@@ -165,6 +171,26 @@ def test_articol_nemarcat_cunoscut_in_doua_documente_ramane_exact():
 
     assert parsed.article_normalized == "4.4.7.2"
     assert not parsed.requires_clarification
+
+
+def test_catalogul_approved_foloseste_numai_metadata_oficiala_si_inchide_cursorul():
+    connection = ConnectionFake([
+        ("doc-1", "NP 010-2022", "4.4.7.2"),
+        ("doc-1", "NP 010-2022", "4.6.(1)"),
+    ])
+
+    catalog = PostgresApprovedCatalogRepository(connection).load()
+    parser = catalog.create_parser()
+    sql, parameters = connection.cursor_instance.calls[0]
+
+    assert "FROM public.documente AS document" in sql
+    assert "public.documente_chunks AS chunk" in sql
+    assert "document.status = %s" in sql
+    assert parameters == ("approved",)
+    assert "source_key" not in sql
+    assert "chunk.text" not in sql
+    assert parser.parse("NP010, art. 4.4.7.2").document_id == "doc-1"
+    assert connection.cursor_instance.closed
 
 
 def test_repository_exact_foloseste_numai_sql_parametrizat_cu_document_optional():
