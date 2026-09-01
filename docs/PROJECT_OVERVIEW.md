@@ -9,13 +9,12 @@
 - Chunk-urile au articol normalizat, hash de conținut și ordine stabilă.
 - RLS este activ; `anon` și `authenticated` nu au granturi sau politici.
 - Retrieval Core este implementat și testat: parser, exact lookup, semantic pgvector, deduplicare, ambiguitate și limite.
-- Generation Core este implementat și testat: ID-uri temporare deterministe, prompt cu date neîncrezătoare, citări validate fail-safe și obiecte publice derivate exclusiv din Evidence.
-- Suita curentă are 75 de teste complet locale/mockuite.
+- Generation Core este implementat și testat: ID-uri temporare deterministe, prompt cu întrebarea și dovezi tratate ca date neîncrezătoare, citări validate fail-safe și obiecte publice derivate exclusiv din Evidence.
+- `POST /intreaba` orchestrează catalogul aprobat, Retrieval Core și Generation Core; returnează statusuri controlate și citări oficiale, fără identificatori tehnici.
+- Suita curentă are 95 de teste complet locale/mockuite (cu un warning extern de deprecere TestClient).
 
 ## Ce nu este încă funcțional în aplicația publică
 
-- `main.py` folosește încă fluxul vechi și nu este conectat la Retrieval Core.
-- Citările oficiale validate nu sunt încă returnate de API.
 - Quota anonimă, codurile testerilor și rate limiting-ul nu sunt implementate.
 - UI-ul este încă prototip.
 - Nu există deployment public final.
@@ -23,7 +22,7 @@
 
 ## Fluxul țintă
 
-1. FastAPI validează întrebarea și quota.
+1. FastAPI validează întrebarea.
 2. Parserul detectează documentul/articolul.
 3. Referința explicită folosește exact lookup, fără Voyage.
 4. Întrebarea semantică primește un singur embedding Voyage.
@@ -55,10 +54,10 @@
 ## Costuri
 
 - Testele standard nu apelează servicii plătite.
-- Voyage va fi apelat numai pentru întrebări semantice acceptate.
-- Claude va fi apelat numai dacă există dovezi suficiente.
+- Voyage va fi apelat numai pentru întrebări semantice acceptate; adaptorul este lazy și injectabil.
+- Claude va fi apelat numai dacă există dovezi suficiente; adaptorul este lazy și injectabil.
 - Limitele actuale propuse sunt: top-K 5, prag 0.50, context 12.000 caractere și răspuns maximum 800 tokenuri.
 
 ## Următorul obiectiv
 
-Faza 3B: conectarea Retrieval Core la FastAPI și implementarea răspunsurilor cu citări validate, inițial numai cu servicii mockuite.
+Faza 4: controale de cost aprobate separat: quota anonimă, coduri pentru testeri și rate limiting.

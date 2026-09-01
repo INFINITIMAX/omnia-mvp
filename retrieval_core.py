@@ -162,6 +162,56 @@ class ArticleParser:
         return any(article in articles for articles in self._known_articles.values())
 
 
+@dataclass(frozen=True)
+class ApprovedDocumentCatalog:
+    """Metadata internă minimă pentru parser, fără chei de sursă sau text brut."""
+
+    document_aliases: Mapping[str, Sequence[str]]
+    known_articles: Mapping[str, Sequence[str]]
+
+    def create_parser(self) -> ArticleParser:
+        return ArticleParser(self.document_aliases, self.known_articles)
+
+
+class PostgresApprovedCatalogRepository:
+    """Citește numai codurile oficiale și articolele documentelor aprobate."""
+
+    _SQL = """
+        SELECT document.document_id, document.cod_oficial, chunk.articol_normalizat
+        FROM public.documente AS document
+        JOIN public.documente_chunks AS chunk ON chunk.document_id = document.document_id
+        WHERE document.status = %s
+        ORDER BY document.document_id, chunk.articol_normalizat
+    """
+
+    def __init__(self, connection: object) -> None:
+        self._connection = connection
+
+    def load(self) -> ApprovedDocumentCatalog:
+        cursor = self._connection.cursor()
+        try:
+            cursor.execute(self._SQL, ("approved",))
+            aliases: dict[str, tuple[str, ...]] = {}
+            articles: dict[str, list[str]] = {}
+            for document_id, cod_oficial, articol_normalizat in cursor.fetchall():
+                document = str(document_id)
+                aliases.setdefault(document, self._official_code_aliases(str(cod_oficial)))
+                articles.setdefault(document, []).append(str(articol_normalizat))
+            return ApprovedDocumentCatalog(aliases, articles)
+        finally:
+            cursor.close()
+
+    @staticmethod
+    def _official_code_aliases(cod_oficial: str) -> tuple[str, ...]:
+        """Derivă doar variante de separare și abrevierea fără anul final al codului oficial."""
+        parts = _ALIAS_PARTS.findall(cod_oficial.lower())
+        compact = "".join(parts)
+        aliases = [cod_oficial, compact]
+        if len(parts) > 1 and len(parts[-1]) == 4 and parts[-1].isdigit():
+            aliases.append("".join(parts[:-1]))
+        return tuple(dict.fromkeys(aliases))
+
+
 class PostgresRetrievalRepository:
     """Repository PostgreSQL: toate valorile variabile sunt parametri DB-API."""
 
