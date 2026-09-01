@@ -60,8 +60,13 @@ class GenerationService:
     """Generează exclusiv din Evidence și validează citările înainte de publicare."""
 
     def __init__(self, generator: Generator, *, max_answer_tokens: int = MAX_ANSWER_TOKENS) -> None:
-        if type(max_answer_tokens) is not int or max_answer_tokens <= 0:
-            raise ValueError("max_answer_tokens trebuie să fie întreg pozitiv")
+        if (
+            type(max_answer_tokens) is not int
+            or not 1 <= max_answer_tokens <= MAX_ANSWER_TOKENS
+        ):
+            raise ValueError(
+                f"max_answer_tokens trebuie să fie întreg în intervalul 1..{MAX_ANSWER_TOKENS}"
+            )
         self._generator = generator
         self._max_answer_tokens = max_answer_tokens
 

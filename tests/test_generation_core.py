@@ -40,6 +40,12 @@ class GeneratorFake:
         return self.answer
 
 
+@pytest.mark.parametrize("max_answer_tokens", [0, -1, True, "800", 801])
+def test_service_refuza_limita_de_raspuns_invalida(max_answer_tokens):
+    with pytest.raises(ValueError, match="1..800"):
+        GenerationService(GeneratorFake("[C1]"), max_answer_tokens=max_answer_tokens)
+
+
 def test_fara_evidence_este_not_found_fara_apel_generator():
     generator = GeneratorFake("nu trebuie folosit")
 
