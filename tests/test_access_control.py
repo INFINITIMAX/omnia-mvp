@@ -34,6 +34,7 @@ class CursorFake:
         self.responses = iter(responses)
         self.rowcount = rowcount
         self.calls = []
+        self.returned_rows = []
         self.closed = False
 
     def execute(self, sql, parameters):
@@ -43,7 +44,9 @@ class CursorFake:
         return next(self.responses, None)
 
     def fetchall(self):
-        return next(self.responses, [])
+        rows = next(self.responses, [])
+        self.returned_rows.append(rows)
+        return rows
 
     def close(self):
         self.closed = True
@@ -161,26 +164,31 @@ def test_contractul_quota_lasa_rollback_ul_erorii_tehnice_callerului():
     assert connection.rollbacks == 1
 
 
-def test_rate_limit_5_6_minut_30_31_ora_si_fara_commit_ascuns():
+def test_rate_limit_contorizeaza_6_7_minut_si_31_32_ora_fara_commit_ascuns():
     cursor = CursorFake(
-        responses=[[("minute", count), ("hour", count)] for count in range(5)]
-        + [[("minute", 5), ("hour", 5)]]
-        + [[("minute", 0), ("hour", count)] for count in range(30)]
-        + [[("minute", 0), ("hour", 30)]]
+        responses=[[("minute", count), ("hour", count)] for count in range(1, 8)]
+        + [[("minute", 1), ("hour", count)] for count in range(1, 33)]
     )
     connection = ConnectionFake(cursor)
     repository = PostgresAccessControlRepository(connection)
 
-    minute_results = [repository.check_and_increment_rate_limit("c" * 64, now=NOW).allowed for _ in range(6)]
-    hour_results = [repository.check_and_increment_rate_limit("d" * 64, now=NOW).allowed for _ in range(31)]
+    minute_results = [repository.check_and_increment_rate_limit("c" * 64, now=NOW).allowed for _ in range(7)]
+    hour_results = [
+        repository.check_and_increment_rate_limit("d" * 64, now=NOW + timedelta(minutes=1)).allowed
+        for _ in range(32)
+    ]
 
-    assert minute_results == [True] * RATE_LIMIT_PER_MINUTE + [False]
-    assert hour_results == [True] * RATE_LIMIT_PER_HOUR + [False]
+    assert minute_results == [True] * RATE_LIMIT_PER_MINUTE + [False, False]
+    assert hour_results == [True] * RATE_LIMIT_PER_HOUR + [False, False]
+    assert cursor.returned_rows[5] == [("minute", 6), ("hour", 6)]
+    assert cursor.returned_rows[6] == [("minute", 7), ("hour", 7)]
+    assert cursor.returned_rows[7 + 30] == [("minute", 1), ("hour", 31)]
+    assert cursor.returned_rows[7 + 31] == [("minute", 1), ("hour", 32)]
     sql, parameters = cursor.calls[0]
     assert "pg_advisory_xact_lock" in sql
     assert parameters == ("c" * 64,)
-    assert any("FOR UPDATE" in statement for statement, _ in cursor.calls)
-    assert any("SET request_count = request_count + 1" in statement for statement, _ in cursor.calls)
+    assert any("RETURNING bucket_kind, request_count" in statement for statement, _ in cursor.calls)
+    assert sum("SET request_count = request_count + 1" in statement for statement, _ in cursor.calls) == 39
     assert connection.commits == connection.rollbacks == 0
 
 
@@ -205,8 +213,9 @@ def test_migrarea_are_constraints_rls_revoke_preflight_si_retention():
     assert "create table public.anonymous_usage" in sql
     assert "create table public.rate_limit_buckets" in sql
     assert "questions_used between 0 and 10" in sql
-    assert "bucket_kind = 'minute' and request_count between 0 and 5" in sql
-    assert "bucket_kind = 'hour' and request_count between 0 and 30" in sql
+    assert "request_count >= 0" in sql
+    assert "request_count between 0 and 5" not in sql
+    assert "request_count between 0 and 30" not in sql
     assert "primary key (ip_hash, bucket_kind, bucket_start)" in sql
     assert "expires_at = bucket_start + interval '24 hours'" in sql
     assert "rate_limit_buckets_expiry_cleanup_idx" in sql

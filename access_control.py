@@ -186,21 +186,13 @@ class PostgresAccessControlRepository:
             (%s, 'hour', %s, 0, %s + interval '24 hours')
         ON CONFLICT (ip_hash, bucket_kind, bucket_start) DO NOTHING
     """
-    _SELECT_BUCKETS_FOR_UPDATE_SQL = """
-        SELECT bucket_kind, request_count
-        FROM public.rate_limit_buckets
-        WHERE ip_hash = %s
-          AND ((bucket_kind = 'minute' AND bucket_start = %s)
-            OR (bucket_kind = 'hour' AND bucket_start = %s))
-        ORDER BY bucket_kind
-        FOR UPDATE
-    """
-    _INCREMENT_BUCKETS_SQL = """
+    _INCREMENT_AND_READ_BUCKETS_SQL = """
         UPDATE public.rate_limit_buckets
         SET request_count = request_count + 1, updated_at = now()
         WHERE ip_hash = %s
           AND ((bucket_kind = 'minute' AND bucket_start = %s)
             OR (bucket_kind = 'hour' AND bucket_start = %s))
+        RETURNING bucket_kind, request_count
     """
     _CLEANUP_SQL = """
         DELETE FROM public.rate_limit_buckets
@@ -233,21 +225,17 @@ class PostgresAccessControlRepository:
                 (ip_hash, windows.minute_bucket_start, windows.minute_bucket_start,
                  ip_hash, windows.hour_bucket_start, windows.hour_bucket_start),
             )
+            # Fiecare tentativă validă crește ambele bucket-uri, inclusiv una blocată.
             cursor.execute(
-                self._SELECT_BUCKETS_FOR_UPDATE_SQL,
+                self._INCREMENT_AND_READ_BUCKETS_SQL,
                 (ip_hash, windows.minute_bucket_start, windows.hour_bucket_start),
             )
             counts = dict(cursor.fetchall())
             allowed = (
                 set(counts) == {"minute", "hour"}
-                and counts["minute"] < RATE_LIMIT_PER_MINUTE
-                and counts["hour"] < RATE_LIMIT_PER_HOUR
+                and counts["minute"] <= RATE_LIMIT_PER_MINUTE
+                and counts["hour"] <= RATE_LIMIT_PER_HOUR
             )
-            if allowed:
-                cursor.execute(
-                    self._INCREMENT_BUCKETS_SQL,
-                    (ip_hash, windows.minute_bucket_start, windows.hour_bucket_start),
-                )
             return RateLimitResult(allowed, windows.minute_bucket_start, windows.hour_bucket_start)
         finally:
             cursor.close()

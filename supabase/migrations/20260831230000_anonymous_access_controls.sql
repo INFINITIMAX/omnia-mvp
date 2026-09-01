@@ -44,11 +44,9 @@ create table public.rate_limit_buckets (
         check (ip_hash ~ '^[0-9a-f]{64}$'),
     constraint rate_limit_buckets_kind_check
         check (bucket_kind in ('minute', 'hour')),
-    constraint rate_limit_buckets_request_count_check
-        check (
-            (bucket_kind = 'minute' and request_count between 0 and 5)
-            or (bucket_kind = 'hour' and request_count between 0 and 30)
-        ),
+    -- Plafonarea este în repository: și tentativele blocate rămân auditate numeric.
+    constraint rate_limit_buckets_request_count_nonnegative_check
+        check (request_count >= 0),
     constraint rate_limit_buckets_retention_check
         check (expires_at = bucket_start + interval '24 hours'),
     constraint rate_limit_buckets_updated_after_created_check
