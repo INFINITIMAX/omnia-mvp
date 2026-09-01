@@ -2,24 +2,41 @@
 
 from __future__ import annotations
 
+import math
 import os
 from dataclasses import dataclass
 from typing import Annotated, Callable, Literal, Protocol, Sequence
 
 import psycopg2
-from anthropic import Anthropic
+from anthropic import Anthropic, AnthropicError
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field, field_validator
 import voyageai
+from voyageai.error import VoyageError
 
 from generation_core import GenerationService, GenerationValidationError, PublicCitation
+load_dotenv()
+
 from retrieval_core import (
     MAX_QUESTION_CHARS,
     PostgresApprovedCatalogRepository,
     PostgresRetrievalRepository,
     RetrievalService,
 )
+
+
+class ServiceDependencyError(Exception):
+    """Eroare sigură a unei dependențe externe sau a configurației sale."""
+
+
+class DependencyConfigurationError(ServiceDependencyError):
+    """Configurația necesară pentru o dependență lipsește sau este invalidă."""
+
+
+class ProviderUnavailableError(ServiceDependencyError):
+    """Un SDK extern nu poate furniza un răspuns utilizabil."""
 
 
 class QueryEmbedder(Protocol):
@@ -43,10 +60,25 @@ class VoyageQueryEmbedder:
         self._client = client
 
     def embed_query(self, question: str) -> Sequence[float]:
-        if self._client is None:
-            self._client = voyageai.Client(api_key=os.getenv("VOYAGE_API_KEY"))
-        response = self._client.embed([question], model=self.model, input_type="query")
-        return response.embeddings[0]
+        try:
+            if self._client is None:
+                self._client = voyageai.Client(api_key=_required_environment("VOYAGE_API_KEY"))
+            response = self._client.embed([question], model=self.model, input_type="query")
+        except VoyageError as error:
+            raise ProviderUnavailableError("Voyage indisponibil") from error
+        return self._validated_embedding(response)
+
+    @staticmethod
+    def _validated_embedding(response: object) -> tuple[float, ...]:
+        embeddings = getattr(response, "embeddings", None)
+        if not isinstance(embeddings, Sequence) or isinstance(embeddings, (str, bytes)) or not embeddings:
+            raise ProviderUnavailableError("răspuns Voyage invalid")
+        vector = embeddings[0]
+        if not isinstance(vector, Sequence) or isinstance(vector, (str, bytes)) or not vector:
+            raise ProviderUnavailableError("vector Voyage invalid")
+        if any(type(value) not in (int, float) or not math.isfinite(float(value)) for value in vector):
+            raise ProviderUnavailableError("vector Voyage invalid")
+        return tuple(float(value) for value in vector)
 
 
 class AnthropicTextGenerator:
@@ -58,24 +90,50 @@ class AnthropicTextGenerator:
         self._client = client
 
     def generate(self, prompt: str, *, max_tokens: int) -> str:
-        if self._client is None:
-            self._client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-        response = self._client.messages.create(
-            model=self.model,
-            max_tokens=max_tokens,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        return response.content[0].text
+        try:
+            if self._client is None:
+                self._client = Anthropic(api_key=_required_environment("ANTHROPIC_API_KEY"))
+            response = self._client.messages.create(
+                model=self.model,
+                max_tokens=max_tokens,
+                messages=[{"role": "user", "content": prompt}],
+            )
+        except AnthropicError as error:
+            raise ProviderUnavailableError("Anthropic indisponibil") from error
+        return self._validated_text(response)
+
+    @staticmethod
+    def _validated_text(response: object) -> str:
+        content = getattr(response, "content", None)
+        if not isinstance(content, Sequence) or isinstance(content, (str, bytes)) or not content:
+            raise ProviderUnavailableError("răspuns Anthropic invalid")
+        texts = [
+            block.text
+            for block in content
+            if getattr(block, "type", None) == "text"
+            and isinstance(getattr(block, "text", None), str)
+            and block.text.strip()
+        ]
+        if not texts:
+            raise ProviderUnavailableError("răspuns Anthropic invalid")
+        return "\n".join(texts)
+
+
+def _required_environment(name: str) -> str:
+    value = os.getenv(name)
+    if not value:
+        raise DependencyConfigurationError("configurație indisponibilă")
+    return value
 
 
 def _open_db_connection() -> object:
     """Deschide conexiunea numai în timpul unei cereri, nu la import."""
     return psycopg2.connect(
-        host=os.getenv("DB_HOST"),
-        dbname=os.getenv("DB_NAME"),
-        user=os.getenv("DB_USER"),
-        password=os.getenv("DB_PASSWORD"),
-        port=os.getenv("DB_PORT"),
+        host=_required_environment("DB_HOST"),
+        dbname=_required_environment("DB_NAME"),
+        user=_required_environment("DB_USER"),
+        password=_required_environment("DB_PASSWORD"),
+        port=_required_environment("DB_PORT"),
     )
 
 
@@ -169,10 +227,13 @@ def intreaba(cerere: IntrebareRequest) -> IntreabaResponse:
             raspuns=generated.raspuns,
             citari=[CitationResponse.from_public(item) for item in generated.citari],
         )
-    except GenerationValidationError as error:
-        raise HTTPException(status_code=503, detail="Serviciul este temporar indisponibil.") from error
-    except Exception as error:
+    except (GenerationValidationError, ServiceDependencyError, psycopg2.Error) as error:
         raise HTTPException(status_code=503, detail="Serviciul este temporar indisponibil.") from error
     finally:
         if connection is not None:
-            connection.close()
+            try:
+                connection.close()
+            except psycopg2.Error as error:
+                raise HTTPException(
+                    status_code=503, detail="Serviciul este temporar indisponibil."
+                ) from error

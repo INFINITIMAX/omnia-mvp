@@ -2,8 +2,11 @@
 
 import importlib
 from dataclasses import dataclass
+from types import SimpleNamespace
 
 import anthropic
+import dotenv
+import psycopg2
 import pytest
 from fastapi.testclient import TestClient
 import voyageai
@@ -196,9 +199,9 @@ def test_input_invalid_este_422_inainte_de_toti_providerii(api, question):
 @pytest.mark.parametrize(
     ("connection", "embedder", "generator", "question"),
     [
-        (ConnectionFake(error=RuntimeError("db")), EmbedderFake(), GeneratorFake(), "art. 4.4.7.2"),
-        (ConnectionFake(), EmbedderFake(error=RuntimeError("voyage")), GeneratorFake(), "întrebare semantică"),
-        (ConnectionFake(), EmbedderFake(), GeneratorFake(error=RuntimeError("claude")), "art. 4.4.7.2"),
+        (ConnectionFake(error=psycopg2.OperationalError("db")), EmbedderFake(), GeneratorFake(), "art. 4.4.7.2"),
+        (ConnectionFake(), EmbedderFake(error=main.ProviderUnavailableError()), GeneratorFake(), "întrebare semantică"),
+        (ConnectionFake(), EmbedderFake(), GeneratorFake(error=main.ProviderUnavailableError()), "art. 4.4.7.2"),
         (ConnectionFake(), EmbedderFake(), GeneratorFake(answer="răspuns fără citare"), "art. 4.4.7.2"),
     ],
 )
@@ -212,6 +215,86 @@ def test_erorile_dependentei_sunt_503_generic_si_conexiunea_se_inchide(
     assert connection.closed
 
 
+@pytest.mark.parametrize("embeddings", [[], [[]], [("nu-este-numar",)], [([float("inf")],)]])
+def test_adaptorul_voyage_refuza_raspunsurile_invalide(embeddings):
+    class ClientFake:
+        def embed(self, *_args, **_kwargs):
+            return SimpleNamespace(embeddings=embeddings)
+
+    with pytest.raises(main.ProviderUnavailableError):
+        main.VoyageQueryEmbedder(ClientFake()).embed_query("întrebare")
+
+
+def test_adaptorul_voyage_inveleste_eroarea_sdk():
+    class ClientFake:
+        def embed(self, *_args, **_kwargs):
+            raise voyageai.error.APIConnectionError("indisponibil")
+
+    with pytest.raises(main.ProviderUnavailableError):
+        main.VoyageQueryEmbedder(ClientFake()).embed_query("întrebare")
+
+
+@pytest.mark.parametrize("content", [[], [SimpleNamespace(type="tool_use")], [SimpleNamespace(type="text", text=" ")]])
+def test_adaptorul_anthropic_refuza_raspunsurile_invalide(content):
+    class MessagesFake:
+        def create(self, **_kwargs):
+            return SimpleNamespace(content=content)
+
+    class ClientFake:
+        messages = MessagesFake()
+
+    with pytest.raises(main.ProviderUnavailableError):
+        main.AnthropicTextGenerator(ClientFake()).generate("prompt", max_tokens=800)
+
+
+def test_adaptorul_anthropic_extrage_doar_blocurile_text_si_inveleste_eroarea_sdk():
+    class MessagesFake:
+        def create(self, **_kwargs):
+            return SimpleNamespace(content=[SimpleNamespace(type="text", text="răspuns")])
+
+    class ClientFake:
+        messages = MessagesFake()
+
+    assert main.AnthropicTextGenerator(ClientFake()).generate("prompt", max_tokens=800) == "răspuns"
+
+    class MessagesDefect:
+        def create(self, **_kwargs):
+            raise anthropic.APIConnectionError(request=None)
+
+    class ClientDefect:
+        messages = MessagesDefect()
+
+    with pytest.raises(main.ProviderUnavailableError):
+        main.AnthropicTextGenerator(ClientDefect()).generate("prompt", max_tokens=800)
+
+
+def test_configurarea_lipsa_este_503_generic(api):
+    main.app.state.runtime_dependencies = main.RuntimeDependencies(
+        connection_factory=lambda: (_ for _ in ()).throw(main.DependencyConfigurationError()),
+        embedder_factory=EmbedderFake,
+        text_generator_factory=GeneratorFake,
+    )
+
+    response = api.post("/intreaba", json={"intrebare": "art. 4.4.7.2"})
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Serviciul este temporar indisponibil."}
+
+
+def test_eroarea_psycopg_la_inchiderea_conexiunii_este_503_generic(api):
+    class ConnectionCloseDefect(ConnectionFake):
+        def close(self):
+            self.closed = True
+            raise psycopg2.OperationalError("închidere db")
+
+    response = configure(api, ConnectionCloseDefect()).post(
+        "/intreaba", json={"intrebare": "art. 4.4.7.2"}
+    )
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Serviciul este temporar indisponibil."}
+
+
 def test_root_ramane_functional(api):
     response = api.get("/")
 
@@ -223,11 +306,15 @@ def test_import_main_nu_creeaza_clienti_externi(monkeypatch):
     voyage_calls = []
     anthropic_calls = []
 
+    dotenv_calls = []
+
     with monkeypatch.context() as patch:
         patch.setattr(voyageai, "Client", lambda *args, **kwargs: voyage_calls.append(1))
         patch.setattr(anthropic, "Anthropic", lambda *args, **kwargs: anthropic_calls.append(1))
+        patch.setattr(dotenv, "load_dotenv", lambda: dotenv_calls.append(1))
         importlib.reload(main)
 
+        assert dotenv_calls == [1]
         assert voyage_calls == []
         assert anthropic_calls == []
 

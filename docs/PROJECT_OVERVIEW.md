@@ -11,7 +11,7 @@
 - Retrieval Core este implementat și testat: parser, exact lookup, semantic pgvector, deduplicare, ambiguitate și limite.
 - Generation Core este implementat și testat: ID-uri temporare deterministe, prompt cu întrebarea și dovezi tratate ca date neîncrezătoare, citări validate fail-safe și obiecte publice derivate exclusiv din Evidence.
 - `POST /intreaba` orchestrează catalogul aprobat, Retrieval Core și Generation Core; returnează statusuri controlate și citări oficiale, fără identificatori tehnici.
-- Suita curentă are 95 de teste complet locale/mockuite (cu un warning extern de deprecere TestClient).
+- Suita curentă are 106 teste complet locale/mockuite (cu un warning extern de deprecere TestClient).
 
 ## Ce nu este încă funcțional în aplicația publică
 
