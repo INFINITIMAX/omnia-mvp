@@ -11,13 +11,14 @@
 - Retrieval Core este implementat și testat: parser, exact lookup, semantic pgvector, deduplicare, ambiguitate și limite.
 - Generation Core este implementat și testat: ID-uri temporare deterministe, prompt cu întrebarea și dovezi tratate ca date neîncrezătoare, citări validate fail-safe și obiecte publice derivate exclusiv din Evidence.
 - `POST /intreaba` orchestrează catalogul aprobat, Retrieval Core și Generation Core; returnează statusuri controlate și citări oficiale, fără identificatori tehnici.
-- Nucleul neintegrat pentru controale anonime este implementat și testat local: cookie HMAC fail-closed, hash IP HMAC cu cheie separată, rezervare quota și rate-limit repository fără commit implicit. Fiecare tentativă validă de rate-limit, inclusiv una blocată, este contabilizată în bucket-urile HMAC.
+- Controalele anonime sunt integrate mock-first în FastAPI: `GET /` emite cookie-ul semnat `normativai_anon`, iar `POST /intreaba` îl emite ca fallback; cookie-ul este `HttpOnly`, `SameSite=Lax`, `Path=/` și expiră în 365 zile. Atributul `Secure` este citit strict din configurația server-side, pentru local/test HTTP.
+- `POST /intreaba` aplică rate limiting înainte de providerii externi și quota înainte de retrieval/generare, pe o singură conexiune: tranzacția rate este confirmată separat, iar quota este confirmată doar pentru răspunsurile normale sau restituită prin rollback la erori tehnice. Răspunsurile normale includ `remaining`; 429 expune numai `rate_limited` și `Retry-After`, iar 403 numai `quota_exhausted` și `remaining: 0`.
 - Schema Supabase pentru contoarele anonime este aplicată persistent din 01-09-2026 (România): 2 tabele, 10 constraints, RLS fără politici, zero granturi pentru rolurile publice și index de cleanup. Validarea fresh connection și gate-ul de concurență cu hash-uri sintetice au trecut; cleanup-ul a lăsat ambele tabele fără rânduri.
-- Suita curentă are 131 teste complet locale/mockuite (cu un warning extern de deprecere TestClient).
+- Suita curentă are 145 teste complet locale/mockuite (cu un warning extern de deprecere TestClient).
 
 ## Ce nu este încă funcțional în aplicația publică
 
-- Quota anonimă de 10 întrebări per browser și rate limiting-ul nu sunt încă integrate în FastAPI sau în aplicația publică; nu există emitere cookie HTTP sau tranzacții runtime. Schema Supabase este aplicată, dar nu este încă apelată de aplicație. Aplicația publică poate avea oricâți vizitatori, iar cei 4 testeri inițiali folosesc același URL public, fără privilegii.
+- Gate-ul de deployment care obligă `ANONYMOUS_COOKIE_SECURE=true` în producție este încă out of scope. Nu există logică nouă de proxy, cleanup runtime, UI sau CORS în această fază.
 - UI-ul este încă prototip.
 - Nu există deployment public final.
 - Nu s-a rulat un smoke test plătit pentru noul Retrieval Core.

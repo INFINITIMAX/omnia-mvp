@@ -2,6 +2,7 @@
 
 import importlib
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from types import SimpleNamespace
 
 import anthropic
@@ -17,6 +18,10 @@ import main
 CATALOG_ROWS = [("doc-1", "NP 010-2022", "4.4.7.2")]
 EXACT_ROW = (1, "doc-1", "NP 010-2022", "Titlu oficial", "4.4.7.2", "4.4.7.2", "fragment public", "hash-a")
 SEMANTIC_ROW = EXACT_ROW + (0.9,)
+NOW = datetime(2026, 9, 1, 12, 34, 56, tzinfo=UTC)
+ACCESS_RUNTIME_CONFIG = main.AnonymousAccessControlRuntimeConfig(
+    main.AccessControlConfig(bytes(range(32)), bytes(range(32, 64))), cookie_secure=False
+)
 
 
 class CursorFake:
@@ -24,17 +29,25 @@ class CursorFake:
         self.connection = connection
         self.closed = False
         self.rows = []
+        self.row = None
 
     def execute(self, sql, parameters):
         self.connection.calls.append((sql, parameters))
         if self.connection.error is not None:
             raise self.connection.error
-        if "SELECT document.document_id" in sql:
+        if "INSERT INTO public.anonymous_usage" in sql:
+            self.row = next(self.connection.quota_results)
+        elif "SET request_count = request_count + 1" in sql:
+            self.rows = [("minute", self.connection.minute_count), ("hour", self.connection.hour_count)]
+        elif "SELECT document.document_id" in sql:
             self.rows = self.connection.catalog_rows
         elif "AS score" in sql:
             self.rows = self.connection.semantic_rows
-        else:
+        elif "pg_advisory_xact_lock" not in sql and "rate_limit_buckets" not in sql:
             self.rows = self.connection.exact_rows
+
+    def fetchone(self):
+        return self.row
 
     def fetchall(self):
         return self.rows
@@ -44,19 +57,33 @@ class CursorFake:
 
 
 class ConnectionFake:
-    def __init__(self, *, catalog_rows=CATALOG_ROWS, exact_rows=(EXACT_ROW,), semantic_rows=(SEMANTIC_ROW,), error=None):
+    def __init__(
+        self, *, catalog_rows=CATALOG_ROWS, exact_rows=(EXACT_ROW,), semantic_rows=(SEMANTIC_ROW,),
+        minute_count=1, hour_count=1, quota_results=((1,),), error=None,
+    ):
         self.catalog_rows = catalog_rows
         self.exact_rows = exact_rows
         self.semantic_rows = semantic_rows
+        self.minute_count = minute_count
+        self.hour_count = hour_count
+        self.quota_results = iter(quota_results)
         self.error = error
         self.calls = []
         self.closed = False
         self.cursors = []
+        self.commits = 0
+        self.rollbacks = 0
 
     def cursor(self):
         cursor = CursorFake(self)
         self.cursors.append(cursor)
         return cursor
+
+    def commit(self):
+        self.commits += 1
+
+    def rollback(self):
+        self.rollbacks += 1
 
     def close(self):
         self.closed = True
@@ -93,15 +120,17 @@ class GeneratorFake:
 @pytest.fixture
 def api():
     original_dependencies = main.app.state.runtime_dependencies
-    yield TestClient(main.app)
+    yield TestClient(main.app, client=("127.0.0.1", 50000))
     main.app.state.runtime_dependencies = original_dependencies
 
 
-def configure(api, connection, embedder=None, generator=None):
+def configure(api, connection, embedder=None, generator=None, runtime_config=ACCESS_RUNTIME_CONFIG):
     main.app.state.runtime_dependencies = main.RuntimeDependencies(
         connection_factory=lambda: connection,
         embedder_factory=lambda: embedder or EmbedderFake(),
         text_generator_factory=lambda: generator or GeneratorFake(),
+        access_control_config_factory=lambda: runtime_config,
+        now_factory=lambda: NOW,
     )
     return api
 
@@ -123,6 +152,7 @@ def test_exact_answered_are_citare_publica_si_zero_voyage(api):
             "id": "C1", "cod_document": "NP 010-2022", "titlu_document": "Titlu oficial",
             "articol": "4.4.7.2", "citat": "fragment public",
         }],
+        "remaining": 9,
     }
     assert embedder.calls == 0
     assert generator.calls == 1
@@ -189,6 +219,8 @@ def test_input_invalid_este_422_inainte_de_toti_providerii(api, question):
         connection_factory=connection_factory,
         embedder_factory=embedder_factory,
         text_generator_factory=generator_factory,
+        access_control_config_factory=lambda: ACCESS_RUNTIME_CONFIG,
+        now_factory=lambda: NOW,
     )
     response = api.post("/intreaba", json={"intrebare": question})
 
@@ -296,10 +328,137 @@ def test_eroarea_psycopg_la_inchiderea_conexiunii_este_503_generic(api):
 
 
 def test_root_ramane_functional(api):
-    response = api.get("/")
+    response = configure(api, ConnectionFake()).get("/")
 
     assert response.status_code == 200
     assert "text/html" in response.headers["content-type"]
+
+
+def test_get_emite_cookie_cu_atributele_contractuale_si_nu_il_roteste_valid(api):
+    client = configure(api, ConnectionFake())
+
+    first = client.get("/")
+    second = client.get("/")
+
+    assert first.status_code == 200
+    assert "normativai_anon=" in first.headers["set-cookie"]
+    assert "Max-Age=31536000" in first.headers["set-cookie"]
+    assert "HttpOnly" in first.headers["set-cookie"]
+    assert "Path=/" in first.headers["set-cookie"]
+    assert "SameSite=lax" in first.headers["set-cookie"]
+    assert "Secure" not in first.headers["set-cookie"]
+    assert "set-cookie" not in second.headers
+
+
+@pytest.mark.parametrize(("raw", "expected"), [(" true ", True), ("FALSE", False)])
+def test_configurarea_cookie_secure_accepta_numai_bool_strict(monkeypatch, raw, expected):
+    monkeypatch.setenv("ANONYMOUS_COOKIE_SIGNING_KEY", "abcdefghijklmnopqrstuvwxyz0123456789")
+    monkeypatch.setenv("ANONYMOUS_IP_HASH_KEY", "9876543210zyxwvutsrqponmlkjihgfedcba")
+    monkeypatch.setenv("ANONYMOUS_COOKIE_SECURE", raw)
+
+    assert main._anonymous_access_control_config().cookie_secure is expected
+
+
+@pytest.mark.parametrize("raw", [None, "", "1", "yes", " falsee "])
+def test_configurarea_cookie_secure_invalida_este_eroare_generica(monkeypatch, raw):
+    monkeypatch.setenv("ANONYMOUS_COOKIE_SIGNING_KEY", "abcdefghijklmnopqrstuvwxyz0123456789")
+    monkeypatch.setenv("ANONYMOUS_IP_HASH_KEY", "9876543210zyxwvutsrqponmlkjihgfedcba")
+    if raw is None:
+        monkeypatch.delenv("ANONYMOUS_COOKIE_SECURE", raising=False)
+    else:
+        monkeypatch.setenv("ANONYMOUS_COOKIE_SECURE", raw)
+
+    with pytest.raises(main.DependencyConfigurationError, match="configurație indisponibilă"):
+        main._anonymous_access_control_config()
+
+
+def test_post_fallback_emite_cookie_si_confirma_rate_apoi_quota(api):
+    connection = ConnectionFake()
+    response = configure(api, connection).post("/intreaba", json={"intrebare": "art. 4.4.7.2"})
+
+    assert response.status_code == 200
+    assert response.json()["remaining"] == 9
+    assert "normativai_anon=" in response.headers["set-cookie"]
+    assert connection.commits == 2
+    assert connection.rollbacks == 0
+    rate_increment = next(index for index, (sql, _) in enumerate(connection.calls) if "SET request_count" in sql)
+    quota_reservation = next(index for index, (sql, _) in enumerate(connection.calls) if "anonymous_usage" in sql)
+    assert rate_increment < quota_reservation
+
+
+def test_rate_limit_429_are_retry_after_si_nu_rezerva_quota(api):
+    connection = ConnectionFake(minute_count=6, hour_count=6)
+    embedder = EmbedderFake()
+    generator = GeneratorFake()
+
+    response = configure(api, connection, embedder, generator).post(
+        "/intreaba", json={"intrebare": "art. 4.4.7.2"}
+    )
+
+    assert response.status_code == 429
+    assert response.json() == {"code": "rate_limited"}
+    assert response.headers["retry-after"] == "4"
+    assert "normativai_anon=" in response.headers["set-cookie"]
+    assert connection.commits == 1
+    assert connection.rollbacks == 0
+    assert all("anonymous_usage" not in sql for sql, _ in connection.calls)
+    assert embedder.calls == generator.calls == 0
+
+
+def test_quota_403_are_remaining_zero_si_face_rollback(api):
+    connection = ConnectionFake(quota_results=(None,))
+    embedder = EmbedderFake()
+    generator = GeneratorFake()
+
+    response = configure(api, connection, embedder, generator).post(
+        "/intreaba", json={"intrebare": "art. 4.4.7.2"}
+    )
+
+    assert response.status_code == 403
+    assert response.json() == {"code": "quota_exhausted", "remaining": 0}
+    assert connection.commits == 1
+    assert connection.rollbacks == 1
+    assert embedder.calls == generator.calls == 0
+
+
+def test_eroare_tehnica_face_rollback_quota_dupa_commit_rate(api):
+    connection = ConnectionFake()
+
+    response = configure(
+        api, connection, EmbedderFake(), GeneratorFake(error=main.ProviderUnavailableError())
+    ).post("/intreaba", json={"intrebare": "art. 4.4.7.2"})
+
+    assert response.status_code == 503
+    assert connection.commits == 1
+    assert connection.rollbacks == 1
+    assert connection.closed
+
+
+def test_eroarea_neasteptata_face_rollback_si_este_repropagata(api):
+    connection = ConnectionFake()
+
+    with pytest.raises(RuntimeError, match="defect sintetic"):
+        configure(
+            api, connection, EmbedderFake(), GeneratorFake(error=RuntimeError("defect sintetic"))
+        ).post("/intreaba", json={"intrebare": "art. 4.4.7.2"})
+
+    assert connection.commits == 1
+    assert connection.rollbacks == 1
+    assert connection.closed
+
+
+def test_rate_limit_foloseste_numai_request_client_host_nu_antet_proxy(api):
+    connection = ConnectionFake()
+
+    response = configure(api, connection).post(
+        "/intreaba",
+        json={"intrebare": "art. 4.4.7.2"},
+        headers={"X-Forwarded-For": "203.0.113.9"},
+    )
+
+    lock_parameters = next(parameters for sql, parameters in connection.calls if "pg_advisory_xact_lock" in sql)
+    assert response.status_code == 200
+    assert lock_parameters == (main.hash_ip("127.0.0.1", ACCESS_RUNTIME_CONFIG.access_control),)
 
 
 def test_import_main_nu_creeaza_clienti_externi(monkeypatch):

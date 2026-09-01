@@ -5,17 +5,28 @@ from __future__ import annotations
 import math
 import os
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from typing import Annotated, Callable, Literal, Protocol, Sequence
 
 import psycopg2
 from anthropic import Anthropic, AnthropicError
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field, field_validator
 import voyageai
 from voyageai.error import VoyageError
 
+from access_control import (
+    ANONYMOUS_QUOTA_LIMIT,
+    RATE_LIMIT_PER_HOUR,
+    RATE_LIMIT_PER_MINUTE,
+    AccessControlConfig,
+    PostgresAccessControlRepository,
+    hash_ip,
+    issue_anonymous_cookie,
+    verify_anonymous_cookie,
+)
 from generation_core import GenerationService, GenerationValidationError, PublicCitation
 load_dotenv()
 
@@ -138,12 +149,46 @@ def _open_db_connection() -> object:
 
 
 @dataclass(frozen=True)
+class AnonymousAccessControlRuntimeConfig:
+    """Configurația anonimă server-side și atributul HTTP al cookie-ului."""
+
+    access_control: AccessControlConfig
+    cookie_secure: bool
+
+
+def _anonymous_access_control_config() -> AnonymousAccessControlRuntimeConfig:
+    """Citește strict configurația anonimă numai când o cerere are nevoie de ea."""
+    cookie_secure = os.getenv("ANONYMOUS_COOKIE_SECURE")
+    if cookie_secure is None:
+        raise DependencyConfigurationError("configurație indisponibilă")
+    normalized_secure = cookie_secure.strip().casefold()
+    if normalized_secure not in {"true", "false"}:
+        raise DependencyConfigurationError("configurație indisponibilă")
+    try:
+        return AnonymousAccessControlRuntimeConfig(
+            AccessControlConfig(
+                _required_environment("ANONYMOUS_COOKIE_SIGNING_KEY").encode("utf-8"),
+                _required_environment("ANONYMOUS_IP_HASH_KEY").encode("utf-8"),
+            ),
+            cookie_secure=normalized_secure == "true",
+        )
+    except ValueError as error:
+        raise DependencyConfigurationError("configurație indisponibilă") from error
+
+
+def _utc_now() -> datetime:
+    return datetime.now(UTC)
+
+
+@dataclass(frozen=True)
 class RuntimeDependencies:
     """Fabrici injectabile; endpointul le apelează numai după validarea corpului."""
 
     connection_factory: Callable[[], object]
     embedder_factory: Callable[[], QueryEmbedder]
     text_generator_factory: Callable[[], TextGenerator]
+    access_control_config_factory: Callable[[], AnonymousAccessControlRuntimeConfig] = _anonymous_access_control_config
+    now_factory: Callable[[], datetime] = _utc_now
 
 
 app = FastAPI()
@@ -153,10 +198,49 @@ app.state.runtime_dependencies = RuntimeDependencies(
     text_generator_factory=AnthropicTextGenerator,
 )
 
+_COOKIE_NAME = "normativai_anon"
+
+
+def _anonymous_visitor_for_request(
+    request: Request, runtime_config: AnonymousAccessControlRuntimeConfig, *, now: datetime
+):
+    visitor = verify_anonymous_cookie(
+        request.cookies.get(_COOKIE_NAME), runtime_config.access_control, now=now
+    )
+    if visitor is not None:
+        return visitor, None
+    token, visitor = issue_anonymous_cookie(runtime_config.access_control, now=now)
+    return visitor, token
+
+
+def _set_anonymous_cookie(
+    response: Response, token: str, runtime_config: AnonymousAccessControlRuntimeConfig
+) -> None:
+    response.set_cookie(
+        key=_COOKIE_NAME,
+        value=token,
+        max_age=365 * 24 * 60 * 60,
+        httponly=True,
+        samesite="lax",
+        path="/",
+        secure=runtime_config.cookie_secure,
+    )
+
 
 @app.get("/")
-def pagina_principala() -> FileResponse:
-    return FileResponse("static/index.html")
+def pagina_principala(request: Request) -> FileResponse:
+    try:
+        dependencies: RuntimeDependencies = app.state.runtime_dependencies
+        runtime_config = dependencies.access_control_config_factory()
+        _, token = _anonymous_visitor_for_request(
+            request, runtime_config, now=dependencies.now_factory()
+        )
+        response = FileResponse("static/index.html")
+        if token is not None:
+            _set_anonymous_cookie(response, token, runtime_config)
+        return response
+    except ServiceDependencyError as error:
+        raise HTTPException(status_code=503, detail="Serviciul este temporar indisponibil.") from error
 
 
 class IntrebareRequest(BaseModel):
@@ -186,6 +270,7 @@ class IntreabaResponse(BaseModel):
     status: Literal["answered", "not_found", "ambiguous_article", "ambiguous_reference"]
     raspuns: str
     citari: list[CitationResponse]
+    remaining: int
 
 
 _NOT_FOUND = "Nu am găsit această informație în documentele aprobate."
@@ -193,13 +278,60 @@ _AMBIGUOUS_ARTICLE = "Am găsit versiuni neconcordante ale articolului solicitat
 _AMBIGUOUS_REFERENCE = "Întrebarea conține referințe ambigue; te rog precizează documentul sau articolul."
 
 
+def _retry_after_seconds(rate_result: object, now: datetime) -> int:
+    delays = []
+    if rate_result.minute_count > RATE_LIMIT_PER_MINUTE:
+        delays.append(rate_result.minute_bucket_start + timedelta(minutes=1) - now)
+    if rate_result.hour_count > RATE_LIMIT_PER_HOUR:
+        delays.append(rate_result.hour_bucket_start + timedelta(hours=1) - now)
+    return max(1, math.ceil(max(delays).total_seconds()))
+
+
+def _control_error_response(
+    status_code: int, content: dict[str, object], token: str | None,
+    runtime_config: AnonymousAccessControlRuntimeConfig, *, retry_after: int | None = None,
+) -> JSONResponse:
+    headers = {"Retry-After": str(retry_after)} if retry_after is not None else None
+    response = JSONResponse(status_code=status_code, content=content, headers=headers)
+    if token is not None:
+        _set_anonymous_cookie(response, token, runtime_config)
+    return response
+
+
 @app.post("/intreaba", response_model=IntreabaResponse)
-def intreaba(cerere: IntrebareRequest) -> IntreabaResponse:
-    """Recuperează dovezi aprobate și generează cel mult un răspuns citat."""
+def intreaba(
+    cerere: IntrebareRequest, request: Request, response: Response
+) -> IntreabaResponse | JSONResponse:
+    """Aplică controalele anonime înainte de retrieval și generare."""
     connection: object | None = None
     try:
         dependencies: RuntimeDependencies = app.state.runtime_dependencies
+        runtime_config = dependencies.access_control_config_factory()
+        now = dependencies.now_factory()
+        visitor, token = _anonymous_visitor_for_request(request, runtime_config, now=now)
         connection = dependencies.connection_factory()
+        access_repository = PostgresAccessControlRepository(connection)
+        rate_result = access_repository.check_and_increment_rate_limit(
+            hash_ip(request.client.host, runtime_config.access_control), now=now
+        )
+        connection.commit()
+        if not rate_result.allowed:
+            return _control_error_response(
+                429,
+                {"code": "rate_limited"},
+                token,
+                runtime_config,
+                retry_after=_retry_after_seconds(rate_result, now),
+            )
+
+        questions_used = access_repository.reserve_question(visitor.visitor_hash)
+        if questions_used is None:
+            connection.rollback()
+            return _control_error_response(
+                403, {"code": "quota_exhausted", "remaining": 0}, token, runtime_config
+            )
+        remaining = ANONYMOUS_QUOTA_LIMIT - questions_used
+
         parser = PostgresApprovedCatalogRepository(connection).load().create_parser()
         retrieval = RetrievalService(
             parser,
@@ -209,26 +341,39 @@ def intreaba(cerere: IntrebareRequest) -> IntreabaResponse:
         result = retrieval.retrieve(cerere.intrebare)
 
         if result.status == "not_found":
-            return IntreabaResponse(status="not_found", raspuns=_NOT_FOUND, citari=[])
-        if result.status == "ambiguous_article":
-            return IntreabaResponse(
-                status="ambiguous_article", raspuns=_AMBIGUOUS_ARTICLE, citari=[]
+            answer = IntreabaResponse(
+                status="not_found", raspuns=_NOT_FOUND, citari=[], remaining=remaining
             )
-        if result.status == "ambiguous_reference":
-            return IntreabaResponse(
-                status="ambiguous_reference", raspuns=_AMBIGUOUS_REFERENCE, citari=[]
+        elif result.status == "ambiguous_article":
+            answer = IntreabaResponse(
+                status="ambiguous_article", raspuns=_AMBIGUOUS_ARTICLE, citari=[], remaining=remaining
             )
-
-        generated = GenerationService(dependencies.text_generator_factory()).generate(
-            cerere.intrebare, result.evidence
-        )
-        return IntreabaResponse(
-            status="answered",
-            raspuns=generated.raspuns,
-            citari=[CitationResponse.from_public(item) for item in generated.citari],
-        )
+        elif result.status == "ambiguous_reference":
+            answer = IntreabaResponse(
+                status="ambiguous_reference", raspuns=_AMBIGUOUS_REFERENCE, citari=[], remaining=remaining
+            )
+        else:
+            generated = GenerationService(dependencies.text_generator_factory()).generate(
+                cerere.intrebare, result.evidence
+            )
+            answer = IntreabaResponse(
+                status="answered",
+                raspuns=generated.raspuns,
+                citari=[CitationResponse.from_public(item) for item in generated.citari],
+                remaining=remaining,
+            )
+        connection.commit()
+        if token is not None:
+            _set_anonymous_cookie(response, token, runtime_config)
+        return answer
     except (GenerationValidationError, ServiceDependencyError, psycopg2.Error) as error:
+        if connection is not None:
+            connection.rollback()
         raise HTTPException(status_code=503, detail="Serviciul este temporar indisponibil.") from error
+    except Exception:
+        if connection is not None:
+            connection.rollback()
+        raise
     finally:
         if connection is not None:
             try:

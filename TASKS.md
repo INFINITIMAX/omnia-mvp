@@ -99,6 +99,15 @@
 - [ ] Integrarea FastAPI, emiterea atributelor cookie HTTP și tranzacțiile runtime nu fac parte din Faza 4A.
 - [x] SQL-ul pentru controalele anonime este aplicat persistent și verificat; integrarea aplicației rămâne neimplementată.
 
+## Predare — Faza 4B integrare FastAPI controale anonime
+
+- [x] `GET /` emite `normativai_anon` semnat, iar `POST /intreaba` îl emite ca fallback pentru cookie absent sau invalid; atributele sunt 365 zile, `HttpOnly`, `SameSite=Lax`, `Path=/` și `Secure` configurabil strict.
+- [x] Configurația este lazy și injectabilă: `ANONYMOUS_COOKIE_SIGNING_KEY`, `ANONYMOUS_IP_HASH_KEY` și `ANONYMOUS_COOKIE_SECURE`; booleanul acceptă numai `true`/`false` case-insensitive după trim, iar orice valoare lipsă/invalidă produce HTTP 503 generic.
+- [x] Folosește numai `request.client.host` pentru hash IP și o singură conexiune: rate-limit commit separat, apoi quota commit pentru răspuns normal sau rollback pentru refuz/eroare tehnică.
+- [x] Contracte publice: 429 `rate_limited` cu `Retry-After`, 403 `quota_exhausted` cu `remaining: 0`, răspunsurile normale includ `remaining`; excepțiile neașteptate fac rollback și sunt repropagate.
+- [x] Teste locale/mockuite acoperă cookie, config, ordine tranzacții, rate/quota, rollback, IP direct și erori; gate-ul complet și commit-ul local sunt executate fără push.
+- [ ] Gate producție pentru `ANONYMOUS_COOKIE_SECURE=true`, proxy/cleanup/UI/CORS rămân explicit out of scope.
+
 ## Backlog ordonat
 
 1. Faza 1: migrarea Supabase pentru metadata și chunk identity. **Finalizată.**

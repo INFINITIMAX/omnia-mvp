@@ -143,7 +143,7 @@ def test_rezervarea_quota_1_la_10_si_a_11a_foloseste_sql_parametrizat_fara_commi
     repository = PostgresAccessControlRepository(connection)
     visitor_hash = "a" * 64
 
-    assert [repository.reserve_question(visitor_hash) for _ in range(11)] == [True] * 10 + [False]
+    assert [repository.reserve_question(visitor_hash) for _ in range(11)] == list(range(1, 11)) + [None]
 
     sql, parameters = cursor.calls[0]
     assert "ON CONFLICT (visitor_hash) DO UPDATE" in sql

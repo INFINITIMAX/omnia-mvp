@@ -62,6 +62,8 @@ class RateLimitResult:
     allowed: bool
     minute_bucket_start: datetime
     hour_bucket_start: datetime
+    minute_count: int = 0
+    hour_count: int = 0
 
 
 def _require_secret(value: object, name: str) -> bytes:
@@ -202,13 +204,14 @@ class PostgresAccessControlRepository:
     def __init__(self, connection: object) -> None:
         self._connection = connection
 
-    def reserve_question(self, visitor_hash: str) -> bool:
-        """Rezervă atomic o întrebare. Nu face commit: callerul confirmă sau dă rollback."""
+    def reserve_question(self, visitor_hash: str) -> int | None:
+        """Rezervă atomic o întrebare și returnează numărul folosit, fără commit implicit."""
         _require_hash(visitor_hash, "visitor_hash")
         cursor = self._connection.cursor()
         try:
             cursor.execute(self._RESERVE_QUESTION_SQL, (visitor_hash, ANONYMOUS_QUOTA_LIMIT))
-            return cursor.fetchone() is not None
+            row = cursor.fetchone()
+            return int(row[0]) if row is not None else None
         finally:
             cursor.close()
 
@@ -236,7 +239,13 @@ class PostgresAccessControlRepository:
                 and counts["minute"] <= RATE_LIMIT_PER_MINUTE
                 and counts["hour"] <= RATE_LIMIT_PER_HOUR
             )
-            return RateLimitResult(allowed, windows.minute_bucket_start, windows.hour_bucket_start)
+            return RateLimitResult(
+                allowed,
+                windows.minute_bucket_start,
+                windows.hour_bucket_start,
+                int(counts.get("minute", 0)),
+                int(counts.get("hour", 0)),
+            )
         finally:
             cursor.close()
 
