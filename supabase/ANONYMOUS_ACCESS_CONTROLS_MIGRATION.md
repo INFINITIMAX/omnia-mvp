@@ -12,6 +12,16 @@ Fișierul `20260831230000_anonymous_access_controls.sql` este doar draft version
 
 Migrarea eșuează înainte de DDL dacă oricare tabel există deja sau rolurile Supabase necesare lipsesc. Rulează într-o singură tranzacție; orice eroare face rollback automat. Aplicarea persistentă cere aprobarea explicită a lui Lucian și nu face parte din Faza 4A.
 
+## Gate SQL tranzacțional executat
+
+Gate-ul aprobat a fost executat pentru migrarea cu prefix SHA-256 `a2840a5364f0`, în interiorul unei tranzacții încheiate cu `ROLLBACK`; aplicarea persistentă **nu** a fost făcută.
+
+În tranzacție s-au verificat factual: 2 tabele create, coloanele așteptate, 10 constraints, RLS `true` pe ambele tabele, zero politici, zero granturi pentru `anon`/`authenticated`, indexul de cleanup prezent și zero rânduri noi.
+
+Snapshot-ul existent a rămas: 2 documente, 694 chunk-uri și 2 documente `approved`. După `ROLLBACK`, o conexiune read-only nouă a confirmat că ambele tabele sunt absente și snapshot-ul este neschimbat.
+
+Concurența cross-session nu a fost testată: DDL-ul necomis nu este vizibil altor sesiuni. Această verificare rămâne obligatorie după aplicarea persistentă aprobată.
+
 ## Contract runtime pentru integrarea viitoare
 
 Acest contract este documentat, dar **nu este integrat în `main.py`/FastAPI** în Faza 4A.
