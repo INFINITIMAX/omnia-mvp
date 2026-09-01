@@ -88,6 +88,16 @@
 - [x] Deciziile active sunt centralizate în `docs/DECISIONS.md`.
 - [x] Starea funcțională și limitele proiectului sunt descrise în `docs/PROJECT_OVERVIEW.md`.
 
+## Predare — Faza 4A nucleu anonim quota/rate-limit (neintegrat)
+
+- [x] `access_control.py` pur: cookie anonim semnat HMAC, verificare fail-closed, `visitor_hash` derivat și hash IP HMAC cu cheie separată.
+- [x] Configurație strictă: 10 întrebări/browser, 5/minut/IP, 30/oră/IP, cookie 365 zile și bucket-uri IP 24 ore.
+- [x] Repository PostgreSQL DB-API parametrizat, fără commit implicit: rezervare atomică quota, rate limit atomic minute+oră și cleanup expirări.
+- [x] Draft neaplicat: `supabase/migrations/20260831230000_anonymous_access_controls.sql`, cu RLS fără politici, revoke public, preflight și rollback documentat în `supabase/ANONYMOUS_ACCESS_CONTROLS_MIGRATION.md`.
+- [x] Teste locale/mockuite pentru cookie, hash, quota, rate limit, cleanup, SQL, schema și audit; gate local trecut.
+- [ ] Integrarea FastAPI, emiterea atributelor cookie HTTP și tranzacțiile runtime nu fac parte din Faza 4A.
+- [ ] Draftul SQL nu este aplicat în Supabase.
+
 ## Backlog ordonat
 
 1. Faza 1: migrarea Supabase pentru metadata și chunk identity. **Finalizată.**

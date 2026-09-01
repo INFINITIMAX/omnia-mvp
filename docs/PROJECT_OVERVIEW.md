@@ -11,11 +11,13 @@
 - Retrieval Core este implementat și testat: parser, exact lookup, semantic pgvector, deduplicare, ambiguitate și limite.
 - Generation Core este implementat și testat: ID-uri temporare deterministe, prompt cu întrebarea și dovezi tratate ca date neîncrezătoare, citări validate fail-safe și obiecte publice derivate exclusiv din Evidence.
 - `POST /intreaba` orchestrează catalogul aprobat, Retrieval Core și Generation Core; returnează statusuri controlate și citări oficiale, fără identificatori tehnici.
-- Suita curentă are 106 teste complet locale/mockuite (cu un warning extern de deprecere TestClient).
+- Nucleul neintegrat pentru controale anonime este implementat și testat local: cookie HMAC fail-closed, hash IP HMAC cu cheie separată, rezervare quota și rate-limit repository fără commit implicit.
+- Există un draft Supabase neaplicat pentru contoarele anonime; are RLS fără politici și revoke pentru rolurile publice.
+- Suita curentă are 130 teste complet locale/mockuite (cu un warning extern de deprecere TestClient).
 
 ## Ce nu este încă funcțional în aplicația publică
 
-- Quota anonimă de 10 întrebări per browser și rate limiting-ul nu sunt implementate; aplicația publică poate avea oricâți vizitatori, iar cei 4 testeri inițiali folosesc același URL public, fără privilegii.
+- Quota anonimă de 10 întrebări per browser și rate limiting-ul nu sunt încă integrate în FastAPI sau în aplicația publică; nu există emitere cookie HTTP, tranzacții runtime sau tabel Supabase aplicat. Aplicația publică poate avea oricâți vizitatori, iar cei 4 testeri inițiali folosesc același URL public, fără privilegii.
 - UI-ul este încă prototip.
 - Nu există deployment public final.
 - Nu s-a rulat un smoke test plătit pentru noul Retrieval Core.
