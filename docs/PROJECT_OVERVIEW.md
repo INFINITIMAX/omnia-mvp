@@ -12,13 +12,13 @@
 - Generation Core este implementat și testat: ID-uri temporare deterministe, prompt cu întrebarea și dovezi tratate ca date neîncrezătoare, citări validate fail-safe și obiecte publice derivate exclusiv din Evidence.
 - `POST /intreaba` orchestrează catalogul aprobat, Retrieval Core și Generation Core; returnează statusuri controlate și citări oficiale, fără identificatori tehnici.
 - Controalele anonime sunt integrate mock-first în FastAPI: `GET /` emite cookie-ul semnat `normativai_anon`, iar `POST /intreaba` îl emite ca fallback; cookie-ul este `HttpOnly`, `SameSite=Lax`, `Path=/` și expiră în 365 zile. Atributul `Secure` este citit strict din configurația server-side, pentru local/test HTTP.
-- `POST /intreaba` aplică rate limiting înainte de providerii externi și quota înainte de retrieval/generare, pe o singură conexiune: tranzacția rate este confirmată separat, iar quota este confirmată doar pentru răspunsurile normale sau restituită prin rollback la erori tehnice. Răspunsurile normale includ `intrebari_ramase`; 429 expune numai `rate_limited` și `Retry-After`, iar 403 numai `quota_exhausted` și `intrebari_ramase: 0`.
+- `POST /intreaba` aplică rate limiting înainte de providerii externi și quota înainte de retrieval/generare, pe o singură conexiune: tranzacția rate este confirmată separat, iar quota este confirmată doar pentru răspunsurile normale sau restituită prin rollback la erori tehnice. Răspunsurile normale includ `intrebari_ramase`; 429 expune `rate_limited`, mesaj generic și `Retry-After`, iar 403 expune `quota_exhausted`, mesajul de epuizare și `intrebari_ramase: 0`.
 - Schema Supabase pentru contoarele anonime este aplicată persistent din 01-09-2026 (România): 2 tabele, 10 constraints, RLS fără politici, zero granturi pentru rolurile publice și index de cleanup. Validarea fresh connection și gate-ul de concurență cu hash-uri sintetice au trecut; cleanup-ul a lăsat ambele tabele fără rânduri.
-- Suita curentă are 148 teste complet locale/mockuite (cu un warning extern de deprecere TestClient).
+- Suita curentă are 157 teste complet locale/mockuite (cu un warning extern de deprecere TestClient).
 
 ## Ce nu este încă funcțional în aplicația publică
 
-- Gate-ul de deployment care obligă `ANONYMOUS_COOKIE_SECURE=true` în producție este încă out of scope. Nu există logică nouă de proxy, cleanup runtime, UI sau CORS în această fază.
+- Gate-ul de deployment care obligă `ANONYMOUS_COOKIE_SECURE=true` în producție este încă out of scope. Nu există logică nouă de proxy, cleanup runtime, UI sau CORS în această fază. Ferestrele rate-limit expiră logic prin `expires_at` după 24 ore și nu mai sunt reutilizate, dar ștergerea fizică în maximum 24 ore nu este garantată fără un scheduler/job separat, rămas deferred până la aprobare înainte de deployment.
 - UI-ul este încă prototip.
 - Nu există deployment public final.
 - Nu s-a rulat un smoke test plătit pentru noul Retrieval Core.

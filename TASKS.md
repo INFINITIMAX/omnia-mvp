@@ -91,7 +91,7 @@
 ## Predare — Faza 4A nucleu anonim quota/rate-limit (neintegrat)
 
 - [x] `access_control.py` pur: cookie anonim semnat HMAC, verificare fail-closed, `visitor_hash` derivat și hash IP HMAC cu cheie separată.
-- [x] Configurație strictă: 10 întrebări/browser, 5/minut/IP, 30/oră/IP, cookie 365 zile și bucket-uri IP 24 ore.
+- [x] Configurație strictă: 10 întrebări/browser, 5/minut/IP, 30/oră/IP, cookie 365 zile și ferestre IP cu `expires_at` la 24 ore, nereutilizate după expirare.
 - [x] Repository PostgreSQL DB-API parametrizat, fără commit implicit: rezervare atomică quota, rate limit atomic minute+oră care contabilizează și tentativele blocate, plus cleanup expirări.
 - [x] Migrarea `20260831230000_anonymous_access_controls.sql` (SHA-256 `a2840a5364f0`) a fost aplicată persistent la 01-09-2026 (România) prin tranzacție PostgreSQL directă; fresh connection PASS: 2 tabele, 10 constraints, RLS fără politici, zero granturi publice, index cleanup, zero rânduri inițiale și snapshot intact (2 documente, 694 chunk-uri, 2 approved).
 - [x] Gate concurență real cu hash-uri sintetice: quota 9, două conexiuni `[false, true]`, final 10; rate 4, două conexiuni `[false, true]`, contoare 6, apoi a treia blocked le-a crescut la 7. Cleanup sintetic verificat; ambele tabele au final zero rânduri. `supabase_migrations.schema_migrations` nu a fost vizibilă conexiunii, deci nu se afirmă istoric de migrare înregistrat și nu s-a modificat manual.
@@ -104,9 +104,10 @@
 - [x] `GET /` emite `normativai_anon` semnat, iar `POST /intreaba` îl emite ca fallback pentru cookie absent sau invalid; atributele sunt 365 zile, `HttpOnly`, `SameSite=Lax`, `Path=/` și `Secure` configurabil strict.
 - [x] Configurația este lazy și injectabilă: `ANONYMOUS_COOKIE_SIGNING_KEY`, `ANONYMOUS_IP_HASH_KEY` și `ANONYMOUS_COOKIE_SECURE`; booleanul acceptă numai `true`/`false` case-insensitive după trim, iar orice valoare lipsă/invalidă produce HTTP 503 generic.
 - [x] Folosește numai `request.client.host` pentru hash IP și o singură conexiune: rate-limit commit separat, apoi quota commit pentru răspuns normal sau rollback pentru refuz/eroare tehnică.
-- [x] Contracte publice: 429 `rate_limited` cu `Retry-After`, 403 `quota_exhausted` cu `intrebari_ramase: 0`, răspunsurile normale includ `intrebari_ramase`; excepțiile neașteptate fac rollback și sunt repropagate.
+- [x] Contracte publice: 429 `rate_limited`, `Retry-After` și mesajul generic aprobat; 403 `quota_exhausted`, mesajul clar aprobat și `intrebari_ramase: 0`; răspunsurile normale includ `intrebari_ramase`; excepțiile neașteptate fac rollback și sunt repropagate.
 - [x] Teste locale/mockuite acoperă cookie absent/falsificat/expirat, `Secure=true`, config, ordine tranzacții, rate/quota, rollback, IP direct și erori; cheia publică este numai `intrebari_ramase` (0..9, respectiv 0 la epuizare).
-- [ ] Gate producție pentru `ANONYMOUS_COOKIE_SECURE=true`, proxy/cleanup/UI/CORS rămân explicit out of scope.
+- [ ] Gate producție pentru `ANONYMOUS_COOKIE_SECURE=true`, proxy/UI/CORS rămân explicit out of scope.
+- [ ] Cerința țintă de ștergere fizică a bucket-urilor IP în maximum 24 de ore este deferred: ferestrele expiră logic și nu mai sunt reutilizate, însă nu există scheduler/job; acesta necesită aprobare separată înainte de deployment.
 
 ## Backlog ordonat
 

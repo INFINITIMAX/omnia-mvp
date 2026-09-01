@@ -41,7 +41,7 @@ Acest fișier separă deciziile explicite ale lui Lucian de propunerile agențil
 - Rate limiting per IP: maximum 5 cereri/minut și 30 cereri/oră, verificat înainte de Voyage/Claude.
 - Cookie-ul anonim expiră după 1 an; quota de 10 rămâne asociată lui pe această durată.
 - IP-ul nu este stocat brut; identificatorul pentru rate limiting este derivat prin HMAC-SHA-256 server-side, cu o cheie separată de cheia cookie-ului.
-- Contoarele/bucket-urile IP se păstrează maximum 24 de ore.
+- `expires_at` face ca ferestrele IP să expire logic după 24 de ore și acestea nu mai sunt reutilizate. Ștergerea fizică în maximum 24 de ore nu este garantată încă: necesită un job separat, aprobat înainte de deployment; cerința țintă rămâne deferred.
 
 ## Regula de schimbare
 

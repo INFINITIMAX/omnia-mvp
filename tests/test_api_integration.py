@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 import voyageai
 
 import main
+from access_control import RateLimitResult
 
 
 CATALOG_ROWS = [("doc-1", "NP 010-2022", "4.4.7.2")]
@@ -59,7 +60,7 @@ class CursorFake:
 class ConnectionFake:
     def __init__(
         self, *, catalog_rows=CATALOG_ROWS, exact_rows=(EXACT_ROW,), semantic_rows=(SEMANTIC_ROW,),
-        minute_count=1, hour_count=1, quota_results=((1,),), error=None,
+        minute_count=1, hour_count=1, quota_results=((1,),), error=None, rollback_error=None,
     ):
         self.catalog_rows = catalog_rows
         self.exact_rows = exact_rows
@@ -68,6 +69,7 @@ class ConnectionFake:
         self.hour_count = hour_count
         self.quota_results = iter(quota_results)
         self.error = error
+        self.rollback_error = rollback_error
         self.calls = []
         self.closed = False
         self.cursors = []
@@ -84,6 +86,8 @@ class ConnectionFake:
 
     def rollback(self):
         self.rollbacks += 1
+        if self.rollback_error is not None:
+            raise self.rollback_error
 
     def close(self):
         self.closed = True
@@ -436,7 +440,10 @@ def test_rate_limit_429_are_retry_after_si_nu_rezerva_quota(api):
     )
 
     assert response.status_code == 429
-    assert response.json() == {"code": "rate_limited"}
+    assert response.json() == {
+        "code": "rate_limited",
+        "detail": "Prea multe cereri. Încearcă din nou mai târziu.",
+    }
     assert response.headers["retry-after"] == "4"
     assert "normativai_anon=" in response.headers["set-cookie"]
     assert connection.commits == 1
@@ -455,10 +462,54 @@ def test_quota_403_are_intrebari_ramase_zero_si_face_rollback(api):
     )
 
     assert response.status_code == 403
-    assert response.json() == {"code": "quota_exhausted", "intrebari_ramase": 0}
+    assert response.json() == {
+        "code": "quota_exhausted",
+        "detail": "Ai folosit toate cele 10 întrebări disponibile în acest browser.",
+        "intrebari_ramase": 0,
+    }
     assert connection.commits == 1
     assert connection.rollbacks == 1
     assert embedder.calls == generator.calls == 0
+
+
+def test_rollback_db_esuat_la_eroare_cunoscuta_devine_503_generic(api):
+    connection = ConnectionFake(
+        error=psycopg2.OperationalError("db"),
+        rollback_error=psycopg2.OperationalError("rollback db"),
+    )
+
+    response = configure(api, connection).post("/intreaba", json={"intrebare": "art. 4.4.7.2"})
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Serviciul este temporar indisponibil."}
+    assert connection.rollbacks == 1
+    assert connection.closed
+
+
+def test_rollback_db_esuat_la_quota_epuizata_devine_503_generic(api):
+    connection = ConnectionFake(
+        quota_results=(None,), rollback_error=psycopg2.OperationalError("rollback db")
+    )
+
+    response = configure(api, connection).post("/intreaba", json={"intrebare": "art. 4.4.7.2"})
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Serviciul este temporar indisponibil."}
+    assert connection.rollbacks == 1
+    assert connection.closed
+
+
+def test_rollback_db_esuat_la_eroare_neasteptata_devine_503_generic(api):
+    connection = ConnectionFake(rollback_error=psycopg2.OperationalError("rollback db"))
+
+    response = configure(
+        api, connection, EmbedderFake(), GeneratorFake(error=RuntimeError("defect sintetic"))
+    ).post("/intreaba", json={"intrebare": "art. 4.4.7.2"})
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Serviciul este temporar indisponibil."}
+    assert connection.rollbacks == 1
+    assert connection.closed
 
 
 def test_eroare_tehnica_face_rollback_quota_dupa_commit_rate(api):
@@ -485,6 +536,56 @@ def test_eroarea_neasteptata_face_rollback_si_este_repropagata(api):
     assert connection.commits == 1
     assert connection.rollbacks == 1
     assert connection.closed
+
+
+@pytest.mark.parametrize("client", [None, SimpleNamespace(), SimpleNamespace(host=None), SimpleNamespace(host="invalid")])
+def test_extragerea_ip_absent_sau_invalid_este_eroare_dependenta(client):
+    request = SimpleNamespace(client=client)
+
+    with pytest.raises(main.ServiceDependencyError):
+        main._request_ip_hash(request, ACCESS_RUNTIME_CONFIG)
+
+
+def test_ip_invalid_opreste_inainte_de_rate_quota_si_provideri(api, monkeypatch):
+    connection = ConnectionFake()
+    embedder = EmbedderFake()
+    generator = GeneratorFake()
+    monkeypatch.setattr(main, "hash_ip", lambda *_args: (_ for _ in ()).throw(ValueError("IP invalid")))
+
+    response = configure(api, connection, embedder, generator).post(
+        "/intreaba", json={"intrebare": "art. 4.4.7.2"}
+    )
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Serviciul este temporar indisponibil."}
+    assert connection.calls == []
+    assert connection.commits == connection.rollbacks == 0
+    assert not connection.closed
+    assert embedder.calls == generator.calls == 0
+
+
+def test_rezultat_rate_inconsistent_devine_503_generic_fara_quota(api, monkeypatch):
+    connection = ConnectionFake()
+
+    def inconsistent_rate(*_args, **_kwargs):
+        return RateLimitResult(
+            False,
+            NOW.replace(second=0, microsecond=0),
+            NOW.replace(minute=0, second=0, microsecond=0),
+            1,
+            1,
+        )
+
+    monkeypatch.setattr(
+        main.PostgresAccessControlRepository, "check_and_increment_rate_limit", inconsistent_rate
+    )
+    response = configure(api, connection).post("/intreaba", json={"intrebare": "art. 4.4.7.2"})
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Serviciul este temporar indisponibil."}
+    assert connection.commits == 1
+    assert connection.rollbacks == 1
+    assert all("anonymous_usage" not in sql for sql, _ in connection.calls)
 
 
 def test_rate_limit_foloseste_numai_request_client_host_nu_antet_proxy(api):

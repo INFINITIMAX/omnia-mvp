@@ -278,13 +278,36 @@ _AMBIGUOUS_ARTICLE = "Am găsit versiuni neconcordante ale articolului solicitat
 _AMBIGUOUS_REFERENCE = "Întrebarea conține referințe ambigue; te rog precizează documentul sau articolul."
 
 
+def _request_ip_hash(request: Request, runtime_config: AnonymousAccessControlRuntimeConfig) -> str:
+    """Extrage strict IP-ul direct al clientului, fără antete de proxy."""
+    client = request.client
+    host = getattr(client, "host", None)
+    if host is None:
+        raise ServiceDependencyError("IP client indisponibil")
+    try:
+        return hash_ip(host, runtime_config.access_control)
+    except ValueError as error:
+        raise ServiceDependencyError("IP client invalid") from error
+
+
 def _retry_after_seconds(rate_result: object, now: datetime) -> int:
     delays = []
     if rate_result.minute_count > RATE_LIMIT_PER_MINUTE:
         delays.append(rate_result.minute_bucket_start + timedelta(minutes=1) - now)
     if rate_result.hour_count > RATE_LIMIT_PER_HOUR:
         delays.append(rate_result.hour_bucket_start + timedelta(hours=1) - now)
+    if not delays:
+        raise ServiceDependencyError("rezultat rate limit inconsistent")
     return max(1, math.ceil(max(delays).total_seconds()))
+
+
+def _rollback_succeeds(connection: object) -> bool:
+    """Încearcă rollback; un eșec DB nu trebuie să ajungă la client."""
+    try:
+        connection.rollback()
+    except psycopg2.Error:
+        return False
+    return True
 
 
 def _control_error_response(
@@ -309,16 +332,15 @@ def intreaba(
         runtime_config = dependencies.access_control_config_factory()
         now = dependencies.now_factory()
         visitor, token = _anonymous_visitor_for_request(request, runtime_config, now=now)
+        ip_hash = _request_ip_hash(request, runtime_config)
         connection = dependencies.connection_factory()
         access_repository = PostgresAccessControlRepository(connection)
-        rate_result = access_repository.check_and_increment_rate_limit(
-            hash_ip(request.client.host, runtime_config.access_control), now=now
-        )
+        rate_result = access_repository.check_and_increment_rate_limit(ip_hash, now=now)
         connection.commit()
         if not rate_result.allowed:
             return _control_error_response(
                 429,
-                {"code": "rate_limited"},
+                {"code": "rate_limited", "detail": "Prea multe cereri. Încearcă din nou mai târziu."},
                 token,
                 runtime_config,
                 retry_after=_retry_after_seconds(rate_result, now),
@@ -326,9 +348,17 @@ def intreaba(
 
         questions_used = access_repository.reserve_question(visitor.visitor_hash)
         if questions_used is None:
-            connection.rollback()
+            if not _rollback_succeeds(connection):
+                raise HTTPException(status_code=503, detail="Serviciul este temporar indisponibil.")
             return _control_error_response(
-                403, {"code": "quota_exhausted", "intrebari_ramase": 0}, token, runtime_config
+                403,
+                {
+                    "code": "quota_exhausted",
+                    "detail": "Ai folosit toate cele 10 întrebări disponibile în acest browser.",
+                    "intrebari_ramase": 0,
+                },
+                token,
+                runtime_config,
             )
         intrebari_ramase = ANONYMOUS_QUOTA_LIMIT - questions_used
 
@@ -366,13 +396,15 @@ def intreaba(
         if token is not None:
             _set_anonymous_cookie(response, token, runtime_config)
         return answer
+    except HTTPException:
+        raise
     except (GenerationValidationError, ServiceDependencyError, psycopg2.Error) as error:
-        if connection is not None:
-            connection.rollback()
+        if connection is not None and not _rollback_succeeds(connection):
+            raise HTTPException(status_code=503, detail="Serviciul este temporar indisponibil.") from error
         raise HTTPException(status_code=503, detail="Serviciul este temporar indisponibil.") from error
-    except Exception:
-        if connection is not None:
-            connection.rollback()
+    except Exception as error:
+        if connection is not None and not _rollback_succeeds(connection):
+            raise HTTPException(status_code=503, detail="Serviciul este temporar indisponibil.") from error
         raise
     finally:
         if connection is not None:

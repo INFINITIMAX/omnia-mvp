@@ -5,7 +5,7 @@ Artefactul exact executat înaintea corecției comment-only avea prefix SHA-256 
 ## Ce creează
 
 - `anonymous_usage`: numai `visitor_hash` HMAC și contorul 0–10; nu conține ID-ul cookie sau cookie-ul.
-- `rate_limit_buckets`: numai `ip_hash` HMAC, bucket-uri `minute`/`hour` și expirare fixă la 24 de ore; nu conține IP brut.
+- `rate_limit_buckets`: numai `ip_hash` HMAC, bucket-uri `minute`/`hour` și `expires_at` la 24 de ore; nu conține IP brut. După expirare, ferestrele nu mai sunt reutilizate.
 - index pentru cleanup după `expires_at`, RLS activ fără politici și `REVOKE ALL` pentru `anon`/`authenticated`.
 
 ## Preflight și aplicare
@@ -22,12 +22,12 @@ Gate-ul de concurență real a folosit hash-uri sintetice: quota pornită la 9, 
 
 ## Contract runtime pentru integrarea viitoare
 
-Acest contract este documentat, dar **nu este integrat în `main.py`/FastAPI** în Faza 4A.
+Contractul este integrat în `main.py`/FastAPI în Faza 4B; această documentație păstrează contractul de tranzacții al schemei.
 
 1. După validarea inputului, rate limit-ul rulează primul, înainte de Voyage/Claude, într-o tranzacție dedicată. Callerul face `commit` atât pentru `allowed=True`, cât și pentru `allowed=False`: fiecare tentativă validă crește atomic bucket-urile minut și oră, iar decizia se ia după incrementare. O cerere blocată nu rezervă quota anonimă.
 2. Numai după un rate limit permis, quota se rezervă în tranzacția cererii. Callerul face `commit` pentru statusurile `answered`, `not_found`, `ambiguous_article` și `ambiguous_reference`.
-3. Pentru HTTP 503 sau erori DB/Voyage/Claude, callerul face `rollback` al tranzacției quota, deci rezervarea nu se consumă. Inputul invalid este respins înainte de ambele tranzacții.
-4. Cleanup-ul șterge bucket-urile cu `expires_at` atins; retenția IP este fixă la maximum 24 de ore. Cleanup-ul are propriul commit explicit ales de caller.
+3. Pentru HTTP 503 sau erori DB/Voyage/Claude, callerul încearcă `rollback` al tranzacției quota; dacă reușește, rezervarea nu se consumă. Dacă rollback-ul DB eșuează, răspunsul rămâne HTTP 503 generic, iar persistența tranzacției este incertă. Inputul invalid este respins înainte de ambele tranzacții.
+4. Există query-ul de cleanup pentru bucket-uri cu `expires_at` atins, iar callerul îi alege explicit commit-ul. Nu există încă scheduler/job runtime, deci ștergerea fizică în maximum 24 de ore nu este garantată; este o cerință țintă deferred, de aprobat separat înainte de deployment.
 
 ## Rollback structural
 
