@@ -37,6 +37,7 @@ Acest fișier separă deciziile explicite ale lui Lucian de propunerile agențil
 - Consumă quota: `answered`, `not_found`, `ambiguous_article` și `ambiguous_reference`.
 - Nu consumă quota: input invalid, HTTP 503, eroare DB/Voyage/Claude sau cerere blocată de rate limit.
 - Quota se rezervă atomic înainte de serviciile plătite și se restituie la eroare tehnică, pentru a controla cererile simultane.
+- Decizie aprobată la 01-09-2026 (România): pentru MVP cu trafic redus, tranzacția quota rămâne deschisă pe durata apelului provider pentru a garanta rollback la eroare tehnică. Numai cererile simultane din același browser pot aștepta durata primei cereri; lock-ul rate limit per IP este scurt. Decizia se reevaluează înainte de scalare.
 - Rate limiting per IP: maximum 5 cereri/minut și 30 cereri/oră, verificat înainte de Voyage/Claude.
 - Cookie-ul anonim expiră după 1 an; quota de 10 rămâne asociată lui pe această durată.
 - IP-ul nu este stocat brut; identificatorul pentru rate limiting este derivat prin HMAC-SHA-256 server-side, cu o cheie separată de cheia cookie-ului.

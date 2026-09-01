@@ -93,8 +93,8 @@
 - [x] `access_control.py` pur: cookie anonim semnat HMAC, verificare fail-closed, `visitor_hash` derivat și hash IP HMAC cu cheie separată.
 - [x] Configurație strictă: 10 întrebări/browser, 5/minut/IP, 30/oră/IP, cookie 365 zile și bucket-uri IP 24 ore.
 - [x] Repository PostgreSQL DB-API parametrizat, fără commit implicit: rezervare atomică quota, rate limit atomic minute+oră care contabilizează și tentativele blocate, plus cleanup expirări.
-- [x] Gate SQL tranzacțional aprobat/executat pentru draftul `20260831230000_anonymous_access_controls.sql` (SHA-256 `a2840a5364f0`): 2 tabele, 10 constraints, RLS fără politici, zero granturi publice, index cleanup și snapshot existent validate; `ROLLBACK` executat, iar conexiunea read-only nouă a confirmat schema absentă și snapshot neschimbat.
-- [x] Draft neaplicat: `supabase/migrations/20260831230000_anonymous_access_controls.sql`, cu RLS fără politici, revoke public, preflight și rollback documentat în `supabase/ANONYMOUS_ACCESS_CONTROLS_MIGRATION.md`; concurența cross-session rămâne de verificat după aplicarea persistentă.
+- [x] Migrarea `20260831230000_anonymous_access_controls.sql` (SHA-256 `a2840a5364f0`) a fost aplicată persistent la 01-09-2026 (România) prin tranzacție PostgreSQL directă; fresh connection PASS: 2 tabele, 10 constraints, RLS fără politici, zero granturi publice, index cleanup, zero rânduri inițiale și snapshot intact (2 documente, 694 chunk-uri, 2 approved).
+- [x] Gate concurență real cu hash-uri sintetice: quota 9, două conexiuni `[false, true]`, final 10; rate 4, două conexiuni `[false, true]`, contoare 6, apoi a treia blocked le-a crescut la 7. Cleanup sintetic verificat; ambele tabele au final zero rânduri. `supabase_migrations.schema_migrations` nu a fost vizibilă conexiunii, deci nu se afirmă istoric de migrare înregistrat și nu s-a modificat manual.
 - [x] Teste locale/mockuite pentru cookie, hash, quota, rate limit, cleanup, SQL, schema și audit; gate local trecut.
 - [ ] Integrarea FastAPI, emiterea atributelor cookie HTTP și tranzacțiile runtime nu fac parte din Faza 4A.
 - [ ] Draftul SQL nu este aplicat în Supabase.

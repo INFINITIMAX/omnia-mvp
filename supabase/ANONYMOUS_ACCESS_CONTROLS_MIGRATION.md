@@ -1,6 +1,6 @@
-# Draft migrare — controale anonime
+# Migrare aplicată — controale anonime
 
-Fișierul `20260831230000_anonymous_access_controls.sql` este doar draft versionat; nu a fost aplicat în Supabase.
+Fișierul `20260831230000_anonymous_access_controls.sql` (prefix SHA-256 `a2840a5364f0`) a fost aplicat persistent la 01-09-2026 (România), printr-o tranzacție PostgreSQL directă.
 
 ## Ce creează
 
@@ -8,19 +8,17 @@ Fișierul `20260831230000_anonymous_access_controls.sql` este doar draft version
 - `rate_limit_buckets`: numai `ip_hash` HMAC, bucket-uri `minute`/`hour` și expirare fixă la 24 de ore; nu conține IP brut.
 - index pentru cleanup după `expires_at`, RLS activ fără politici și `REVOKE ALL` pentru `anon`/`authenticated`.
 
-## Preflight și aplicare ulterioară
+## Preflight și aplicare
 
-Migrarea eșuează înainte de DDL dacă oricare tabel există deja sau rolurile Supabase necesare lipsesc. Rulează într-o singură tranzacție; orice eroare face rollback automat. Aplicarea persistentă cere aprobarea explicită a lui Lucian și nu face parte din Faza 4A.
+Migrarea eșuează înainte de DDL dacă oricare tabel există deja sau rolurile Supabase necesare lipsesc. A rulat într-o singură tranzacție PostgreSQL directă; orice eroare ar fi făcut rollback automat.
 
-## Gate SQL tranzacțional executat
+## Validare persistentă
 
-Gate-ul aprobat a fost executat pentru migrarea cu prefix SHA-256 `a2840a5364f0`, în interiorul unei tranzacții încheiate cu `ROLLBACK`; aplicarea persistentă **nu** a fost făcută.
+O conexiune nouă a confirmat `PASS` după aplicare: 2 tabele, coloanele așteptate, 10 constraints, RLS `true` pe ambele tabele, zero politici, zero granturi pentru `anon`/`authenticated`, indexul de cleanup și inițial zero rânduri.
 
-În tranzacție s-au verificat factual: 2 tabele create, coloanele așteptate, 10 constraints, RLS `true` pe ambele tabele, zero politici, zero granturi pentru `anon`/`authenticated`, indexul de cleanup prezent și zero rânduri noi.
+Snapshot-ul existent a rămas intact: 2 documente, 694 chunk-uri și 2 documente `approved`. Tabela internă `supabase_migrations.schema_migrations` nu a fost vizibilă conexiunii; nu se afirmă înregistrarea în istoricul migrărilor și acesta nu a fost modificat manual.
 
-Snapshot-ul existent a rămas: 2 documente, 694 chunk-uri și 2 documente `approved`. După `ROLLBACK`, o conexiune read-only nouă a confirmat că ambele tabele sunt absente și snapshot-ul este neschimbat.
-
-Concurența cross-session nu a fost testată: DDL-ul necomis nu este vizibil altor sesiuni. Această verificare rămâne obligatorie după aplicarea persistentă aprobată.
+Gate-ul de concurență real a folosit hash-uri sintetice: quota pornită la 9, două conexiuni au returnat `[false, true]`, iar valoarea finală a fost 10. Rate limit-ul pornit la 4, două conexiuni au returnat `[false, true]`, iar contoarele au ajuns la 6; a treia cerere blocată le-a crescut la 7. Cleanup-ul sintetic a fost verificat, iar ambele tabele au avut la final zero rânduri.
 
 ## Contract runtime pentru integrarea viitoare
 
@@ -33,7 +31,7 @@ Acest contract este documentat, dar **nu este integrat în `main.py`/FastAPI** �
 
 ## Rollback structural
 
-După aprobare și numai dacă trebuie eliminat draftul deja aplicat, se rulează separat:
+Dacă trebuie eliminată schema deja aplicată, se rulează separat, numai cu aprobare:
 
 ```sql
 begin;
