@@ -2,7 +2,7 @@
 
 import importlib
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 import anthropic
@@ -152,7 +152,7 @@ def test_exact_answered_are_citare_publica_si_zero_voyage(api):
             "id": "C1", "cod_document": "NP 010-2022", "titlu_document": "Titlu oficial",
             "articol": "4.4.7.2", "citat": "fragment public",
         }],
-        "remaining": 9,
+        "intrebari_ramase": 9,
     }
     assert embedder.calls == 0
     assert generator.calls == 1
@@ -334,20 +334,60 @@ def test_root_ramane_functional(api):
     assert "text/html" in response.headers["content-type"]
 
 
-def test_get_emite_cookie_cu_atributele_contractuale_si_nu_il_roteste_valid(api):
+def _assert_cookie_attributes(response, *, secure):
+    header = response.headers["set-cookie"]
+    assert "normativai_anon=" in header
+    assert "Max-Age=31536000" in header
+    assert "HttpOnly" in header
+    assert "Path=/" in header
+    assert "SameSite=lax" in header
+    assert ("Secure" in header) is secure
+
+
+def test_get_fara_cookie_emite_cookie_si_nu_il_roteste_valid(api):
     client = configure(api, ConnectionFake())
 
     first = client.get("/")
     second = client.get("/")
 
     assert first.status_code == 200
-    assert "normativai_anon=" in first.headers["set-cookie"]
-    assert "Max-Age=31536000" in first.headers["set-cookie"]
-    assert "HttpOnly" in first.headers["set-cookie"]
-    assert "Path=/" in first.headers["set-cookie"]
-    assert "SameSite=lax" in first.headers["set-cookie"]
-    assert "Secure" not in first.headers["set-cookie"]
+    _assert_cookie_attributes(first, secure=False)
     assert "set-cookie" not in second.headers
+
+
+def test_get_secure_true_emite_toate_atributele_cookie(api):
+    runtime_config = main.AnonymousAccessControlRuntimeConfig(
+        ACCESS_RUNTIME_CONFIG.access_control, cookie_secure=True
+    )
+
+    response = configure(api, ConnectionFake(), runtime_config=runtime_config).get("/")
+
+    assert response.status_code == 200
+    _assert_cookie_attributes(response, secure=True)
+
+
+def test_cookie_falsificat_este_inlocuit_fail_closed_la_post(api):
+    client = configure(api, ConnectionFake())
+    client.cookies.set("normativai_anon", "v1.invalid.1.invalid")
+
+    response = client.post("/intreaba", json={"intrebare": "art. 4.4.7.2"})
+
+    assert response.status_code == 200
+    _assert_cookie_attributes(response, secure=False)
+
+
+def test_cookie_expirat_este_inlocuit_la_post(api):
+    expired_token, _ = main.issue_anonymous_cookie(
+        ACCESS_RUNTIME_CONFIG.access_control, now=NOW - timedelta(days=366)
+    )
+
+    client = configure(api, ConnectionFake())
+    client.cookies.set("normativai_anon", expired_token)
+
+    response = client.post("/intreaba", json={"intrebare": "art. 4.4.7.2"})
+
+    assert response.status_code == 200
+    _assert_cookie_attributes(response, secure=False)
 
 
 @pytest.mark.parametrize(("raw", "expected"), [(" true ", True), ("FALSE", False)])
@@ -372,13 +412,13 @@ def test_configurarea_cookie_secure_invalida_este_eroare_generica(monkeypatch, r
         main._anonymous_access_control_config()
 
 
-def test_post_fallback_emite_cookie_si_confirma_rate_apoi_quota(api):
+def test_post_valid_fara_cookie_emite_fallback_si_confirma_rate_apoi_quota(api):
     connection = ConnectionFake()
     response = configure(api, connection).post("/intreaba", json={"intrebare": "art. 4.4.7.2"})
 
     assert response.status_code == 200
-    assert response.json()["remaining"] == 9
-    assert "normativai_anon=" in response.headers["set-cookie"]
+    assert response.json()["intrebari_ramase"] == 9
+    _assert_cookie_attributes(response, secure=False)
     assert connection.commits == 2
     assert connection.rollbacks == 0
     rate_increment = next(index for index, (sql, _) in enumerate(connection.calls) if "SET request_count" in sql)
@@ -405,7 +445,7 @@ def test_rate_limit_429_are_retry_after_si_nu_rezerva_quota(api):
     assert embedder.calls == generator.calls == 0
 
 
-def test_quota_403_are_remaining_zero_si_face_rollback(api):
+def test_quota_403_are_intrebari_ramase_zero_si_face_rollback(api):
     connection = ConnectionFake(quota_results=(None,))
     embedder = EmbedderFake()
     generator = GeneratorFake()
@@ -415,7 +455,7 @@ def test_quota_403_are_remaining_zero_si_face_rollback(api):
     )
 
     assert response.status_code == 403
-    assert response.json() == {"code": "quota_exhausted", "remaining": 0}
+    assert response.json() == {"code": "quota_exhausted", "intrebari_ramase": 0}
     assert connection.commits == 1
     assert connection.rollbacks == 1
     assert embedder.calls == generator.calls == 0

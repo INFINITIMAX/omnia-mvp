@@ -270,7 +270,7 @@ class IntreabaResponse(BaseModel):
     status: Literal["answered", "not_found", "ambiguous_article", "ambiguous_reference"]
     raspuns: str
     citari: list[CitationResponse]
-    remaining: int
+    intrebari_ramase: Annotated[int, Field(ge=0, le=9)]
 
 
 _NOT_FOUND = "Nu am găsit această informație în documentele aprobate."
@@ -328,9 +328,9 @@ def intreaba(
         if questions_used is None:
             connection.rollback()
             return _control_error_response(
-                403, {"code": "quota_exhausted", "remaining": 0}, token, runtime_config
+                403, {"code": "quota_exhausted", "intrebari_ramase": 0}, token, runtime_config
             )
-        remaining = ANONYMOUS_QUOTA_LIMIT - questions_used
+        intrebari_ramase = ANONYMOUS_QUOTA_LIMIT - questions_used
 
         parser = PostgresApprovedCatalogRepository(connection).load().create_parser()
         retrieval = RetrievalService(
@@ -342,15 +342,15 @@ def intreaba(
 
         if result.status == "not_found":
             answer = IntreabaResponse(
-                status="not_found", raspuns=_NOT_FOUND, citari=[], remaining=remaining
+                status="not_found", raspuns=_NOT_FOUND, citari=[], intrebari_ramase=intrebari_ramase
             )
         elif result.status == "ambiguous_article":
             answer = IntreabaResponse(
-                status="ambiguous_article", raspuns=_AMBIGUOUS_ARTICLE, citari=[], remaining=remaining
+                status="ambiguous_article", raspuns=_AMBIGUOUS_ARTICLE, citari=[], intrebari_ramase=intrebari_ramase
             )
         elif result.status == "ambiguous_reference":
             answer = IntreabaResponse(
-                status="ambiguous_reference", raspuns=_AMBIGUOUS_REFERENCE, citari=[], remaining=remaining
+                status="ambiguous_reference", raspuns=_AMBIGUOUS_REFERENCE, citari=[], intrebari_ramase=intrebari_ramase
             )
         else:
             generated = GenerationService(dependencies.text_generator_factory()).generate(
@@ -360,7 +360,7 @@ def intreaba(
                 status="answered",
                 raspuns=generated.raspuns,
                 citari=[CitationResponse.from_public(item) for item in generated.citari],
-                remaining=remaining,
+                intrebari_ramase=intrebari_ramase,
             )
         connection.commit()
         if token is not None:
