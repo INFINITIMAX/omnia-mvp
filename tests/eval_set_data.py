@@ -112,7 +112,7 @@ NOT_FOUND_CASES: tuple[EvalCase, ...] = (
 # Intrebari fara referinta explicita de articol -> semantic search, rankuit prin
 # similaritate cosinus reala fata de CORPUS (inclusiv decoy-urile de mai sus).
 #
-# Fiecare intrebare e o parafraza reala a articolului-tinta: alt vocabular, alta ordine
+# Fiecare intrebare e o parafraza sintetica controlata a articolului-tinta: alt vocabular, alta ordine
 # a cuvintelor, alta structura de fraza, NU formularea propozitiei din CORPUS. Harness-ul
 # verifica acest lucru explicit (test_eval_set.py: test_intrebarile_semantice_sunt_parafraze...),
 # iar embedderul sintetic recunoaste variantele morfologice/sinonimele printr-un tezaur

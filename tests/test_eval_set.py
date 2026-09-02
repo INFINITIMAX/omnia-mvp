@@ -13,9 +13,10 @@ de sinonime/variante morfologice _SYNONYM_GROUPS - nu o mapare caz->dovada). Met
 verifica identitatea document+articol asteptata, nu doar statusul "found", iar un caz de
 control negativ dovedeste ca o intrebare fara semnal relevant nu primeste automat dovada.
 
-SEMANTIC_CASES contine minimum 10 parafraze reale (alt vocabular/alta structura de fraza
-decat propozitia-tinta din CORPUS); un test dedicat verifica literal ca nicio intrebare nu
-reproduce un fragment lung din formularea corpusului (vezi _MAX_COPIED_TOKEN_RUN mai jos).
+SEMANTIC_CASES contine minimum 10 parafraze sintetice controlate (alt vocabular/alta
+structura de fraza decat propozitia-tinta din CORPUS); un test dedicat verifica literal ca
+nicio intrebare nu reproduce un fragment lung din formularea corpusului (vezi
+_MAX_COPIED_TOKEN_RUN mai jos).
 """
 
 import math
@@ -44,11 +45,12 @@ def _tokenize(text: str) -> tuple[str, ...]:
     return tuple(_TOKEN.findall(text.lower()))
 
 
-# Tezaur general de variante morfologice/sinonime (nu per-caz, nu per-intrebare): permite
-# embedderului sintetic sa recunoasca o parafraza reala ("ferestrele" vs "geamurile",
-# "izolatie" vs "izolare", "salile" vs "sali") fara sa cunoasca vreodata raspunsul asteptat
-# pentru un caz anume. Grupurile sunt derivate din vocabularul CORPUS-ului, nu din
-# formularea vreunei intrebari din eval_set_data.
+# Tezaur general de variante morfologice/sinonime (nu per-caz, nu per-intrebare): un
+# vocabular conceptual sintetic, definit manual, comun corpusului si intrebarilor din
+# eval_set_data, care include termenii/variantele/sinonimele folosite in parafrazele
+# fixture ("ferestrele" vs "geamurile", "izolatie" vs "izolare", "salile" vs "sali"). Nu
+# este o mapare per-caz (case.id -> expected/evidence): grupurile de cuvinte nu codifica
+# raspunsul asteptat pentru niciun caz anume.
 _SYNONYM_GROUPS: tuple[frozenset[str], ...] = (
     frozenset({"iluminatul", "iluminat", "iluminatului", "lumina", "luminii", "luminata", "luminate"}),
     frozenset({"natural", "naturala", "naturale", "naturali"}),
@@ -239,7 +241,7 @@ def test_intrebarile_semantice_sunt_parafraze_reale_nu_copii_ale_corpusului():
         run = _longest_common_token_run(_tokenize(case.intrebare), _tokenize(target_content))
         assert run <= _MAX_COPIED_TOKEN_RUN, (
             f"{case.id}: intrebarea reproduce {run} cuvinte consecutive din propozitia-tinta "
-            "din CORPUS (formulare copiata, nu parafraza reala)"
+            "din CORPUS (formulare copiata, nu parafraza sintetica controlata)"
         )
 
 
