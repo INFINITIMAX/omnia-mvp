@@ -26,6 +26,7 @@ Acest fișier separă deciziile explicite ale lui Lucian de propunerile agențil
 - Duplicatele identice se deduplică după `content_hash`; texte diferite pentru aceeași pereche document/articol produc `ambiguous_article`.
 - Căutarea semantică rulează numai fără intenție explicită și folosește top-K, prag și limită de context.
 - Citările publice vor conține numai metadata oficială și citat limitat; niciodată `source_key`.
+- UI-ul MVP folosește exclusiv `POST /intreaba`: afișează inițial exact „Limită: 10 întrebări/browser”, apoi numai `intrebari_ramase` primit de la API, fără `localStorage` sau estimare locală. HTTP 403 afișează `detail` din server și blochează permanent formularul; HTTP 429 afișează `detail` și timpul aproximativ, validează strict `Retry-After` ca întreg pozitiv și blochează temporar exact acea durată; 422 are mesaj dedicat, iar 503 și erorile de rețea/JSON invalid au un singur mesaj generic, fără status sau excepții expuse.
 
 ### Cost și utilizare
 

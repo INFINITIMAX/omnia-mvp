@@ -79,59 +79,6 @@
     margin-top: 1px;
   }
 
-  .new-convo {
-    width: 100%;
-    background: var(--accent);
-    color: white;
-    border: none;
-    border-radius: 8px;
-    padding: 10px 14px;
-    font-size: 13.5px;
-    font-weight: 600;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    transition: background 0.15s ease;
-  }
-  .new-convo:hover { background: var(--accent-hover); }
-
-  .sidebar-label {
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    color: var(--text-faint);
-    margin: 22px 4px 8px 4px;
-  }
-
-  .convo-list {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    overflow-y: auto;
-  }
-
-  .convo-item {
-    padding: 9px 10px;
-    border-radius: 7px;
-    cursor: pointer;
-    transition: background 0.12s ease;
-  }
-  .convo-item:hover { background: var(--surface-hover); }
-  .convo-item.active { background: var(--surface-hover); }
-
-  .convo-title {
-    font-size: 13px;
-    color: var(--text);
-    margin-bottom: 2px;
-  }
-
-  .convo-code {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--text-faint);
-  }
-
   .sidebar-footer {
     margin-top: auto;
     padding-top: 14px;
@@ -186,9 +133,7 @@
     margin: 0 6px;
   }
 
-  /* ---------- Doc badge + dropdown ---------- */
-  .doc-badge-wrap { position: relative; flex-shrink: 0; }
-
+  /* ---------- Doc badge (static, non-interactive) ---------- */
   .doc-badge {
     display: flex;
     align-items: center;
@@ -199,11 +144,10 @@
     padding: 7px 14px 7px 12px;
     font-size: 12.5px;
     color: var(--text-dim);
-    cursor: pointer;
-    transition: border-color 0.15s ease, background 0.15s ease;
+    cursor: default;
     white-space: nowrap;
+    flex-shrink: 0;
   }
-  .doc-badge:hover { border-color: #33405a; background: var(--surface-hover); }
 
   .status-dot {
     width: 6px;
@@ -214,64 +158,6 @@
   }
 
   .doc-badge strong { color: var(--text); font-weight: 600; }
-
-  .doc-badge .chevron {
-    color: var(--text-faint);
-    font-size: 10px;
-    margin-left: 2px;
-    transition: transform 0.15s ease;
-  }
-  .doc-badge-wrap.open .chevron { transform: rotate(180deg); }
-
-  .doc-popover {
-    position: absolute;
-    top: calc(100% + 8px);
-    right: 0;
-    width: 320px;
-    background: var(--surface-2);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    box-shadow: 0 12px 32px rgba(0,0,0,0.45);
-    padding: 14px;
-    display: none;
-    z-index: 20;
-  }
-  .doc-popover.open { display: block; }
-
-  .doc-popover-label {
-    font-size: 12px;
-    color: var(--text-dim);
-    margin-bottom: 10px;
-    line-height: 1.5;
-  }
-
-  .doc-search {
-    width: 100%;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 9px 12px;
-    font-size: 13px;
-    font-family: var(--mono);
-    color: var(--text);
-    outline: none;
-  }
-  .doc-search::placeholder { color: var(--text-faint); font-family: var(--sans); }
-  .doc-search:focus { border-color: var(--accent); }
-
-  .doc-result {
-    margin-top: 10px;
-    padding: 10px 12px;
-    border-radius: 8px;
-    font-size: 12.5px;
-    display: none;
-    align-items: center;
-    gap: 8px;
-  }
-  .doc-result.show { display: flex; }
-  .doc-result.found { background: #3ecf8e14; color: #6fe0ac; }
-  .doc-result.notfound { background: #ff5c5c14; color: #ff8a8a; }
-  .doc-result .code { font-family: var(--mono); font-weight: 600; }
 
   /* ---------- Chat area ---------- */
   .chat-area {
@@ -343,6 +229,7 @@
     transition: border-color 0.15s ease, color 0.15s ease;
   }
   .chip:hover { border-color: var(--accent); color: var(--text); }
+  .chip[aria-disabled="true"] { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
 
   /* ---------- Input ---------- */
   .input-bar {
@@ -386,7 +273,11 @@
     transition: background 0.15s ease;
     flex-shrink: 0;
   }
-  .send-btn:hover { background: var(--accent-hover); }
+  .send-btn:hover:not(:disabled) { background: var(--accent-hover); }
+  .send-btn:disabled, .input-shell input:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
 
   .input-hint {
     display: flex;
@@ -396,6 +287,13 @@
     color: var(--text-faint);
   }
   .input-hint .v { font-family: var(--mono); }
+
+  .citation-list {
+    margin: 10px 0 0;
+    padding-left: 18px;
+    color: var(--text-dim);
+    font-size: 12px;
+  }
 
   /* scrollbars */
   ::-webkit-scrollbar { width: 8px; }
@@ -414,27 +312,9 @@
       </div>
     </div>
 
-    <button class="new-convo">+ Conversație nouă</button>
-
-    <div class="sidebar-label">RECENTE</div>
-    <div class="convo-list">
-      <div class="convo-item active">
-        <div class="convo-title">Stări limită</div>
-        <div class="convo-code">CR 0-2012</div>
-      </div>
-      <div class="convo-item">
-        <div class="convo-title">Rezistență la foc</div>
-        <div class="convo-code">P118/3</div>
-      </div>
-      <div class="convo-item">
-        <div class="convo-title">Ventilație</div>
-        <div class="convo-code">I5-2022</div>
-      </div>
-    </div>
-
     <div class="sidebar-footer">
-      <div class="avatar"></div>
-      <div class="footer-name">Contul meu</div>
+      <div class="avatar" aria-hidden="true"></div>
+      <div class="footer-name">Vizitator anonim</div>
     </div>
   </aside>
 
@@ -445,176 +325,198 @@
         <p>Răspunsuri citate<span class="dot">•</span>Verificare articole<span class="dot">•</span>Căutare semantică</p>
       </div>
 
-      <div class="doc-badge-wrap" id="docWrap">
-        <div class="doc-badge" id="docBadge">
-          <span class="status-dot"></span>
-          <span><strong>247</strong> documente indexate</span>
-          <span class="chevron">▾</span>
-        </div>
-
-        <div class="doc-popover" id="docPopover">
-          <div class="doc-popover-label">Verifică dacă un normativ este în baza de date</div>
-          <input class="doc-search" id="docSearch" type="text" placeholder="ex: P118, I5, CR 0...">
-          <div class="doc-result" id="docResult"></div>
-        </div>
+      <div class="doc-badge" aria-label="Documente aprobate">
+        <span class="status-dot" aria-hidden="true"></span>
+        <span><strong>Documente aprobate</strong></span>
       </div>
     </div>
 
-    <div class="chat-area">
+    <div class="chat-area" id="chatArea" role="log" aria-live="polite" aria-relevant="additions text">
       <div class="msg">
-        <div class="msg-avatar">§</div>
+        <div class="msg-avatar" aria-hidden="true">§</div>
         <div class="msg-body">
           <p><strong>Bun venit în NormativAI.</strong></p>
-          <p>Întreabă orice despre normativele de instalații, ISU, HVAC sau structură. Fiecare răspuns va include articolul și sursa din documentul original.</p>
+          <p>Întreabă despre documentele aprobate. Răspunsurile indică sursa oficială disponibilă.</p>
         </div>
       </div>
 
-      <div class="suggestions">
-        <div class="chip">Cum sunt clasificate stările limită?</div>
-        <div class="chip">Care este debitul minim pentru grupuri sanitare?</div>
-        <div class="chip">Rezistența la foc a tubulaturii</div>
+      <div class="suggestions" id="suggestions">
+        <div class="chip" role="button" tabindex="0">Cum sunt clasificate stările limită?</div>
+        <div class="chip" role="button" tabindex="0">Care este debitul minim pentru grupuri sanitare?</div>
+        <div class="chip" role="button" tabindex="0">Rezistența la foc a tubulaturii</div>
       </div>
     </div>
 
     <div class="input-bar">
-      <div class="input-shell">
-        <input type="text" placeholder="Întreabă orice despre un normativ...">
-        <button class="send-btn">Trimite</button>
-      </div>
-      <div class="input-hint">
+      <form id="questionForm">
+        <div class="input-shell">
+          <input id="questionInput" type="text" maxlength="1000" required autocomplete="off" placeholder="Întreabă despre un normativ..." aria-describedby="inputHint quotaStatus">
+          <button class="send-btn" id="sendButton" type="submit">Trimite</button>
+        </div>
+      </form>
+      <div class="input-hint" id="inputHint">
         <span>Enter pentru trimitere</span>
-        <span class="v">v0.1 MVP</span>
+        <span class="v" id="quotaStatus" aria-live="polite">Limită: 10 întrebări/browser</span>
       </div>
     </div>
   </main>
 
   <script>
-    // ---------- Chat: conectat la POST /intreaba (main.py) ----------
-    const chatArea = document.querySelector('.chat-area');
-    const inputEl = document.querySelector('.input-shell input');
-    const sendBtn = document.querySelector('.send-btn');
+    const chatArea = document.getElementById('chatArea');
+    const questionForm = document.getElementById('questionForm');
+    const inputEl = document.getElementById('questionInput');
+    const sendBtn = document.getElementById('sendButton');
+    const quotaStatus = document.getElementById('quotaStatus');
     const chips = document.querySelectorAll('.chip');
+    const GENERIC_ERROR = 'Răspunsul nu este disponibil momentan. Încearcă din nou mai târziu.';
+    let requestActive = false;
+    let permanentlyLocked = false;
+    let temporarilyLocked = false;
 
-    // Transforma text simplu in text sigur de pus in HTML (previne ca textul
-    // primit de la Claude sau tastat de utilizator sa fie interpretat gresit
-    // ca marcaj HTML -- practica standard, se numeste "escaping").
-    function escapeHtml(text) {
-      const div = document.createElement('div');
-      div.textContent = text;
-      return div.innerHTML;
+    function setControlsDisabled(disabled) {
+      inputEl.disabled = disabled;
+      sendBtn.disabled = disabled;
+      chips.forEach((chip) => {
+        chip.setAttribute('aria-disabled', String(disabled));
+        chip.tabIndex = disabled ? -1 : 0;
+      });
     }
 
-    // Construieste un "bubble" de mesaj (intrebare sau raspuns) si il adauga in chat.
-    // Intoarce elementul creat, ca sa-i putem inlocui continutul mai tarziu
-    // (ex: cand inlocuim "Se cauta raspunsul..." cu raspunsul real).
-    function adaugaMesaj(rol, text) {
-      const msg = document.createElement('div');
-      msg.className = 'msg' + (rol === 'user' ? ' user' : '');
+    function scrollChatToEnd() {
+      chatArea.scrollTop = chatArea.scrollHeight;
+    }
 
+    function setMessage(body, text, citations) {
+      body.replaceChildren();
+      const answer = document.createElement('p');
+      answer.textContent = text;
+      body.appendChild(answer);
+
+      if (!Array.isArray(citations) || citations.length === 0) return;
+      const list = document.createElement('ul');
+      list.className = 'citation-list';
+      citations.forEach((citation) => {
+        const item = document.createElement('li');
+        const article = citation.articol ? `, art. ${citation.articol}` : '';
+        const excerpt = citation.citat ? ` — ${citation.citat}` : '';
+        item.textContent = `${citation.cod_document || 'Document oficial'}${article}: ${citation.titlu_document || ''}${excerpt}`;
+        list.appendChild(item);
+      });
+      body.appendChild(list);
+    }
+
+    function addMessage(role, text) {
+      const message = document.createElement('div');
+      message.className = `msg${role === 'user' ? ' user' : ''}`;
       const avatar = document.createElement('div');
       avatar.className = 'msg-avatar';
-      avatar.textContent = rol === 'user' ? 'T' : '§';
-
+      avatar.setAttribute('aria-hidden', 'true');
+      avatar.textContent = role === 'user' ? 'T' : '§';
       const body = document.createElement('div');
       body.className = 'msg-body';
-      body.innerHTML = '<p>' + escapeHtml(text).replace(/\n/g, '<br>') + '</p>';
-
-      msg.appendChild(avatar);
-      msg.appendChild(body);
-      chatArea.appendChild(msg);
-      chatArea.scrollTop = chatArea.scrollHeight;
-      return msg;
+      setMessage(body, text);
+      message.append(avatar, body);
+      chatArea.appendChild(message);
+      scrollChatToEnd();
+      return body;
     }
 
-    async function trimiteIntrebare(textBrut) {
-      const intrebare = textBrut.trim();
-      if (!intrebare) return;
+    // Backend-ul trimite mereu un Retry-After numeric, in secunde intregi pozitive
+    // (vezi _retry_after_seconds in main.py); orice alta forma e tratata ca invalida.
+    function retryAfterSeconds(value) {
+      if (value === null || !/^[1-9]\d*$/.test(value)) return null;
+      return Number(value);
+    }
 
+    async function readSafeDetail(response, fallback) {
+      try {
+        const data = await response.json();
+        return typeof data.detail === 'string' && data.detail.trim() ? data.detail : fallback;
+      } catch (_) {
+        return fallback;
+      }
+    }
+
+    function lockTemporarily(seconds) {
+      temporarilyLocked = true;
+      setControlsDisabled(true);
+      window.setTimeout(() => {
+        temporarilyLocked = false;
+        if (!permanentlyLocked && !requestActive) setControlsDisabled(false);
+      }, seconds * 1000);
+    }
+
+    async function sendQuestion(rawQuestion) {
+      const intrebare = rawQuestion.trim();
+      if (!intrebare || requestActive || permanentlyLocked || temporarilyLocked) return;
+
+      requestActive = true;
+      setControlsDisabled(true);
       inputEl.value = '';
-      adaugaMesaj('user', intrebare);
-
-      sendBtn.disabled = true;
-      sendBtn.style.opacity = '0.6';
-      sendBtn.style.cursor = 'wait';
-      const mesajAsteptare = adaugaMesaj('assistant', 'Se caută răspunsul...');
+      addMessage('user', intrebare);
+      const pendingBody = addMessage('assistant', 'Se caută răspunsul...');
 
       try {
-        const raspunsServer = await fetch('/intreaba', {
+        const response = await fetch('/intreaba', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ intrebare })
         });
 
-        if (!raspunsServer.ok) {
-          throw new Error('Serverul a raspuns cu status ' + raspunsServer.status);
+        if (response.status === 403) {
+          const detail = await readSafeDetail(response, 'Ai folosit toate întrebările disponibile în acest browser.');
+          permanentlyLocked = true;
+          quotaStatus.textContent = 'Întrebări rămase: 0/browser';
+          setMessage(pendingBody, detail);
+          return;
+        }
+        if (response.status === 429) {
+          const seconds = retryAfterSeconds(response.headers.get('Retry-After'));
+          if (seconds === null) {
+            setMessage(pendingBody, GENERIC_ERROR);
+            return;
+          }
+          const detail = await readSafeDetail(response, 'Prea multe cereri.');
+          setMessage(pendingBody, `${detail} Reîncearcă peste aproximativ ${seconds} s.`);
+          lockTemporarily(seconds);
+          return;
+        }
+        if (response.status === 422) {
+          setMessage(pendingBody, 'Întrebarea introdusă nu este validă. Verifică textul și încearcă din nou.');
+          return;
+        }
+        if (!response.ok) {
+          setMessage(pendingBody, GENERIC_ERROR);
+          return;
         }
 
-        const date = await raspunsServer.json();
-        mesajAsteptare.querySelector('.msg-body').innerHTML =
-          '<p>' + escapeHtml(date.raspuns || 'Nu am primit un raspuns valid.').replace(/\n/g, '<br>') + '</p>';
-      } catch (eroare) {
-        mesajAsteptare.querySelector('.msg-body').innerHTML =
-          '<p>Eroare la conectarea cu serverul: ' + escapeHtml(String(eroare)) + '</p>';
+        const data = await response.json();
+        if (typeof data.raspuns !== 'string' || !Number.isInteger(data.intrebari_ramase)) {
+          throw new Error('Răspuns invalid');
+        }
+        quotaStatus.textContent = `Întrebări rămase: ${data.intrebari_ramase}/browser`;
+        setMessage(pendingBody, data.raspuns, data.citari);
+      } catch (_) {
+        setMessage(pendingBody, GENERIC_ERROR);
       } finally {
-        sendBtn.disabled = false;
-        sendBtn.style.opacity = '';
-        sendBtn.style.cursor = '';
-        chatArea.scrollTop = chatArea.scrollHeight;
+        requestActive = false;
+        if (!permanentlyLocked && !temporarilyLocked) setControlsDisabled(false);
+        scrollChatToEnd();
       }
     }
 
-    sendBtn.addEventListener('click', () => trimiteIntrebare(inputEl.value));
-
-    // "keydown" prinde apasarea tastei Enter; preventDefault() opreste
-    // comportamentul implicit (ex: submit de formular / linie noua).
-    inputEl.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        trimiteIntrebare(inputEl.value);
-      }
+    questionForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      sendQuestion(inputEl.value);
     });
 
-    // Fiecare chip de sugestie trimite direct textul lui ca intrebare, la click.
     chips.forEach((chip) => {
-      chip.addEventListener('click', () => trimiteIntrebare(chip.textContent));
-    });
-
-    // ---------- Popover verificare documente ----------
-    // ATENTIE: foloseste inca date demonstrative (demoIndexed), nu bazei de
-    // date reale -- backend-ul nu are inca un endpoint pentru asta
-    // (vezi memoria "Omnia UI roadmap", punctele 2 si 4).
-    const docBadge = document.getElementById('docBadge');
-    const docWrap = document.getElementById('docWrap');
-    const docPopover = document.getElementById('docPopover');
-    const docSearch = document.getElementById('docSearch');
-    const docResult = document.getElementById('docResult');
-
-    // set demonstrativ de coduri "existente" doar pentru a arata comportamentul vizual
-    const demoIndexed = ['P118', 'CR0', 'I5', 'NP010', 'C56'];
-
-    docBadge.addEventListener('click', (e) => {
-      e.stopPropagation();
-      docWrap.classList.toggle('open');
-      docPopover.classList.toggle('open');
-      if (docPopover.classList.contains('open')) docSearch.focus();
-    });
-
-    document.addEventListener('click', (e) => {
-      if (!docWrap.contains(e.target)) {
-        docWrap.classList.remove('open');
-        docPopover.classList.remove('open');
-      }
-    });
-
-    docSearch.addEventListener('input', () => {
-      const q = docSearch.value.trim().toUpperCase().replace(/[\s-]/g, '');
-      if (!q) { docResult.classList.remove('show'); return; }
-      const found = demoIndexed.some(code => code.replace(/[\s-]/g, '') === q);
-      docResult.classList.add('show');
-      docResult.className = 'doc-result show ' + (found ? 'found' : 'notfound');
-      docResult.innerHTML = found
-        ? `✓ <span class="code">${docSearch.value.trim()}</span> este indexat în baza de date`
-        : `✕ <span class="code">${docSearch.value.trim()}</span> nu a fost găsit`;
+      chip.addEventListener('click', () => sendQuestion(chip.textContent));
+      chip.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        sendQuestion(chip.textContent);
+      });
     });
   </script>
 

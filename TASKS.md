@@ -109,6 +109,17 @@
 - [ ] Gate producție pentru `ANONYMOUS_COOKIE_SECURE=true`, proxy/UI/CORS rămân explicit out of scope.
 - [ ] Cerința țintă de ștergere fizică a bucket-urilor IP în maximum 24 de ore este deferred: ferestrele expiră logic și nu mai sunt reutilizate, însă nu există scheduler/job; acesta necesită aprobare separată înainte de deployment.
 
+## Predare — UI MVP conectat la controalele anonime
+
+- [x] `static/index.html` cheamă exclusiv `POST /intreaba`; textul inițial este exact „Limită: 10 întrebări/browser”, apoi este înlocuit cu `intrebari_ramase` din fiecare răspuns normal (fără `localStorage` sau ghicit local).
+- [x] HTTP 403 afișează `detail` din server, fixează afișajul la 0 întrebări și blochează permanent formularul; HTTP 429 afișează `detail` plus timpul aproximativ, validează strict `Retry-After` ca întreg pozitiv (fără interpretare de dată calendaristică) și blochează temporar exact pe durata respectivă.
+- [x] HTTP 422 are mesaj dedicat, fără a expune corpul brut al erorii de validare; 503, erorile de rețea și JSON invalid au un singur mesaj generic comun, fără cod de status sau text de excepție.
+- [x] Trimiterea prin click, Enter și chips-urile de sugestie trec toate prin același guard (`sendQuestion`); input, buton și chips se dezactivează în timpul cererii și pe durata blocărilor.
+- [x] Răspunsul și citările (`cod_document`, `titlu_document`, `articol`, `citat`) sunt randate exclusiv prin `textContent`/DOM, fără `innerHTML` pentru date server/utilizator; JS nu citește `document.cookie`.
+- [x] Eliminate: badge-ul cu „247 documente indexate” și popover-ul cu `demoIndexed`, lista de conversații demonstrative din sidebar, „Contul meu” (înlocuit cu „Vizitator anonim”) și butonul inert „+ Conversație nouă”; badge-ul rămas este neutru („Documente aprobate”, fără interacțiune).
+- [x] CSS moarte pentru elementele eliminate a fost curățată; fără redesign, restul aspectului este păstrat.
+- [x] Teste statice noi în `tests/test_ui_static.py` (29 teste) validează contractul de mai sus și rulează `node --check` pe JS-ul extras din pagină; suita completă `python -m pytest -q` → 194 passed.
+
 ## Backlog ordonat
 
 1. Faza 1: migrarea Supabase pentru metadata și chunk identity. **Finalizată.**
