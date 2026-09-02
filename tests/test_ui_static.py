@@ -38,10 +38,30 @@ def test_fara_localstorage_sau_ghicit_quota():
 
 # ---------- 403 / 429 / 422 / 503 / rețea ----------
 
-def test_403_blocheaza_permanent_si_seteaza_quota_zero():
+def test_403_blocheaza_permanent_si_seteaza_quota_din_payload():
     assert "response.status === 403" in SCRIPT
-    assert "permanentlyLocked = true;" in SCRIPT
-    assert "Întrebări rămase: 0/browser" in SCRIPT
+    match = re.search(r"if \(response\.status === 403\) \{(.*?)\n        \}", SCRIPT, re.S)
+    assert match is not None, "handlerul 403 trebuie identificat pentru verificări stricte"
+    block = match.group(1)
+    assert "permanentlyLocked = true;" in block
+    # quota trebuie citită și validată din body, nu hardcodată ca literal sursă a lock-ului
+    assert "Number.isInteger(data.intrebari_ramase)" in block
+    assert "data.intrebari_ramase === 0" in block
+    assert "`Întrebări rămase: ${data.intrebari_ramase}/browser`" in block
+
+
+def test_403_cu_payload_invalid_nu_blocheaza_permanent():
+    match = re.search(r"if \(response\.status === 403\) \{(.*?)\n        \}", SCRIPT, re.S)
+    assert match is not None
+    block = match.group(1)
+    # dacă JSON e invalid/lipsă sau intrebari_ramase nu e exact 0, nu se blochează și nu se tratează payload-ul ca valid
+    assert "readSafeJson(response)" in block
+    assert "data !== null" in block
+    assert re.search(r"if \(!quotaValid\) \{\s*setMessage\(pendingBody, GENERIC_ERROR\);\s*return;\s*\}", block)
+    # linia care blochează permanent apare numai după verificarea quotaValid
+    lock_index = block.index("permanentlyLocked = true;")
+    guard_index = block.index("if (!quotaValid)")
+    assert guard_index < lock_index
 
 
 def test_429_foloseste_retry_after_numeric_pozitiv_si_lock_temporar():
