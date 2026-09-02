@@ -8,9 +8,14 @@ Ruleaza fiecare caz din eval_set_data prin RetrievalService real, cu un reposito
 sintetic care NU primeste EvalCase/tip/expected: cauta exact strict dupa document+articol
 in CORPUS, iar la semantic clasifica intregul CORPUS (inclusiv decoy-uri fara legatura)
 prin similaritate cosinus reala intre vectorul intrebarii si vectorii continutului,
-derivati determinist din text (bag-of-words peste un vocabular fix). Metricile verifica
-identitatea document+articol asteptata, nu doar statusul "found", iar un caz de control
-negativ dovedeste ca o intrebare fara semnal relevant nu primeste automat dovada.
+derivati determinist din text (bag-of-words peste un vocabular fix, cu un tezaur general
+de sinonime/variante morfologice _SYNONYM_GROUPS - nu o mapare caz->dovada). Metricile
+verifica identitatea document+articol asteptata, nu doar statusul "found", iar un caz de
+control negativ dovedeste ca o intrebare fara semnal relevant nu primeste automat dovada.
+
+SEMANTIC_CASES contine minimum 10 parafraze reale (alt vocabular/alta structura de fraza
+decat propozitia-tinta din CORPUS); un test dedicat verifica literal ca nicio intrebare nu
+reproduce un fragment lung din formularea corpusului (vezi _MAX_COPIED_TOKEN_RUN mai jos).
 """
 
 import math
@@ -35,18 +40,64 @@ _TOKEN = re.compile(r"[a-zA-ZăâîșțĂÂÎȘȚ]+")
 
 
 def _tokenize(text: str) -> tuple[str, ...]:
+    """Tokenizare literala (fara normalizare); folosita si de verificarea anti-copiere."""
     return tuple(_TOKEN.findall(text.lower()))
+
+
+# Tezaur general de variante morfologice/sinonime (nu per-caz, nu per-intrebare): permite
+# embedderului sintetic sa recunoasca o parafraza reala ("ferestrele" vs "geamurile",
+# "izolatie" vs "izolare", "salile" vs "sali") fara sa cunoasca vreodata raspunsul asteptat
+# pentru un caz anume. Grupurile sunt derivate din vocabularul CORPUS-ului, nu din
+# formularea vreunei intrebari din eval_set_data.
+_SYNONYM_GROUPS: tuple[frozenset[str], ...] = (
+    frozenset({"iluminatul", "iluminat", "iluminatului", "lumina", "luminii", "luminata", "luminate"}),
+    frozenset({"natural", "naturala", "naturale", "naturali"}),
+    frozenset({"scolilor", "scoala", "scolare", "scolar", "scoli", "scolara", "scolii"}),
+    frozenset({"ferestrele", "ferestre", "fereastra", "geamurile", "geamuri", "geamul"}),
+    frozenset({"dimensionate", "dimensiune", "dimensiuni", "dimensionarea", "dimensionarii", "dimensionat"}),
+    frozenset({"suprafetei", "suprafata", "suprafete"}),
+    frozenset({"salilor", "sala", "sali", "salile", "salii"}),
+    frozenset({"clasa", "clase", "clasei", "clasele"}),
+    frozenset({"siguranta", "sigure", "sigur", "sigura", "sigurantei"}),
+    frozenset({"incendiu", "incendii", "foc", "incendiului"}),
+    frozenset({"evacuare", "evacuarea", "evacuati", "evacuarii", "evacuate"}),
+    frozenset({"cladiri", "cladirile", "cladire", "cladirilor", "blocurile", "blocuri", "bloc", "blocurilor"}),
+    frozenset({"izolatie", "izolatia", "izolare", "izolarea", "izoleze", "izolarii", "izolatiei"}),
+    frozenset({"fonica", "fonic", "acustica", "acustic", "sunet", "sunetul", "zgomotul", "zgomot"}),
+    frozenset({"pereti", "peretii", "peretilor", "peretele"}),
+    frozenset({"despartitori", "despartitoare", "despartitor"}),
+    frozenset({"proiecteaza", "proiectarea", "proiectare", "proiectate", "proiectat"}),
+    frozenset({"locuinte", "locuinta", "locuintelor", "locuibile", "locuintei"}),
+    frozenset({"distante", "distanta", "distantele", "distantei"}),
+    frozenset({"orientare", "orientarea", "orientate", "orientat"}),
+    frozenset({"acces", "accesul", "accesibile", "accesibilitate"}),
+    frozenset({"cai", "caile", "cailor", "calea"}),
+    frozenset({"usi", "usile", "usilor", "usa"}),
+    frozenset({"minime", "minima", "minim", "minimale"}),
+    frozenset({"auto", "masina", "masini", "autovehicul", "autovehicule"}),
+)
+
+# Fiecare cuvant dintr-un grup e mapat la forma sa canonica (cea mai mica alfabetic, arbitrar
+# dar determinist). Cuvintele din afara tezaurului raman neschimbate.
+_CANONICAL_FORM: dict[str, str] = {
+    word: min(group) for group in _SYNONYM_GROUPS for word in group
+}
+
+
+def _canonicalize(tokens: tuple[str, ...]) -> tuple[str, ...]:
+    return tuple(_CANONICAL_FORM.get(token, token) for token in tokens)
 
 
 # Vocabular fix, derivat determinist din CORPUS (sortat -> reproductibil, fara hash()).
 _VOCABULARY: tuple[str, ...] = tuple(
-    sorted({token for entry in CORPUS for token in _tokenize(entry.content)})
+    sorted({token for entry in CORPUS for token in _canonicalize(_tokenize(entry.content))})
 )
 
 
 def _vectorize(text: str) -> tuple[float, ...]:
-    """Vector bag-of-words peste _VOCABULARY; cuvinte in afara vocabularului sunt ignorate."""
-    counts = Counter(_tokenize(text))
+    """Vector bag-of-words peste _VOCABULARY (dupa canonicalizare); cuvinte in afara
+    vocabularului sunt ignorate."""
+    counts = Counter(_canonicalize(_tokenize(text)))
     return tuple(float(counts.get(term, 0)) for term in _VOCABULARY)
 
 
@@ -141,6 +192,55 @@ def test_corpusul_sintetic_are_o_singura_intrare_per_document_si_articol():
     """Garanteaza ca nu exista ambiguitate accidentala introdusa de corpus (chei duplicate)."""
     chei = [(entry.document_id, entry.articol_normalizat) for entry in CORPUS]
     assert len(chei) == len(set(chei)), "CORPUS contine duplicate document+articol"
+
+
+def _corpus_content_for(case) -> str:
+    for entry in CORPUS:
+        if entry.document_id == case.document_id and entry.articol_normalizat == case.articol_normalizat:
+            return entry.content
+    raise AssertionError(f"{case.id}: nu exista in CORPUS o intrare pentru document/articol asteptat")
+
+
+def _longest_common_token_run(a: tuple[str, ...], b: tuple[str, ...]) -> int:
+    """Cel mai lung sir de cuvinte consecutive identice (literal, fara canonicalizare)."""
+    best = 0
+    for i in range(len(a)):
+        for j in range(len(b)):
+            run = 0
+            while i + run < len(a) and j + run < len(b) and a[i + run] == b[j + run]:
+                run += 1
+            best = max(best, run)
+    return best
+
+
+# Peste acest prag, intrebarea nu mai e o parafraza: reproduce o bucata din formularea
+# propozitiei-tinta din CORPUS. Sintagme uzuale de 2-3 cuvinte ("sali de clasa", "cai de
+# evacuare") raman sub prag; o clauza intreaga copiata nu.
+_MAX_COPIED_TOKEN_RUN = 3
+
+
+def test_evaluarea_semantica_are_minimum_zece_cazuri_pentru_metrica_90():
+    """Pragul de acceptare >=90% (vezi mai jos) trebuie masurat pe un esantion suficient."""
+    assert len(SEMANTIC_CASES) >= 10, (
+        f"SEMANTIC_CASES are {len(SEMANTIC_CASES)} cazuri; pragul de 90% nu e o metrica "
+        "de incredere sub 10 cazuri"
+    )
+
+
+def test_intrebarile_semantice_sunt_parafraze_reale_nu_copii_ale_corpusului():
+    """Fiecare intrebare semantica trebuie sa fie o reformulare, nu formularea din CORPUS.
+
+    Verificare literala (fara sinonime/canonicalizare): daca intrebarea ar contine un sir
+    lung de cuvinte identic cu propozitia-tinta, testul de similaritate cosinus ar reusi
+    trivial prin copiere, nu prin recunoasterea reala a unei parafraze.
+    """
+    for case in SEMANTIC_CASES:
+        target_content = _corpus_content_for(case)
+        run = _longest_common_token_run(_tokenize(case.intrebare), _tokenize(target_content))
+        assert run <= _MAX_COPIED_TOKEN_RUN, (
+            f"{case.id}: intrebarea reproduce {run} cuvinte consecutive din propozitia-tinta "
+            "din CORPUS (formulare copiata, nu parafraza reala)"
+        )
 
 
 def test_setul_de_evaluare_respecta_criteriile_mvp_din_spec():

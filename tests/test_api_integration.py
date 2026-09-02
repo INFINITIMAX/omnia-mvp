@@ -139,6 +139,16 @@ def configure(api, connection, embedder=None, generator=None, runtime_config=ACC
     return api
 
 
+def _assert_no_technical_identifiers(response):
+    """Verifica raspunsul HTTP real (nu doar promptul intern): niciun identificator tehnic
+    intern nu trebuie sa se scurga catre client, indiferent de status."""
+    corp = response.text
+    assert "source_key" not in corp
+    assert "doc-1" not in corp, "document_id intern nu trebuie sa apara in raspunsul public"
+    assert "_extras.txt" not in corp
+    assert "extras.txt" not in corp
+
+
 def test_exact_answered_are_citare_publica_si_zero_voyage(api):
     connection = ConnectionFake()
     embedder = EmbedderFake()
@@ -214,17 +224,15 @@ def test_statusurile_controlate_nu_apeleaza_claude(api, question, connection):
     ],
 )
 def test_raspunsul_public_nu_contine_niciodata_identificatori_tehnici(api, question, connection):
-    """Verifica raspunsul HTTP real (nu doar promptul intern) pe toate statusurile posibile."""
+    """Verifica raspunsul HTTP real pe toate statusurile retrieval sub 200 (found/not_found/
+    ambiguous_*); statusurile publice 422/403/429/503 sunt verificate cu acelasi helper direct
+    in testele lor reprezentative (vezi _assert_no_technical_identifiers)."""
     response = configure(api, connection, EmbedderFake(), GeneratorFake()).post(
         "/intreaba", json={"intrebare": question}
     )
 
     assert response.status_code == 200
-    corp = response.text
-    assert "source_key" not in corp
-    assert "doc-1" not in corp, "document_id intern nu trebuie sa apara in raspunsul public"
-    assert "_extras.txt" not in corp
-    assert "extras.txt" not in corp
+    _assert_no_technical_identifiers(response)
 
 
 @pytest.mark.parametrize("question", ["", "   ", "x" * 1001])
@@ -254,6 +262,7 @@ def test_input_invalid_este_422_inainte_de_toti_providerii(api, question):
 
     assert response.status_code == 422
     assert calls == {"connection": 0, "embedder": 0, "generator": 0}
+    _assert_no_technical_identifiers(response)
 
 
 @pytest.mark.parametrize(
@@ -273,6 +282,7 @@ def test_erorile_dependentei_sunt_503_generic_si_conexiunea_se_inchide(
     assert response.status_code == 503
     assert response.json() == {"detail": "Serviciul este temporar indisponibil."}
     assert connection.closed
+    _assert_no_technical_identifiers(response)
 
 
 @pytest.mark.parametrize("embeddings", [[], [[]], [("nu-este-numar",)], [([float("inf")],)]])
@@ -474,6 +484,7 @@ def test_rate_limit_429_are_retry_after_si_nu_rezerva_quota(api):
     assert connection.rollbacks == 0
     assert all("anonymous_usage" not in sql for sql, _ in connection.calls)
     assert embedder.calls == generator.calls == 0
+    _assert_no_technical_identifiers(response)
 
 
 def test_quota_403_are_intrebari_ramase_zero_si_face_rollback(api):
@@ -494,6 +505,7 @@ def test_quota_403_are_intrebari_ramase_zero_si_face_rollback(api):
     assert connection.commits == 1
     assert connection.rollbacks == 1
     assert embedder.calls == generator.calls == 0
+    _assert_no_technical_identifiers(response)
 
 
 def test_rollback_db_esuat_la_eroare_cunoscuta_devine_503_generic(api):

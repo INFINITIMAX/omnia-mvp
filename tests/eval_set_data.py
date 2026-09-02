@@ -111,10 +111,86 @@ NOT_FOUND_CASES: tuple[EvalCase, ...] = (
 
 # Intrebari fara referinta explicita de articol -> semantic search, rankuit prin
 # similaritate cosinus reala fata de CORPUS (inclusiv decoy-urile de mai sus).
+#
+# Fiecare intrebare e o parafraza reala a articolului-tinta: alt vocabular, alta ordine
+# a cuvintelor, alta structura de fraza, NU formularea propozitiei din CORPUS. Harness-ul
+# verifica acest lucru explicit (test_eval_set.py: test_intrebarile_semantice_sunt_parafraze...),
+# iar embedderul sintetic recunoaste variantele morfologice/sinonimele printr-un tezaur
+# general de cuvinte (_SYNONYM_GROUPS din test_eval_set.py), nu printr-o mapare
+# caz -> dovada asteptata.
 SEMANTIC_CASES: tuple[EvalCase, ...] = (
-    EvalCase("semantic-1", "semantic", "Ce cerinte exista pentru iluminatul natural al scolilor?", "doc-np010", "4.4.7.2"),
-    EvalCase("semantic-2", "semantic", "Cum se proiecteaza cladirile de locuinte conform normativului?", "doc-np057", "5.1.1"),
-    EvalCase("semantic-3", "semantic", "Care sunt regulile de siguranta la incendiu pentru cladiri scolare?", "doc-np010", "4.6.(1)"),
+    EvalCase(
+        "semantic-1", "semantic",
+        "Cum trebuie dimensionate ferestrele unei sali de clasa, in functie de suprafata ei "
+        "utila, pentru lumina naturala?",
+        "doc-np010", "4.4.7.2",
+    ),
+    EvalCase(
+        "semantic-2", "semantic",
+        "Ce reguli exista pentru marimea geamurilor dintr-o sala de clasa, raportat la "
+        "suprafata utila a incaperii?",
+        "doc-np010", "4.4.7.2",
+    ),
+    EvalCase(
+        "semantic-3", "semantic",
+        "Ce cerinta de iluminat natural trebuie respectata pentru salile de clasa dintr-o "
+        "scoala, avand in vedere suprafata ferestrelor?",
+        "doc-np010", "4.4.7.2",
+    ),
+    EvalCase(
+        "semantic-4", "semantic",
+        "Ce prevede normativul despre caile de evacuare marcate dintr-o cladire scolara, "
+        "in caz de incendiu?",
+        "doc-np010", "4.6.(1)",
+    ),
+    EvalCase(
+        "semantic-5", "semantic",
+        "Cum trebuie sa fie usile unei scoli pentru a rezista la foc, conform regulilor de "
+        "siguranta?",
+        "doc-np010", "4.6.(1)",
+    ),
+    EvalCase(
+        "semantic-6", "semantic",
+        "Ce obligatii au cladirile scolare in privinta sigurantei la incendiu si a "
+        "evacuarii elevilor?",
+        "doc-np010", "4.6.(1)",
+    ),
+    EvalCase(
+        "semantic-7", "semantic",
+        "Ce nivel de izolatie fonica trebuie sa aiba peretele dintre doua sali de clasa "
+        "alaturate?",
+        "doc-np010", "3.2.(b).l",
+    ),
+    EvalCase(
+        "semantic-8", "semantic",
+        "Cum se asigura o izolare fonica buna intre doua sali de clasa vecine, la nivelul "
+        "peretelui despartitor?",
+        "doc-np010", "3.2.(b).l",
+    ),
+    EvalCase(
+        "semantic-9", "semantic",
+        "Ce cerinte de izolare fonica trebuie sa respecte peretele despartitor dintre doua "
+        "sali de clasa?",
+        "doc-np010", "3.2.(b).l",
+    ),
+    EvalCase(
+        "semantic-10", "semantic",
+        "Cat de mare trebuie sa fie distanta minima dintre doua blocuri de locuinte "
+        "alaturate?",
+        "doc-np057", "5.1.1",
+    ),
+    EvalCase(
+        "semantic-11", "semantic",
+        "Ce reguli de orientare si de acces cu masina se aplica atunci cand se proiecteaza "
+        "un bloc de locuinte?",
+        "doc-np057", "5.1.1",
+    ),
+    EvalCase(
+        "semantic-12", "semantic",
+        "La proiectarea unei cladiri rezidentiale, ce se cere in privinta accesului auto "
+        "pentru fiecare apartament?",
+        "doc-np057", "5.1.1",
+    ),
 )
 
 # Control negativ: intrebare semantica fara nicio suprapunere de vocabular cu CORPUS.
