@@ -8,8 +8,9 @@ Ruleaza fiecare caz din eval_set_data prin RetrievalService real, cu un reposito
 sintetic care NU primeste EvalCase/tip/expected: cauta exact strict dupa document+articol
 in CORPUS, iar la semantic clasifica intregul CORPUS (inclusiv decoy-uri fara legatura)
 prin similaritate cosinus reala intre vectorul intrebarii si vectorii continutului,
-derivati determinist din text (bag-of-words peste un vocabular fix, cu un tezaur general
-de sinonime/variante morfologice _SYNONYM_GROUPS - nu o mapare caz->dovada). Metricile
+derivati determinist din text (bag-of-words peste un vocabular fix, cu un vocabular
+conceptual sintetic definit manual, comun corpusului si interogarilor, de variante
+morfologice/sinonime _SYNONYM_GROUPS - nu o mapare caz->dovada). Metricile
 verifica identitatea document+articol asteptata, nu doar statusul "found", iar un caz de
 control negativ dovedeste ca o intrebare fara semnal relevant nu primeste automat dovada.
 
@@ -229,7 +230,7 @@ def test_evaluarea_semantica_are_minimum_zece_cazuri_pentru_metrica_90():
     )
 
 
-def test_intrebarile_semantice_sunt_parafraze_reale_nu_copii_ale_corpusului():
+def test_intrebarile_semantice_sunt_parafraze_sintetice_controlate_nu_copii_ale_corpusului():
     """Fiecare intrebare semantica trebuie sa fie o reformulare, nu formularea din CORPUS.
 
     Verificare literala (fara sinonime/canonicalizare): daca intrebarea ar contine un sir
