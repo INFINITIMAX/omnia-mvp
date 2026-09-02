@@ -207,6 +207,7 @@ def test_statusurile_controlate_nu_apeleaza_claude(api, question, connection):
     ("question", "connection"),
     [
         ("NP 010-2022, art. 4.4.7.2", ConnectionFake()),
+        ("Care este regula sintetică?", ConnectionFake()),
         ("art. 99.99.99", ConnectionFake(exact_rows=())),
         ("art. 4.4.7.2", ConnectionFake(exact_rows=(EXACT_ROW, EXACT_ROW[:-1] + ("hash-b",)))),
         ("art. 4.4.7.2 și art. 4.6.(1)", ConnectionFake()),
