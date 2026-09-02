@@ -46,12 +46,11 @@ def _tokenize(text: str) -> tuple[str, ...]:
     return tuple(_TOKEN.findall(text.lower()))
 
 
-# Tezaur general de variante morfologice/sinonime (nu per-caz, nu per-intrebare): un
-# vocabular conceptual sintetic, definit manual, comun corpusului si intrebarilor din
-# eval_set_data, care include termenii/variantele/sinonimele folosite in parafrazele
-# fixture ("ferestrele" vs "geamurile", "izolatie" vs "izolare", "salile" vs "sali"). Nu
-# este o mapare per-caz (case.id -> expected/evidence): grupurile de cuvinte nu codifica
-# raspunsul asteptat pentru niciun caz anume.
+# Vocabular conceptual sintetic, definit manual (nu per-caz, nu per-intrebare), comun
+# corpusului si intrebarilor din eval_set_data, care include termenii/variantele/sinonimele
+# folosite in parafrazele fixture ("ferestrele" vs "geamurile", "izolatie" vs "izolare",
+# "salile" vs "sali"). Nu este o mapare per-caz (case.id -> expected/evidence): grupurile de
+# cuvinte nu codifica raspunsul asteptat pentru niciun caz anume.
 _SYNONYM_GROUPS: tuple[frozenset[str], ...] = (
     frozenset({"iluminatul", "iluminat", "iluminatului", "lumina", "luminii", "luminata", "luminate"}),
     frozenset({"natural", "naturala", "naturale", "naturali"}),
