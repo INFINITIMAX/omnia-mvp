@@ -19,8 +19,10 @@
 
 ## Ce nu este încă funcțional în aplicația publică
 
-- Gate-ul de deployment care obligă `ANONYMOUS_COOKIE_SECURE=true` în producție este încă out of scope. Nu există logică nouă de proxy, cleanup runtime, UI sau CORS în această fază. Ferestrele rate-limit expiră logic prin `expires_at` după 24 ore și nu mai sunt reutilizate, dar ștergerea fizică în maximum 24 ore nu este garantată fără un scheduler/job separat, rămas deferred până la aprobare înainte de deployment.
-- UI-ul nu are cont, istoric, endpointuri `/documents`/`/health` sau CORS.
+- Gate-ul de deployment care obligă `ANONYMOUS_COOKIE_SECURE=true` în producție este încă out of scope. Ferestrele rate-limit expiră logic prin `expires_at` după 24 ore și nu mai sunt reutilizate, dar ștergerea fizică în maximum 24 ore nu este garantată fără un scheduler/job separat, rămas deferred până la aprobare înainte de deployment.
+- Rate limiting-ul folosește exclusiv `request.client.host`; nu există suport trusted proxy (`X-Forwarded-For` nu este citit/folosit), CORS sau cleanup runtime.
+- UI-ul nu are cont, istoric sau endpointuri `/documents`/`/health`; ambele sunt cerute de `PLAN.md` și rămân restante, nu „decizii deschise" cu privire la dacă vor exista. `/health` este restant obligatoriu, necesar înainte de deployment. `/documents` este restant pentru completarea Faza 6; contractul lui public exact (rută, formă răspuns) și metadata expusă necesită explicație și aprobare explicită înainte de implementare.
+- UI MVP-ul curent este funcțional finalizat (conectat la `POST /intreaba` și la controalele anonime), dar redesign-ul vizual și testarea manuală în browser real rămân deferate.
 - Nu există deployment public final.
 - Nu s-a rulat un smoke test plătit pentru noul Retrieval Core.
 
@@ -37,7 +39,7 @@
 
 ## Fișiere principale
 
-- `main.py` — API-ul existent; urmează să fie refactorizat.
+- `main.py` — FastAPI: `GET /` și `POST /intreaba`, integrează Retrieval Core, Generation Core și controalele anonime.
 - `retrieval_core.py` — parser, repository PostgreSQL și serviciul de retrieval.
 - `populare_db.py` — ingestion controlat și validat.
 - `supabase/migrations/` — schema reproductibilă și metadata.
@@ -60,8 +62,8 @@
 - Testele standard nu apelează servicii plătite.
 - Voyage va fi apelat numai pentru întrebări semantice acceptate; adaptorul este lazy și injectabil.
 - Claude va fi apelat numai dacă există dovezi suficiente; adaptorul este lazy și injectabil.
-- Limitele actuale propuse sunt: top-K 5, prag 0.50, context 12.000 caractere și răspuns maximum 800 tokenuri.
+- Limitele implicite implementate în cod sunt: top-K 5, prag 0.50, context 12.000 caractere și răspuns maximum 800 tokenuri.
 
 ## Următorul obiectiv
 
-Faza 4: controale de cost aprobate separat: fiecare browser are quota anonimă de 10 întrebări și rate limiting; cei 4 testeri inițiali folosesc același URL public, fără privilegii.
+Faza 4A/4B (controalele anonime) și `POST /intreaba` sunt finalizate și integrate; UI MVP este o sublivrare funcțională finalizată, dar Faza 6 în ansamblu rămâne parțială. Faza 4 în ansamblu rămâne parțială: PLAN.md cere și `/health` și `/documents`, ambele încă absente și restante — nu sunt decizii deschise cu privire la dacă vor exista. `/health` este restant obligatoriu înainte de deployment. `/documents` este restant pentru completarea Faza 6; contractul lui public exact și metadata expusă necesită explicație și aprobare explicită înainte de implementare. Restanțele curente pentru Faza 4-7: implementarea `/health`/`/documents` (cu aprobarea prealabilă a contractului `/documents`), cleanup fizic al ferestrelor IP în maximum 24 ore, suport trusted proxy, gate-ul `ANONYMOUS_COOKIE_SECURE=true` pentru producție, testare vizuală/redesign UI, review-ul independent final pre-deployment și deployment cu smoke tests.

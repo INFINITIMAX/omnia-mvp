@@ -6,7 +6,7 @@
 
 - [x] Eliminare normative-demo din Supabase.
 - [x] Structurare locală `documente_noi/` pentru NP 010-2022 și NP 057-02.
-- [x] Adaptare `procesare_documente.py`, `populare_db.py`, `chunkingv2.py`.
+- [x] Adaptare `procesare_documente.py`, `populare_db.py`, `chunkingv2.py` (istoric — `chunkingv2.py` a fost eliminat ulterior ca script legacy în `319cf5f`; logica activă de chunking este în `populare_db.py`).
 - [x] Dry-run: 694 chunk-uri validate fără cost API.
 - [x] Import real: 694 chunk-uri în Supabase.
 - [x] Review și commit pentru schimbările de ingestion (`e9b4932`).
@@ -96,8 +96,8 @@
 - [x] Migrarea `20260831230000_anonymous_access_controls.sql` (SHA-256 `a2840a5364f0`) a fost aplicată persistent la 01-09-2026 (România) prin tranzacție PostgreSQL directă; fresh connection PASS: 2 tabele, 10 constraints, RLS fără politici, zero granturi publice, index cleanup, zero rânduri inițiale și snapshot intact (2 documente, 694 chunk-uri, 2 approved).
 - [x] Gate concurență real cu hash-uri sintetice: quota 9, două conexiuni `[false, true]`, final 10; rate 4, două conexiuni `[false, true]`, contoare 6, apoi a treia blocked le-a crescut la 7. Cleanup sintetic verificat; ambele tabele au final zero rânduri. `supabase_migrations.schema_migrations` nu a fost vizibilă conexiunii, deci nu se afirmă istoric de migrare înregistrat și nu s-a modificat manual.
 - [x] Teste locale/mockuite pentru cookie, hash, quota, rate limit, cleanup, SQL, schema și audit; gate local trecut.
-- [ ] Integrarea FastAPI, emiterea atributelor cookie HTTP și tranzacțiile runtime nu fac parte din Faza 4A.
-- [x] SQL-ul pentru controalele anonime este aplicat persistent și verificat; integrarea aplicației rămâne neimplementată.
+- [x] Integrarea FastAPI, emiterea atributelor cookie HTTP și tranzacțiile runtime nu au făcut parte din scope-ul Faza 4A; au fost livrate ulterior în Faza 4B de mai jos.
+- [x] SQL-ul pentru controalele anonime este aplicat persistent și verificat. La momentul acestei predări (doar Faza 4A), integrarea în aplicație nu era încă făcută — vezi Faza 4B pentru integrarea FastAPI finalizată.
 
 ## Predare — Faza 4B integrare FastAPI controale anonime
 
@@ -126,14 +126,15 @@
 2. Faza 3A: retrieval core descris mai sus. **Finalizată în branch-ul `feat/retrieval-core`; fără API public.**
 3. Faza 3B1: Generation Core și citări oficiale validate. **Finalizată; fără FastAPI.**
 4. Faza 3B2: contract și integrare API pentru retrieval/generare. **Finalizată mock-first.**
-5. Faza 4: cost control: fiecare browser are quota anonimă de 10 întrebări și rate limiting; cei 4 testeri inițiali folosesc același URL public, fără privilegii.
-6. Faza 5: testare agresivă.
-7. Faza 6: UI real.
-8. Faza 7: review și deployment.
-9. Faza 8: business/CV material.
+5. Faza 4: cost control: quota anonimă (10 întrebări/browser) și rate limiting (5/minut, 30/oră per IP). **Faza 4A + 4B (controalele anonime) și `POST /intreaba` sunt finalizate și integrate** în FastAPI și în UI MVP. **Faza 4 în ansamblu rămâne parțială**: PLAN.md cere și endpoint-urile `/health` și `/documents`, ambele încă absente și restante — nu sunt „decizii deschise" cu privire la dacă vor exista. `/health` este restant obligatoriu, necesar înainte de deployment (Faza 7). `/documents` este restant pentru completarea Faza 6; contractul lui public exact (rută, formă răspuns) și metadata expusă necesită explicație și aprobare explicită înainte de implementare. Rămân deschise și: gate producție `ANONYMOUS_COOKIE_SECURE=true`, suport trusted proxy (în prezent se folosește exclusiv `request.client.host`, fără `X-Forwarded-For`) și ștergerea fizică a ferestrelor IP expirate în maximum 24 ore (fără scheduler/job dedicat).
+6. Faza 5: testare agresivă. **Suita locală mockuită este finalizată (196 teste, inclusiv 31 teste statice UI).** Rămân restante: setul formal de evaluare cu rezultate așteptate (§10 din `docs/HYBRID_SEARCH_SPEC.md`), testarea vizuală/manuală în browser real și smoke test-urile plătite.
+7. Faza 6: UI real. **Sublivrare funcțională finalizată:** UI MVP conectat exclusiv la `POST /intreaba` și la controalele anonime. **Faza 6 în ansamblu rămâne parțială/nefinalizată:** lipsește `GET /documents` (lista documentelor și contorul cerute de PLAN.md pentru această fază — vezi Faza 4 pentru statutul contractului), redesign-ul vizual și testarea manuală în browser real rămân deferate.
+8. Faza 7: review și deployment. Există review-uri punctuale, explicit documentate în predările de mai sus (de ex. remedierile Reviewer pentru migrarea metadata, Faza 3B2, Faza 4A/4B) — nu se afirmă că toate componentele/fazele au fost revizuite. **Rămân pendinte:** review-ul independent final pre-deployment, deployment-ul public și smoke tests pe URL public.
+9. Faza 8: business/CV material. **Neînceput.**
 
 ## Observații
 
 - `np057_02` nu are PDF original local; are doar `extracted.txt` și metadata notează acest lucru.
 - Supabase are 694 chunk-uri aprobate pentru retrieval: NP010 = 408, NP057 = 286.
-- `claude_herdr.md` este handoff istoric neversionat; `PLAN.md` și acest fișier sunt sursele active de coordonare.
+- `PLAN.md` și acest fișier sunt sursele active de coordonare.
+- Commit `319cf5f`: 17 scripturi legacy neutilizate (ex. `chunkingv2.py`, `omnia_qa.py`, `verificare_db.py`) au fost eliminate din proiectul activ. `_archive/` este în `.gitignore` și nu face parte din repo sau din starea versionată; versiunile eliminate rămân recuperabile din istoricul Git (`git show 319cf5f^:<cale>`).
