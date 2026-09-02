@@ -394,6 +394,24 @@ def test_semantic_aplica_top_k_prag_deduplicare_si_context():
     assert repository.top_k == 3
 
 
+def test_limita_de_context_exclude_candidatul_care_ar_depasi_limita():
+    """Spre deosebire de testul de mai sus, aici un al treilea candidat NU incape."""
+    repository = RepositoryFake(
+        [],
+        [
+            evidence(article="4.1.1", content="aaaa", content_hash="a", score=0.90),
+            evidence(chunk_id=2, article="4.1.2", content="bbbb", content_hash="b", score=0.80),
+            evidence(chunk_id=3, article="4.1.3", content="cccc", content_hash="c", score=0.70),
+        ],
+    )
+    result = service(repository, semantic_top_k=3, max_context_chars=8).retrieve("întrebare semantică")
+
+    assert result.status == "found"
+    # 4 + 4 = 8 incape; al treilea ar duce la 12 > 8, deci trebuie exclus, nu doar taiat.
+    assert [item.content_hash for item in result.evidence] == ["a", "b"]
+    assert len(result.evidence) < len(repository.semantic)
+
+
 def test_semantic_sub_prag_este_not_found_si_erorile_dependentei_se_propagă():
     repository = RepositoryFake([], [evidence(score=0.49)])
     assert service(repository).retrieve("întrebare semantică").status == "not_found"

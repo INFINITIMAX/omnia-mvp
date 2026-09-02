@@ -203,6 +203,29 @@ def test_statusurile_controlate_nu_apeleaza_claude(api, question, connection):
     assert connection.closed
 
 
+@pytest.mark.parametrize(
+    ("question", "connection"),
+    [
+        ("NP 010-2022, art. 4.4.7.2", ConnectionFake()),
+        ("art. 99.99.99", ConnectionFake(exact_rows=())),
+        ("art. 4.4.7.2", ConnectionFake(exact_rows=(EXACT_ROW, EXACT_ROW[:-1] + ("hash-b",)))),
+        ("art. 4.4.7.2 și art. 4.6.(1)", ConnectionFake()),
+    ],
+)
+def test_raspunsul_public_nu_contine_niciodata_identificatori_tehnici(api, question, connection):
+    """Verifica raspunsul HTTP real (nu doar promptul intern) pe toate statusurile posibile."""
+    response = configure(api, connection, EmbedderFake(), GeneratorFake()).post(
+        "/intreaba", json={"intrebare": question}
+    )
+
+    assert response.status_code == 200
+    corp = response.text
+    assert "source_key" not in corp
+    assert "doc-1" not in corp, "document_id intern nu trebuie sa apara in raspunsul public"
+    assert "_extras.txt" not in corp
+    assert "extras.txt" not in corp
+
+
 @pytest.mark.parametrize("question", ["", "   ", "x" * 1001])
 def test_input_invalid_este_422_inainte_de_toti_providerii(api, question):
     calls = {"connection": 0, "embedder": 0, "generator": 0}
