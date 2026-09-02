@@ -176,6 +176,12 @@ def test_aria_live_si_disabled_coerente():
     assert "chip.setAttribute('aria-disabled'" in SCRIPT
 
 
+def test_questioninput_are_label_accesibil_asociat():
+    match = re.search(r'<label[^>]*\bfor="questionInput"[^>]*>(.*?)</label>', HTML, re.S)
+    assert match is not None, "questionInput trebuie să aibă un <label for=\"questionInput\"> asociat"
+    assert match.group(1).strip() != ""
+
+
 # ---------- Sintaxă JS ----------
 
 def test_javascript_extras_este_sintactic_valid():

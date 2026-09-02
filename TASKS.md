@@ -118,7 +118,7 @@
 - [x] Răspunsul și citările (`cod_document`, `titlu_document`, `articol`, `citat`) sunt randate exclusiv prin `textContent`/DOM, fără `innerHTML` pentru date server/utilizator; JS nu citește `document.cookie`.
 - [x] Eliminate: badge-ul cu „247 documente indexate” și popover-ul cu `demoIndexed`, lista de conversații demonstrative din sidebar, „Contul meu” (înlocuit cu „Vizitator anonim”) și butonul inert „+ Conversație nouă”; badge-ul rămas este neutru („Documente aprobate”, fără interacțiune).
 - [x] CSS moarte pentru elementele eliminate a fost curățată; fără redesign, restul aspectului este păstrat.
-- [x] Teste statice noi în `tests/test_ui_static.py` (29 teste) validează contractul de mai sus și rulează `node --check` pe JS-ul extras din pagină; suita completă `python -m pytest -q` → 194 passed.
+- [x] Teste statice noi în `tests/test_ui_static.py` (31 teste) validează contractul de mai sus și rulează `node --check` pe JS-ul extras din pagină; suita completă `python -m pytest -q` → 196 passed.
 
 ## Backlog ordonat
 
