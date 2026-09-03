@@ -162,7 +162,16 @@
       fonturi self-hostate și favicon.
 - [x] `DEPLOYMENT.md` documentează variabilele de producție, fără nicio valoare reală, plus
       `TRUSTED_PROXY_HOPS=1`, `ANONYMOUS_COOKIE_SECURE=true` și healthcheck pe `/health`.
-- [x] Validare locală: `python -m pytest -q` → **250 passed** (de la 211), `git diff --check` fără erori.
+- [x] Remedieri după `REQUEST_CHANGES` de la Reviewer:
+      **F1 blocant** — `X-Forwarded-For` este citit cu `getlist` și unit cu `", "`, nu cu `get`,
+      care returna doar prima apariție; antetele duplicate nu mai permit falsificarea IP-ului și
+      ocolirea rate limiting-ului. Cele 4 teste noi de neregresie pică demonstrat pe codul dinainte.
+      **F2** — `DEPLOYMENT.md` avertizează explicit că supraevaluarea lui `N` este o breșă, nu o
+      imprecizie, cu regula „în dubiu scade `N`" și un smoke test post-deploy obligatoriu.
+      **F3** — paginile juridice cu fișier lipsă dau `503` generic, ca `/`, fără `RuntimeError` cu
+      cale absolută în loguri. **F4** — `StaticFiles(check_dir=False)`. **F5** — artefactul de test
+      din `static/assets/` este ignorat de Git și curățat în `finally`.
+- [x] Validare locală: `python -m pytest -q` → **258 passed** (de la 211), `git diff --check` fără erori.
 - [ ] `TRUSTED_PROXY_HOPS=1` și `ANONYMOUS_COOKIE_SECURE=true` **nu** sunt setate nicăieri de agent;
       Lucian le configurează manual în panoul Railway.
 - [ ] Zero push, zero deploy, zero SQL, zero apeluri API plătite în acest task.

@@ -77,8 +77,11 @@ Semantica, pe scurt:
 - `0` (implicit): se folosește exclusiv adresa conexiunii TCP (`request.client.host`);
   antetul `X-Forwarded-For` este ignorat complet.
 - `N > 0`: se ia al **N**-lea element numărând **de la dreapta** din `X-Forwarded-For`,
-  pentru că numai acele poziții sunt scrise de infrastructura proprie. Elementele din
-  stânga sunt controlate de client și nu sunt niciodată folosite.
+  pentru că numai acele poziții sunt scrise de infrastructura proprie. Cu `N` setat corect,
+  elementele din stânga sunt controlate de client și nu sunt folosite.
+- Toate antetele `X-Forwarded-For` primite sunt unite în ordinea sosirii înainte de
+  împărțirea pe virgulă. Un proxy care adaugă un antet separat, în loc să extindă valoarea
+  existentă, nu poate face aplicația să citească doar antetul clientului.
 - Dacă antetul lipsește, are mai puține elemente decât `N`, sau elementul selectat nu este
   o adresă IP literală validă, se cade înapoi pe `request.client.host`. Nu se acceptă
   niciodată o valoare neverificată.
@@ -91,14 +94,45 @@ Fără această setare, în spatele proxy-ului Railway toți vizitatorii ar împ
 bucket de rate limit (5 cereri/minut și 30/oră **în total**, pentru toată lumea), pentru că
 `request.client.host` ar fi adresa proxy-ului, nu a vizitatorului.
 
+### ⚠️ Supraevaluarea lui `N` este o breșă de securitate, nu o imprecizie
+
+`N` trebuie să fie **exact** numărul de proxy-uri care scriu `X-Forwarded-For` înaintea
+aplicației. Garanția „elementele din stânga nu sunt folosite" este condiționată de acest
+lucru și de nimic altceva.
+
+Cu un singur proxy real, dar `TRUSTED_PROXY_HOPS=2`, un client care trimite
+`X-Forwarded-For: 9.9.9.9` face antetul final să fie `9.9.9.9, <IP real>`, iar poziția a
+doua de la dreapta este chiar `9.9.9.9` — valoarea aleasă de atacator. Rezultatul este că
+rate limiting-ul devine ocolibil printr-un IP diferit la fiecare cerere, iar aplicația fiind
+publică și fără cont, consecința directă este cost Voyage și Anthropic nelimitat.
+
+Regula practică: **în caz de dubiu, scade `N`, nu îl crește.** `N` prea mic înseamnă doar
+bucket-uri de rate limit mai grosiere (mai mulți vizitatori grupați pe adresa proxy-ului);
+`N` prea mare înseamnă rate limiting inexistent.
+
+### Smoke test obligatoriu după deploy
+
+Cu `TRUSTED_PROXY_HOPS=1` setat în producție, verifică manual că un antet trimis de client
+nu schimbă bucket-ul:
+
+1. Trimite o cerere normală către `POST /intreaba`, fără `X-Forwarded-For`, și notează
+   comportamentul de rate limit.
+2. Trimite aceeași cerere cu antetul `X-Forwarded-For: 9.9.9.9` adăugat manual.
+3. Repetă pasul 2 cu `X-Forwarded-For: 9.9.9.8`, apoi cu `9.9.9.7`.
+
+Contoarele de rate limit trebuie să crească în **același** bucket la toți pașii, ca și cum
+antetul nu ar exista. Dacă în schimb fiecare valoare falsificată pare să primească un buget
+proaspăt de 5 cereri pe minut, `TRUSTED_PROXY_HOPS` este prea mare și trebuie coborât
+înainte de a deschide accesul public.
+
 ## 4. Rute publice
 
 | Rută | Rol |
 | --- | --- |
 | `GET /` | Aplicația web; emite cookie-ul anonim dacă lipsește sau este invalid. |
 | `GET /health` | Healthcheck-ul platformei. |
-| `GET /termeni` | Pagina juridică Termeni și condiții. |
-| `GET /confidentialitate` | Politica de confidențialitate. |
+| `GET /termeni` | Pagina juridică Termeni și condiții; fișier lipsă înseamnă `503` generic. |
+| `GET /confidentialitate` | Politica de confidențialitate; fișier lipsă înseamnă `503` generic. |
 | `GET /assets/*` | Fișiere statice read-only servite strict din `static/assets/` (fonturi self-hostate, favicon). |
 | `POST /intreaba` | Endpoint-ul de întrebare; aplică quota anonimă și rate limiting. |
 
