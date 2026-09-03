@@ -1,5 +1,16 @@
 # TASKS — Omnia
 
+## Predare — Deploy live 03-09-2026
+
+- [x] Merge API (trusted proxy fail-closed, `/health`, rute statice) + UI negru-auriu în `main`, 262 teste treceau pe combinație.
+- [x] Reviewer a găsit spoofing pe `X-Forwarded-For` (primul header lua valoarea clientului, nu a proxy-ului) — remediat de Coder API, verificat de Reviewer.
+- [x] Remedieri finale înainte de testeri externi: `/docs`+`/redoc`+`/openapi.json` dezactivate, link juridic corectat, contact GDPR real (`ilielucian97@gmail.com`), regiune Supabase corectă (West EU/Ireland) — commit `b062db6`, merge `5dffaf9`.
+- [x] Push pe `origin/main`; deploy manual pe Railway cu `railway up` (serviciul nu are Git Source legat, deci `git push` singur nu publică nimic).
+- [x] Verificare end-to-end pe producție: `/health` 200, `/docs` 404, `POST /intreaba` răspunde cu citări reale (I9-2022, art. 15.22/15.44).
+- [x] Worktree-uri vechi șterse (toate merge-uite în `main`); prototipul „Technical Paper" respins a fost eliminat definitiv.
+
+**Rămâne deschis:** `/documents` cu contract aprobat, lotul 4 (P118/2), monitorizare costuri Anthropic/Voyage în timpul testării externe.
+
 ## Acum
 
 ### Faza 0 — Stabilizare

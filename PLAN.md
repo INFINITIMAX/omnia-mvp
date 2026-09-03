@@ -4,30 +4,33 @@
 
 Omnia devine o aplicație publică pentru normative tehnice românești: răspunsuri bazate exclusiv pe dovezi, cu citare oficială, căutare exactă de articol, costuri API controlate și teste automate.
 
-## Stare executivă — 03-09-2026
+## Stare executivă — 03-09-2026 (actualizat 03-09-2026, seara — deploy live)
 
-### Avem, în starea versionată sigură (`main` la `c6e14ba`)
+### Avem, în starea versionată sigură (`main` la `5dffaf9`, sincron cu `origin/main`)
 
 - ingestion reproductibil și 6 documente aprobate, cu 3345 chunk-uri în Supabase (lotul 1 = 694, lotul 2 = 2651; verificat read-only la 03-09-2026);
 - schemă Supabase versionată, RLS activ și fără acces public direct;
-- retrieval hibrid, generare cu citări validate și integrare `POST /intreaba`;
-- quota anonimă de 10 întrebări/browser și rate limiting 5/minut, 30/oră/IP;
-- UI MVP funcțional și factual, cu 209 teste locale/mockuite;
-- regression eval sintetic și determinist, fără a pretinde calitate reală Voyage/Claude.
+- retrieval hibrid, generare cu citări validate și integrare `POST /intreaba`, verificat end-to-end pe producție (răspuns `answered` cu citări reale din I9-2022);
+- quota anonimă de 10 întrebări/browser și rate limiting 5/minut, 30/oră/IP, cu suport `TRUSTED_PROXY_HOPS` fail-closed (citește toate antetele `X-Forwarded-For`, nu doar primul — remediat o breșă de spoofing găsită de Reviewer înainte de deploy);
+- UI redesign „negru-auriu” aprobat, live în producție (paleta `#E8B931`/`#FFD75E` pe negru, fonturi self-hostate);
+- `/health` (fără interogare DB, sigur pentru healthcheck Railway), rute juridice `/termeni` și `/confidentialitate` publice și corecte (contact GDPR real, regiune Supabase corectă: West EU/Ireland);
+- `/docs`, `/redoc`, `/openapi.json` dezactivate în producție (evită expunerea publică a `POST /intreaba` și a costului asociat);
+- 262 de teste locale trec pe `main`;
+- **aplicația e live**: `https://normativai-production.up.railway.app`, deploy manual (Railway nu are auto-deploy din Git — serviciul nu are niciun repo legat la Source; publicarea se face exclusiv cu `railway up` din `D:\Omnia-MVP`);
+- limite de cost setate: Anthropic $20, Voyage $10 (praguri furnizor, neverificate programatic de acest asistent).
 
 ### Există, dar nu este încă livrat
 
-- prototipul UI „Technical Paper” din `feat/technical-paper-ui`: verificările tehnice și browser mockuit au trecut, însă Lucian a respins calitatea vizuală la 03-09-2026; prototipul nu se îmbină și nu se publică în forma actuală;
-- lucru extern necomis observat în worktree-ul principal pentru Railway, pagini juridice și un al doilea lot de documente; nu a fost revizuit în etapa UI și nu este considerat finalizat sau aprobat de acest roadmap.
+- prototipul UI „Technical Paper” (`feat/technical-paper-ui`) a fost șters definitiv (worktree + prototip) la 03-09-2026 după respingerea vizuală — nu mai există în lucru, doar în istoricul git dacă e nevoie de recuperare;
+- `/documents` cu contract aprobat — nu a fost implementat încă;
+- lotul 4 de documente (P118/2) — neatins intenționat, ca să nu coincidă cu testarea externă.
 
 ### Ordinea recomandată la reluare
 
-1. Reconciliere Railway: inventarierea diff-ului extern, separarea pe commit-uri și verificarea că nu există secrete sau efecte DB neaprobate.
-2. UI, înainte de cod: două propuneri vizuale reale, capturate desktop+mobil; Lucian alege explicit una.
-3. Implementarea variantei alese într-un worktree curat, păstrând contractul API și controalele anonime.
-4. Tester funcțional, Reviewer tehnic și gate vizual final al lui Lucian înainte de merge/push.
-5. Deployment gate: `/health`, trusted proxy, cookie `Secure=true`, secrete de producție, cleanup, monitoring și limite de cost.
-6. După deployment: smoke tests reale opt-in, `/documents` cu contract aprobat, apoi README/demo/CV.
+1. Testare externă controlată (4 testeri) pe linkul live, cu monitorizare manuală a costurilor Anthropic/Voyage în primele ore.
+2. `/documents` cu contract aprobat, dacă testarea externă merge bine.
+3. Lotul 4 (P118/2) — doar după ce testarea externă s-a stabilizat.
+4. README/demo/CV, odată ce produsul e stabil în producție.
 
 ## Faza 0 — Stabilizare
 
