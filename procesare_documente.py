@@ -10,6 +10,8 @@ from pathlib import Path
 
 import fitz  # PyMuPDF
 
+from glyph_mapping import corecteaza_text_pagina, incarca_tabela, invata_proxy_glife
+
 ROOT_PROIECT = Path(__file__).resolve().parent
 FOLDER_DOCUMENTE = ROOT_PROIECT / "documente_noi"
 
@@ -36,10 +38,20 @@ def citeste_metadata(folder_document):
 
 
 def extrage_text(cale_pdf):
-    """Extrage textul tuturor paginilor unui PDF."""
+    """Extrage textul tuturor paginilor unui PDF.
+
+    Formulele culese cu fonturi CID fara /ToUnicode (ex. CambriaMath, vezi
+    glyph_mapping.py si font_maps/README.md) sunt corectate folosind tabela de
+    glife inainte de a fi adaugate la textul final. Pentru orice alt font,
+    comportamentul e neschimbat fata de page.get_text().
+    """
+    tabela_glife = incarca_tabela()
     with fitz.open(cale_pdf) as document:
         pagini = len(document)
-        text = "".join(pagina.get_text() + "\n" for pagina in document)
+        proxy_glife = invata_proxy_glife(document, tabela_glife)
+        text = "".join(
+            corecteaza_text_pagina(pagina, tabela_glife, proxy=proxy_glife) + "\n" for pagina in document
+        )
     return text, pagini
 
 

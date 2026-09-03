@@ -1,0 +1,1230 @@
+{
+ "description": "Mapare GID -> caracter real pentru fontul incorporat \"CambriaMath\" (subset CIDFontType0, Identity-H) gasit in PDF-urile din documente_noi. Codul CID din fluxul PDF este chiar GID-ul din fontul original Windows \"Cambria Math\" (verificat: CID 1848 -> U+1D449 MATHEMATICAL ITALIC CAPITAL V, exact litera 'V' din formula de debit V-punct a art. 14.6). Nu exista dictionar /ToUnicode incorporat, asa ca extragerea implicita PyMuPDF fabrica code point-uri fara legatura cu sensul real (silabe etiopiene, litere siriace, cifre tamile, semne malayalam etc.) pentru orice GID fara intrare cmap directa.",
+ "entries": {
+  "133": {
+   "char": "c",
+   "glyph_name": "c",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+0063"
+  },
+  "139": {
+   "char": "i",
+   "glyph_name": "i",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+0069"
+  },
+  "14": {
+   "char": "K",
+   "glyph_name": "K",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+004B"
+  },
+  "142": {
+   "char": "l",
+   "glyph_name": "l",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+006C"
+  },
+  "143": {
+   "char": "m",
+   "glyph_name": "m",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+006D"
+  },
+  "145": {
+   "char": "o",
+   "glyph_name": "o",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+006F"
+  },
+  "149": {
+   "char": "s",
+   "glyph_name": "s",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+0073"
+  },
+  "163": {
+   "char": "ă",
+   "glyph_name": "abreve",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+0103"
+  },
+  "1668": {
+   "char": "⋅",
+   "glyph_name": "dotmath",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+22C5"
+  },
+  "1827": {
+   "char": "𝐴",
+   "glyph_name": "u1D434",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D434"
+  },
+  "1828": {
+   "char": "𝐵",
+   "glyph_name": "u1D435",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D435"
+  },
+  "1829": {
+   "char": "𝐶",
+   "glyph_name": "u1D436",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D436"
+  },
+  "1830": {
+   "char": "𝐷",
+   "glyph_name": "u1D437",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D437"
+  },
+  "1831": {
+   "char": "𝐸",
+   "glyph_name": "u1D438",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D438"
+  },
+  "1834": {
+   "char": "𝐻",
+   "glyph_name": "u1D43B",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D43B"
+  },
+  "1837": {
+   "char": "𝐾",
+   "glyph_name": "u1D43E",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D43E"
+  },
+  "1838": {
+   "char": "𝐿",
+   "glyph_name": "u1D43F",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D43F"
+  },
+  "1840": {
+   "char": "𝑁",
+   "glyph_name": "u1D441",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D441"
+  },
+  "1843": {
+   "char": "𝑄",
+   "glyph_name": "u1D444",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D444"
+  },
+  "1845": {
+   "char": "𝑆",
+   "glyph_name": "u1D446",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D446"
+  },
+  "1847": {
+   "char": "𝑈",
+   "glyph_name": "u1D448",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D448"
+  },
+  "1848": {
+   "char": "𝑉",
+   "glyph_name": "u1D449",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D449"
+  },
+  "1849": {
+   "char": "𝑊",
+   "glyph_name": "u1D44A",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D44A"
+  },
+  "1853": {
+   "char": "𝑎",
+   "glyph_name": "u1D44E",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D44E"
+  },
+  "1854": {
+   "char": "𝑏",
+   "glyph_name": "u1D44F",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D44F"
+  },
+  "1855": {
+   "char": "𝑐",
+   "glyph_name": "u1D450",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D450"
+  },
+  "1856": {
+   "char": "𝑑",
+   "glyph_name": "u1D451",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D451"
+  },
+  "1857": {
+   "char": "𝑒",
+   "glyph_name": "u1D452",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D452"
+  },
+  "1858": {
+   "char": "𝑓",
+   "glyph_name": "u1D453",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D453"
+  },
+  "1859": {
+   "char": "𝑔",
+   "glyph_name": "u1D454",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D454"
+  },
+  "1860": {
+   "char": "ℎ",
+   "glyph_name": "uni210E",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+210E"
+  },
+  "1861": {
+   "char": "𝑖",
+   "glyph_name": "u1D456",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D456"
+  },
+  "1863": {
+   "char": "𝑘",
+   "glyph_name": "u1D458",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D458"
+  },
+  "1864": {
+   "char": "𝑙",
+   "glyph_name": "u1D459",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D459"
+  },
+  "1865": {
+   "char": "𝑚",
+   "glyph_name": "u1D45A",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D45A"
+  },
+  "1866": {
+   "char": "𝑛",
+   "glyph_name": "u1D45B",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D45B"
+  },
+  "1867": {
+   "char": "𝑜",
+   "glyph_name": "u1D45C",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D45C"
+  },
+  "1868": {
+   "char": "𝑝",
+   "glyph_name": "u1D45D",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D45D"
+  },
+  "1870": {
+   "char": "𝑟",
+   "glyph_name": "u1D45F",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D45F"
+  },
+  "1871": {
+   "char": "𝑠",
+   "glyph_name": "u1D460",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D460"
+  },
+  "1872": {
+   "char": "𝑡",
+   "glyph_name": "u1D461",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D461"
+  },
+  "1873": {
+   "char": "𝑢",
+   "glyph_name": "u1D462",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D462"
+  },
+  "1874": {
+   "char": "𝑣",
+   "glyph_name": "u1D463",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D463"
+  },
+  "1876": {
+   "char": "𝑥",
+   "glyph_name": "u1D465",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D465"
+  },
+  "1878": {
+   "char": "𝑧",
+   "glyph_name": "u1D467",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D467"
+  },
+  "2009": {
+   "char": "𝛼",
+   "glyph_name": "u1D6FC",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D6FC"
+  },
+  "2014": {
+   "char": "𝜁",
+   "glyph_name": "u1D701",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D701"
+  },
+  "2016": {
+   "char": "𝜃",
+   "glyph_name": "u1D703",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D703"
+  },
+  "2019": {
+   "char": "𝜆",
+   "glyph_name": "u1D706",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D706"
+  },
+  "2021": {
+   "char": "𝜈",
+   "glyph_name": "u1D708",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D708"
+  },
+  "2024": {
+   "char": "𝜋",
+   "glyph_name": "u1D70B",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D70B"
+  },
+  "2032": {
+   "char": "𝜓",
+   "glyph_name": "u1D713",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D713"
+  },
+  "2038": {
+   "char": "𝜙",
+   "glyph_name": "u1D719",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D719"
+  },
+  "2178": {
+   "char": "𝑽",
+   "glyph_name": "u1D47D",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D47D"
+  },
+  "2183": {
+   "char": "𝒂",
+   "glyph_name": "u1D482",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D482"
+  },
+  "2185": {
+   "char": "𝒄",
+   "glyph_name": "u1D484",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D484"
+  },
+  "2188": {
+   "char": "𝒇",
+   "glyph_name": "u1D487",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D487"
+  },
+  "2191": {
+   "char": "𝒊",
+   "glyph_name": "u1D48A",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D48A"
+  },
+  "2193": {
+   "char": "𝒌",
+   "glyph_name": "u1D48C",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D48C"
+  },
+  "2195": {
+   "char": "𝒎",
+   "glyph_name": "u1D48E",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D48E"
+  },
+  "2196": {
+   "char": "𝒏",
+   "glyph_name": "u1D48F",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D48F"
+  },
+  "2197": {
+   "char": "𝒐",
+   "glyph_name": "u1D490",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D490"
+  },
+  "2198": {
+   "char": "𝒑",
+   "glyph_name": "u1D491",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D491"
+  },
+  "2201": {
+   "char": "𝒔",
+   "glyph_name": "u1D494",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D494"
+  },
+  "2202": {
+   "char": "𝒕",
+   "glyph_name": "u1D495",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D495"
+  },
+  "2205": {
+   "char": "𝒘",
+   "glyph_name": "u1D498",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D498"
+  },
+  "2206": {
+   "char": "𝒙",
+   "glyph_name": "u1D499",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D499"
+  },
+  "2208": {
+   "char": "𝒛",
+   "glyph_name": "u1D49B",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+1D49B"
+  },
+  "232": {
+   "char": "ș",
+   "glyph_name": "uni0219",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+0219"
+  },
+  "236": {
+   "char": "ț",
+   "glyph_name": "uni021B",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+021B"
+  },
+  "26": {
+   "char": "W",
+   "glyph_name": "W",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+0057"
+  },
+  "2868": {
+   "char": "0",
+   "glyph_name": "glyph02868",
+   "method": "visual",
+   "note": "visual: subscript-size digit '0'",
+   "unicode": "U+0030"
+  },
+  "2869": {
+   "char": "1",
+   "glyph_name": "glyph02869",
+   "method": "visual",
+   "note": "visual: subscript-size digit '1'",
+   "unicode": "U+0031"
+  },
+  "2870": {
+   "char": "2",
+   "glyph_name": "glyph02870",
+   "method": "visual",
+   "note": "visual: subscript-size digit '2'",
+   "unicode": "U+0032"
+  },
+  "2872": {
+   "char": "4",
+   "glyph_name": "glyph02872",
+   "method": "visual",
+   "note": "visual: subscript-size digit '4'",
+   "unicode": "U+0034"
+  },
+  "2876": {
+   "char": "8",
+   "glyph_name": "glyph02876",
+   "method": "visual",
+   "note": "visual: subscript-size digit '8'",
+   "unicode": "U+0038"
+  },
+  "2878": {
+   "char": "+",
+   "glyph_name": "glyph02878",
+   "method": "visual",
+   "note": "visual: plus sign, subscript/small size",
+   "unicode": "U+002B"
+  },
+  "2879": {
+   "char": "−",
+   "glyph_name": "glyph02879",
+   "method": "visual",
+   "note": "visual: thin flat bar; contextually a minus sign between two subscript tokens (e.g. 'r_1 − 2')",
+   "unicode": "U+2212"
+  },
+  "2911": {
+   "char": "a",
+   "glyph_name": "glyph02911",
+   "method": "visual",
+   "note": "visual: subscript-size italic 'a' (alternate)",
+   "unicode": "U+0061"
+  },
+  "2912": {
+   "char": "b",
+   "glyph_name": "glyph02912",
+   "method": "visual",
+   "note": "visual: subscript-size italic 'b'",
+   "unicode": "U+0062"
+  },
+  "2913": {
+   "char": "c",
+   "glyph_name": "glyph02913",
+   "method": "visual",
+   "note": "visual: subscript-size italic 'c' (alternate)",
+   "unicode": "U+0063"
+  },
+  "2914": {
+   "char": "d",
+   "glyph_name": "glyph02914",
+   "method": "visual",
+   "note": "visual: subscript-size italic 'd' (alternate)",
+   "unicode": "U+0064"
+  },
+  "2919": {
+   "char": "i",
+   "glyph_name": "glyph02919",
+   "method": "visual",
+   "note": "visual: subscript-size italic 'i' (alternate)",
+   "unicode": "U+0069"
+  },
+  "2923": {
+   "char": "m",
+   "glyph_name": "glyph02923",
+   "method": "visual",
+   "note": "visual: subscript-size italic 'm' (alternate)",
+   "unicode": "U+006D"
+  },
+  "2928": {
+   "char": "r",
+   "glyph_name": "glyph02928",
+   "method": "visual",
+   "note": "visual: subscript-size italic 'r' (alternate)",
+   "unicode": "U+0072"
+  },
+  "2929": {
+   "char": "s",
+   "glyph_name": "glyph02929",
+   "method": "visual",
+   "note": "visual: subscript-size italic 's' (alternate)",
+   "unicode": "U+0073"
+  },
+  "2930": {
+   "char": "t",
+   "glyph_name": "glyph02930",
+   "method": "visual",
+   "note": "visual: subscript-size italic 't' (alternate)",
+   "unicode": "U+0074"
+  },
+  "3": {
+   "char": " ",
+   "glyph_name": "space",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+0020"
+  },
+  "3002": {
+   "char": "A",
+   "glyph_name": "glyph03002",
+   "method": "visual",
+   "note": "visual: subscript-size italic 'A'",
+   "unicode": "U+0041"
+  },
+  "3004": {
+   "char": "C",
+   "glyph_name": "glyph03004",
+   "method": "visual",
+   "note": "visual: subscript-size italic 'C'",
+   "unicode": "U+0043"
+  },
+  "3005": {
+   "char": "D",
+   "glyph_name": "glyph03005",
+   "method": "visual",
+   "note": "visual: subscript-size italic 'D'",
+   "unicode": "U+0044"
+  },
+  "3009": {
+   "char": "H",
+   "glyph_name": "glyph03009",
+   "method": "visual",
+   "note": "visual: subscript-size italic 'H'",
+   "unicode": "U+0048"
+  },
+  "3013": {
+   "char": "L",
+   "glyph_name": "glyph03013",
+   "method": "visual",
+   "note": "visual: subscript-size italic 'L'",
+   "unicode": "U+004C"
+  },
+  "3019": {
+   "char": "R",
+   "glyph_name": "glyph03019",
+   "method": "visual",
+   "note": "visual: subscript-size italic 'R'",
+   "unicode": "U+0052"
+  },
+  "3021": {
+   "char": "T",
+   "glyph_name": "glyph03021",
+   "method": "visual",
+   "note": "visual: subscript-size italic 'T'",
+   "unicode": "U+0054"
+  },
+  "3023": {
+   "char": "V",
+   "glyph_name": "glyph03023",
+   "method": "visual",
+   "note": "visual: subscript-size italic 'V'",
+   "unicode": "U+0056"
+  },
+  "3028": {
+   "char": "a",
+   "glyph_name": "glyph03028",
+   "method": "visual",
+   "note": "visual: subscript-size italic 'a'",
+   "unicode": "U+0061"
+  },
+  "3029": {
+   "char": "b",
+   "glyph_name": "glyph03029",
+   "method": "visual",
+   "note": "visual: subscript-size italic 'b' (alternate)",
+   "unicode": "U+0062"
+  },
+  "3030": {
+   "char": "c",
+   "glyph_name": "glyph03030",
+   "method": "visual",
+   "note": "visual: subscript-size italic 'c'",
+   "unicode": "U+0063"
+  },
+  "3031": {
+   "char": "d",
+   "glyph_name": "glyph03031",
+   "method": "visual",
+   "note": "visual: subscript-size italic 'd'",
+   "unicode": "U+0064"
+  },
+  "3032": {
+   "char": "e",
+   "glyph_name": "glyph03032",
+   "method": "visual",
+   "note": "visual: subscript-size italic 'e'",
+   "unicode": "U+0065"
+  },
+  "3034": {
+   "char": "g",
+   "glyph_name": "glyph03034",
+   "method": "visual",
+   "note": "visual: subscript-size italic 'g'",
+   "unicode": "U+0067"
+  },
+  "3036": {
+   "char": "i",
+   "glyph_name": "glyph03036",
+   "method": "visual",
+   "note": "visual: subscript-size italic 'i'",
+   "unicode": "U+0069"
+  },
+  "3037": {
+   "char": "j",
+   "glyph_name": "glyph03037",
+   "method": "visual",
+   "note": "visual: subscript-size italic 'j'",
+   "unicode": "U+006A"
+  },
+  "3039": {
+   "char": "l",
+   "glyph_name": "glyph03039",
+   "method": "visual",
+   "note": "visual: subscript-size italic 'l'",
+   "unicode": "U+006C"
+  },
+  "3040": {
+   "char": "m",
+   "glyph_name": "glyph03040",
+   "method": "visual",
+   "note": "visual: subscript-size italic 'm'",
+   "unicode": "U+006D"
+  },
+  "3041": {
+   "char": "n",
+   "glyph_name": "glyph03041",
+   "method": "visual",
+   "note": "visual: subscript-size italic 'n'",
+   "unicode": "U+006E"
+  },
+  "3042": {
+   "char": "o",
+   "glyph_name": "glyph03042",
+   "method": "visual",
+   "note": "visual: subscript-size italic 'o'",
+   "unicode": "U+006F"
+  },
+  "3043": {
+   "char": "p",
+   "glyph_name": "glyph03043",
+   "method": "visual",
+   "note": "visual: subscript-size italic 'p'",
+   "unicode": "U+0070"
+  },
+  "3045": {
+   "char": "r",
+   "glyph_name": "glyph03045",
+   "method": "visual",
+   "note": "visual: subscript-size italic 'r'",
+   "unicode": "U+0072"
+  },
+  "3046": {
+   "char": "s",
+   "glyph_name": "glyph03046",
+   "method": "visual",
+   "note": "visual: subscript-size italic 's', no cmap entry",
+   "unicode": "U+0073"
+  },
+  "3047": {
+   "char": "t",
+   "glyph_name": "glyph03047",
+   "method": "visual",
+   "note": "visual: subscript-size italic 't'",
+   "unicode": "U+0074"
+  },
+  "3048": {
+   "char": "u",
+   "glyph_name": "glyph03048",
+   "method": "visual",
+   "note": "visual: subscript-size italic 'u'",
+   "unicode": "U+0075"
+  },
+  "3049": {
+   "char": "v",
+   "glyph_name": "glyph03049",
+   "method": "visual",
+   "note": "visual: subscript-size italic 'v'",
+   "unicode": "U+0076"
+  },
+  "3051": {
+   "char": "x",
+   "glyph_name": "glyph03051",
+   "method": "visual",
+   "note": "visual: subscript-size italic 'x'",
+   "unicode": "U+0078"
+  },
+  "3053": {
+   "char": "z",
+   "glyph_name": "glyph03053",
+   "method": "visual",
+   "note": "visual: subscript-size italic 'z'",
+   "unicode": "U+007A"
+  },
+  "3090": {
+   "char": "λ",
+   "glyph_name": "glyph03090",
+   "method": "visual",
+   "note": "visual: greek small lambda",
+   "unicode": "U+03BB"
+  },
+  "3095": {
+   "char": "π",
+   "glyph_name": "glyph03095",
+   "method": "visual",
+   "note": "visual: greek small pi",
+   "unicode": "U+03C0"
+  },
+  "3096": {
+   "char": "ρ",
+   "glyph_name": "glyph03096",
+   "method": "visual",
+   "note": "visual: greek small rho",
+   "unicode": "U+03C1"
+  },
+  "3117": {
+   "char": "1",
+   "glyph_name": "glyph03117",
+   "method": "visual",
+   "note": "visual: subscript-size digit '1' (alternate)",
+   "unicode": "U+0031"
+  },
+  "3118": {
+   "char": "2",
+   "glyph_name": "glyph03118",
+   "method": "visual",
+   "note": "visual: subscript-size digit '2' (alternate)",
+   "unicode": "U+0032"
+  },
+  "3276": {
+   "char": "a",
+   "glyph_name": "glyph03276",
+   "method": "visual",
+   "note": "visual: subscript-size italic 'a' (alternate)",
+   "unicode": "U+0061"
+  },
+  "3278": {
+   "char": "C",
+   "glyph_name": "glyph03278",
+   "method": "visual",
+   "note": "visual: subscript-size italic 'C' (alternate)",
+   "unicode": "U+0043"
+  },
+  "3284": {
+   "char": "i",
+   "glyph_name": "glyph03284",
+   "method": "visual",
+   "note": "visual: subscript-size italic 'i' (alternate)",
+   "unicode": "U+0069"
+  },
+  "3288": {
+   "char": "m",
+   "glyph_name": "glyph03288",
+   "method": "visual",
+   "note": "visual: subscript-size italic 'm' (alternate)",
+   "unicode": "U+006D"
+  },
+  "3289": {
+   "char": "n",
+   "glyph_name": "glyph03289",
+   "method": "visual",
+   "note": "visual: subscript-size italic 'n' (alternate)",
+   "unicode": "U+006E"
+  },
+  "3290": {
+   "char": "o",
+   "glyph_name": "glyph03290",
+   "method": "visual",
+   "note": "visual: subscript-size italic 'o' (alternate width)",
+   "unicode": "U+006F"
+  },
+  "3291": {
+   "char": "p",
+   "glyph_name": "glyph03291",
+   "method": "visual",
+   "note": "visual: subscript-size italic 'p' (alternate width)",
+   "unicode": "U+0070"
+  },
+  "3293": {
+   "char": "r",
+   "glyph_name": "glyph03293",
+   "method": "visual",
+   "note": "visual: subscript-size italic 'r' (alternate)",
+   "unicode": "U+0072"
+  },
+  "3299": {
+   "char": "x",
+   "glyph_name": "glyph03299",
+   "method": "visual",
+   "note": "visual: subscript-size italic 'x' (alternate)",
+   "unicode": "U+0078"
+  },
+  "3397": {
+   "char": "+",
+   "glyph_name": "plus",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+002B"
+  },
+  "3398": {
+   "char": "−",
+   "glyph_name": "minus",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+2212"
+  },
+  "3400": {
+   "char": "×",
+   "glyph_name": "multiply",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+00D7"
+  },
+  "3404": {
+   "char": "=",
+   "glyph_name": "equal",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+003D"
+  },
+  "3409": {
+   "char": "≤",
+   "glyph_name": "lessequal",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+2264"
+  },
+  "3410": {
+   "char": "≥",
+   "glyph_name": "greaterequal",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+2265"
+  },
+  "3415": {
+   "char": "/",
+   "glyph_name": "glyph03415",
+   "method": "visual",
+   "note": "visual: plain diagonal slash; contextual usage '≤12/h' implies unit fraction slash",
+   "unicode": "U+002F"
+  },
+  "3435": {
+   "char": "(",
+   "glyph_name": "glyph03435",
+   "method": "visual",
+   "note": "visual: large/stretched left parenthesis",
+   "unicode": "U+0028"
+  },
+  "3436": {
+   "char": "(",
+   "glyph_name": "glyph03436",
+   "method": "visual",
+   "note": "visual: medium stretched left parenthesis",
+   "unicode": "U+0028"
+  },
+  "3439": {
+   "char": ")",
+   "glyph_name": "glyph03439",
+   "method": "visual",
+   "note": "visual: large/stretched right parenthesis",
+   "unicode": "U+0029"
+  },
+  "3440": {
+   "char": ")",
+   "glyph_name": "glyph03440",
+   "method": "visual",
+   "note": "visual: medium stretched right parenthesis",
+   "unicode": "U+0029"
+  },
+  "3493": {
+   "char": "√",
+   "glyph_name": "glyph03493",
+   "method": "visual",
+   "note": "visual: square-root sign, standard size",
+   "unicode": "U+221A"
+  },
+  "3495": {
+   "char": "√",
+   "glyph_name": "glyph03495",
+   "method": "visual",
+   "note": "visual: tall/stretched square-root stroke (no attached vinculum glyph found separately in this doc)",
+   "unicode": "U+221A"
+  },
+  "3533": {
+   "char": "Σ",
+   "glyph_name": "glyph03533",
+   "method": "visual",
+   "note": "visual: capital sigma (large summation operator)",
+   "unicode": "U+03A3"
+  },
+  "4662": {
+   "char": "̇",
+   "glyph_name": "uni0307",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+0307"
+  },
+  "4666": {
+   "char": "(",
+   "glyph_name": "parenleft",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+0028"
+  },
+  "4667": {
+   "char": ")",
+   "glyph_name": "parenright",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+0029"
+  },
+  "4670": {
+   "char": "[",
+   "glyph_name": "bracketleft",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+005B"
+  },
+  "4671": {
+   "char": "]",
+   "glyph_name": "bracketright",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+005D"
+  },
+  "4672": {
+   "char": "(",
+   "glyph_name": "glyph04672",
+   "method": "visual",
+   "note": "visual: small stretched left parenthesis",
+   "unicode": "U+0028"
+  },
+  "4673": {
+   "char": ")",
+   "glyph_name": "glyph04673",
+   "method": "visual",
+   "note": "visual: small stretched right parenthesis",
+   "unicode": "U+0029"
+  },
+  "4678": {
+   "char": "(",
+   "glyph_name": "glyph04678",
+   "method": "visual",
+   "note": "visual: largest stretched left parenthesis",
+   "unicode": "U+0028"
+  },
+  "4679": {
+   "char": ")",
+   "glyph_name": "glyph04679",
+   "method": "visual",
+   "note": "visual: largest stretched right parenthesis",
+   "unicode": "U+0029"
+  },
+  "481": {
+   "char": ",",
+   "glyph_name": "comma",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+002C"
+  },
+  "482": {
+   "char": ";",
+   "glyph_name": "semicolon",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+003B"
+  },
+  "484": {
+   "char": ".",
+   "glyph_name": "period",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+002E"
+  },
+  "512": {
+   "char": "/",
+   "glyph_name": "slash",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+002F"
+  },
+  "581": {
+   "char": "θ",
+   "glyph_name": "theta",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+03B8"
+  },
+  "882": {
+   "char": "0",
+   "glyph_name": "zero",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+0030"
+  },
+  "883": {
+   "char": "1",
+   "glyph_name": "one",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+0031"
+  },
+  "884": {
+   "char": "2",
+   "glyph_name": "two",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+0032"
+  },
+  "885": {
+   "char": "3",
+   "glyph_name": "three",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+0033"
+  },
+  "886": {
+   "char": "4",
+   "glyph_name": "four",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+0034"
+  },
+  "887": {
+   "char": "5",
+   "glyph_name": "five",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+0035"
+  },
+  "888": {
+   "char": "6",
+   "glyph_name": "six",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+0036"
+  },
+  "889": {
+   "char": "7",
+   "glyph_name": "seven",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+0037"
+  },
+  "890": {
+   "char": "8",
+   "glyph_name": "eight",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+0038"
+  },
+  "891": {
+   "char": "9",
+   "glyph_name": "nine",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+0039"
+  },
+  "892": {
+   "char": "⁰",
+   "glyph_name": "uni2070",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+2070"
+  },
+  "932": {
+   "char": "⁄",
+   "glyph_name": "fraction",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+2044"
+  },
+  "942": {
+   "char": "∙",
+   "glyph_name": "uni2219",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+2219"
+  },
+  "958": {
+   "char": "√",
+   "glyph_name": "radical",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+221A"
+  },
+  "959": {
+   "char": "∆",
+   "glyph_name": "Delta",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+2206"
+  },
+  "963": {
+   "char": "∑",
+   "glyph_name": "summation",
+   "method": "cmap",
+   "note": "rezolvat direct din tabela cmap proprie a fontului Cambria Math (GID -> nume glif -> Unicode), presupunand ca CID-ul din PDF == GID-ul din fontul original sub Identity-H/CIDFontType0",
+   "unicode": "U+2211"
+  }
+ },
+ "font_match": "CambriaMath",
+ "generated_from_documents": [
+  "i9_2022",
+  "p118_1_2025"
+ ],
+ "method_summary": "Pentru fiecare GID folosit efectiv in PDF-urile din documente_noi (colectat prin page.get_texttrace(), care expune GID-ul real per caracter, spre deosebire de euristicul stricat al get_text()): (1) incercam rezolvarea prin cmap-ul propriu al fontului de referinta (GID -> nume glif -> Unicode) - acopera glifele pe care Word/generatorul PDF le poate adresa direct prin codpoint (litere, cifre, greceste, operatori matematici, alfanumerice italice matematice); (2) pentru rest (variante optice mici folosite la indici/exponenti si piese de constructie pentru paranteze/radicali mari, care exista doar ca glife fara nicio asignare Unicode - normal pentru fonturi matematice OpenType), randam conturul glifului direct din GID cu FreeType si il identificam vizual, verificat incrucisat cu contextul semantic al glifelor vecine deja rezolvate din aceeasi formula. GID-urile care nu au putut fi identificate cu incredere sunt inregistrate cu method='unresolved' si char=null; codul de extragere nu trebuie sa ghiceasca niciodata pentru acestea.",
+ "reference_font": "C:/Windows/Fonts/cambria.ttc, face index 1 ('Cambria Math')"
+}
