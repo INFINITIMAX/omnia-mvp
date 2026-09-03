@@ -1,0 +1,384 @@
+<title>NormativAI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=Crimson+Pro:wght@400;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root{
+    /* Ground: near-black carrying a warm bias toward the gold, never neutral grey */
+    --ink-900:#0A0907;
+    --ink-850:#100E0B;
+    --ink-800:#16130F;
+    --ink-750:#1C1813;
+    --ink-700:#241F18;
+
+    /* Accent: struck gold. Not signal yellow, which would read as hazard tape */
+    --gold:#E8B931;
+    --gold-hi:#FFD75E;
+    --gold-deep:#7A5D00;
+
+    /* Type, all above 5:1 on the ground */
+    --paper:#F2EEE4;
+    --paper-dim:#B7AF9D;
+    --paper-quiet:#8E8674;
+
+    --rule:#241F18;
+    --rule-lit:#3A3225;
+
+    --sans:"Archivo",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    --serif:"Crimson Pro","Iowan Old Style",Georgia,serif;
+    --mono:"IBM Plex Mono","SF Mono",Consolas,monospace;
+
+    /* One spacing scale. Nothing off it. */
+    --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px; --s8:64px;
+  }
+
+  *{box-sizing:border-box;}
+
+  .sr-only{
+    position:absolute;width:1px;height:1px;padding:0;margin:-1px;
+    overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;
+  }
+
+  body{
+    margin:0;
+    min-height:100vh;
+    background:var(--ink-900);
+    background-image:
+      radial-gradient(1100px 620px at 8% -12%, rgba(232,185,49,.075), transparent 60%),
+      linear-gradient(180deg,#0D0B08 0%,#0A0907 46%,#070605 100%);
+    background-attachment:fixed;
+    color:var(--paper);
+    font-family:var(--sans);
+    font-size:15px;
+    line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  .shell{display:grid;grid-template-columns:266px minmax(0,1fr);min-height:100vh;}
+
+  /* ================= RAIL ================= */
+  .rail{
+    display:flex;flex-direction:column;gap:var(--s6);
+    padding:var(--s5) var(--s4) var(--s4);
+    border-right:1px solid var(--rule);
+    background:linear-gradient(180deg,rgba(232,185,49,.05) 0%,rgba(232,185,49,.008) 34%,transparent 72%);
+    position:sticky;top:0;height:100vh;
+  }
+  .brand{display:flex;align-items:center;gap:var(--s3);}
+  .sigil{
+    width:34px;height:34px;flex:none;display:grid;place-items:center;
+    border-radius:var(--s2);
+    background:linear-gradient(150deg,var(--gold-hi) 0%,var(--gold) 46%,var(--gold-deep) 100%);
+    color:#0D0B06;font-family:var(--serif);font-size:21px;font-weight:600;line-height:1;
+  }
+  .brand-name{font-size:16px;font-weight:600;letter-spacing:-.012em;}
+  .brand-sub{
+    font-family:var(--mono);font-size:11px;letter-spacing:.13em;text-transform:uppercase;
+    color:var(--paper-quiet);margin-top:2px;
+  }
+
+  .rail-group{display:flex;flex-direction:column;gap:var(--s1);}
+  .rail-label{
+    font-family:var(--mono);font-size:11px;letter-spacing:.15em;text-transform:uppercase;
+    color:var(--paper-quiet);padding:0 var(--s3) var(--s3);
+  }
+  .rail-item{
+    display:flex;align-items:baseline;gap:var(--s3);
+    padding:var(--s2) var(--s3);border-radius:var(--s2);
+    color:var(--paper-dim);font-size:14px;text-decoration:none;
+  }
+  .rail-item:hover{background:var(--ink-800);color:var(--paper);}
+  .rail-item[aria-current="page"]{background:var(--ink-750);color:var(--paper);font-weight:500;}
+  .rail-item .code{
+    font-family:var(--mono);font-size:12px;color:var(--paper-quiet);
+    margin-left:auto;font-variant-numeric:tabular-nums;
+  }
+  .rail-item[aria-current="page"] .code{color:var(--gold);}
+
+  .rail-foot{margin-top:auto;display:flex;flex-direction:column;gap:var(--s4);}
+  .quota{display:flex;flex-direction:column;gap:var(--s2);padding:0 var(--s3);}
+  .quota-top{display:flex;justify-content:space-between;align-items:baseline;}
+  .quota-label{
+    font-family:var(--mono);font-size:11px;letter-spacing:.13em;text-transform:uppercase;
+    color:var(--paper-quiet);
+  }
+  .quota-num{font-family:var(--mono);font-size:13px;color:var(--gold);font-variant-numeric:tabular-nums;}
+  .meter{height:2px;background:var(--rule-lit);}
+  .meter span{display:block;height:100%;width:70%;background:var(--gold);}
+  .rail-legal{display:flex;gap:var(--s4);padding:var(--s3) var(--s3) 0;border-top:1px solid var(--rule);}
+  .rail-legal a{font-size:12.5px;color:var(--paper-quiet);text-decoration:none;}
+  .rail-legal a:hover{color:var(--gold);text-decoration:underline;}
+
+  /* ================= MAIN ================= */
+  .main{display:flex;flex-direction:column;min-width:0;height:100vh;}
+
+  .topbar{
+    display:flex;align-items:center;gap:var(--s4);flex-wrap:wrap;
+    padding:var(--s3) var(--s6);
+    border-bottom:1px solid var(--rule);
+    background:var(--ink-900);
+  }
+  .mock-flag{
+    font-family:var(--mono);font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--gold);
+  }
+  .topbar-note{font-size:13px;color:var(--paper-quiet);}
+  .rail-item:focus-visible,.rail-legal a:focus-visible,.send:focus-visible{
+    outline:2px solid var(--gold-hi);outline-offset:2px;
+  }
+
+  .scroll{flex:1;overflow-y:auto;padding:var(--s7) var(--s6) var(--s5);}
+  .thread{max-width:780px;margin:0 auto;display:flex;flex-direction:column;gap:var(--s7);}
+
+  /* --- question --- */
+  .turn-q{display:flex;flex-direction:column;gap:var(--s2);}
+  .turn-tag{
+    font-family:var(--mono);font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--paper-quiet);
+  }
+  .q-text{margin:0;font-size:17px;line-height:1.5;color:var(--paper);max-width:62ch;}
+
+  /* --- typeset answer --- */
+  .doc{
+    border:1px solid var(--rule);
+    border-radius:var(--s1);
+    background:var(--ink-850);
+    padding:var(--s6) var(--s7) var(--s6);
+  }
+  .doc-head{
+    display:flex;align-items:baseline;gap:var(--s4);
+    padding-bottom:var(--s3);margin-bottom:var(--s5);
+    border-bottom:1px solid var(--rule-lit);
+  }
+  .doc-kicker{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);}
+  .doc-meta{
+    font-family:var(--mono);font-size:11px;color:var(--paper-quiet);
+    margin-left:auto;font-variant-numeric:tabular-nums;
+  }
+
+  .prose{font-family:var(--serif);font-size:19.5px;line-height:1.7;color:var(--paper);}
+  .prose p{margin:0 0 var(--s4);text-align:justify;hyphens:auto;}
+  .prose p:last-child{margin-bottom:0;}
+
+  .sec{
+    display:flex;align-items:baseline;gap:var(--s3);
+    margin:var(--s6) 0 var(--s3);
+  }
+  .sec-num{font-family:var(--mono);font-size:12px;color:var(--gold);font-variant-numeric:tabular-nums;}
+  .sec-h{font-family:var(--serif);font-size:20px;font-weight:600;margin:0;text-wrap:balance;}
+
+  /* The cited article, set the way a printed standard sets one:
+     hairline rules across the measure, reference hanging in the margin,
+     text in roman. No colored bar, no card, no italics. */
+  .art{
+    display:grid;grid-template-columns:96px minmax(0,1fr);gap:var(--s5);
+    margin:var(--s5) 0;padding:var(--s4) 0;
+    border-top:1px solid var(--rule-lit);
+    border-bottom:1px solid var(--rule-lit);
+  }
+  .art-ref{display:flex;flex-direction:column;gap:var(--s1);}
+  .art-no{font-family:var(--mono);font-size:13px;color:var(--gold);font-variant-numeric:tabular-nums;}
+  .art-doc{font-family:var(--mono);font-size:11px;color:var(--paper-quiet);}
+  .art-body{font-family:var(--serif);font-size:18px;line-height:1.62;color:var(--paper);margin:0;}
+
+  sup.cite{font-family:var(--mono);font-size:11px;color:var(--gold);padding-left:2px;line-height:1;}
+
+  .refs{margin-top:var(--s6);padding-top:var(--s4);border-top:1px solid var(--rule-lit);}
+  .refs-lab{
+    font-family:var(--mono);font-size:11px;letter-spacing:.15em;text-transform:uppercase;
+    color:var(--paper-quiet);margin-bottom:var(--s4);
+  }
+  .refs ol{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:var(--s4);counter-reset:r;}
+  .refs li{display:grid;grid-template-columns:30px minmax(0,1fr);gap:var(--s2);font-size:14px;line-height:1.5;}
+  .refs li::before{
+    counter-increment:r;content:"[" counter(r) "]";
+    font-family:var(--mono);font-size:12px;color:var(--gold);padding-top:1px;
+  }
+  .ref-code{font-family:var(--mono);font-size:12.5px;color:var(--paper);}
+  .ref-title{color:var(--paper-dim);margin-top:var(--s1);}
+  .ref-quote{
+    font-family:var(--serif);font-size:15.5px;color:var(--paper-dim);
+    margin-top:var(--s2);padding-left:var(--s4);
+  }
+
+  /* ================= COMPOSER ================= */
+  .composer-wrap{padding:0 var(--s6) var(--s5);}
+  .composer{
+    max-width:780px;margin:0 auto;
+    border:1px solid var(--rule-lit);border-radius:var(--s5);
+    background:var(--ink-800);
+    padding:var(--s4) var(--s4) var(--s3);
+  }
+  .composer:focus-within{border-color:var(--gold);}
+  .composer textarea{
+    display:block;width:100%;border:0;background:transparent;resize:none;
+    color:var(--paper);font-family:var(--sans);font-size:15px;line-height:1.55;
+    min-height:48px;
+  }
+  .composer textarea:focus{outline:none;}
+  .composer textarea::placeholder{color:var(--paper-quiet);}
+  .composer-bar{display:flex;align-items:center;gap:var(--s4);margin-top:var(--s2);}
+  .composer-hint{font-family:var(--mono);font-size:11.5px;color:var(--paper-quiet);}
+  .send{
+    margin-left:auto;cursor:pointer;
+    padding:var(--s2) var(--s5);border-radius:var(--s5);border:1px solid var(--gold);
+    background:var(--gold);color:#0D0B06;
+    font-family:var(--sans);font-size:13.5px;font-weight:600;
+  }
+  .send:hover{background:var(--gold-hi);border-color:var(--gold-hi);}
+  .disclaimer{
+    max-width:780px;margin:var(--s3) auto 0;
+    font-size:12px;color:var(--paper-quiet);line-height:1.5;
+  }
+
+  @media (prefers-reduced-motion:no-preference){
+    .rail-item,.send,.seg button,.composer,.rail-legal a{transition:background-color .14s,border-color .14s,color .14s;}
+  }
+
+  @media (max-width:900px){
+    .shell{grid-template-columns:1fr;}
+    .rail{
+      position:static;height:auto;flex-direction:row;align-items:center;
+      gap:var(--s4);padding:var(--s3) var(--s4);overflow-x:auto;
+    }
+    .rail-group,.rail-label,.rail-foot{display:none;}
+    .main{height:auto;}
+    .scroll{padding:var(--s5) var(--s4) var(--s4);}
+    .composer-wrap{padding:0 var(--s4) var(--s4);}
+    .topbar{padding:var(--s3) var(--s4);}
+    .doc{padding:var(--s5) var(--s4);}
+    .prose{font-size:17.5px;}
+    .art{grid-template-columns:1fr;gap:var(--s2);}
+  }
+</style>
+
+<div class="shell">
+  <aside class="rail">
+    <div class="brand">
+      <div class="sigil" aria-hidden="true">§</div>
+      <div>
+        <div class="brand-name">NormativAI</div>
+        <div class="brand-sub">Normative tehnice</div>
+      </div>
+    </div>
+
+    <nav class="rail-group" aria-label="Navigare principală">
+      <span class="rail-label">Sesiune</span>
+      <a class="rail-item" href="#" aria-current="page">Întrebare nouă</a>
+      <a class="rail-item" href="#">Cum funcționează</a>
+    </nav>
+
+    <nav class="rail-group" aria-label="Documente aprobate">
+      <span class="rail-label">Documente aprobate</span>
+      <a class="rail-item" href="#">NP 010-2022<span class="code">408</span></a>
+      <a class="rail-item" href="#">NP 057-02<span class="code">286</span></a>
+      <a class="rail-item" href="#">I9-2022<span class="code">650</span></a>
+      <a class="rail-item" href="#">P 118/1-2025<span class="code">1401</span></a>
+      <a class="rail-item" href="#">NP 015-2022<span class="code">578</span></a>
+    </nav>
+
+    <div class="rail-foot">
+      <div class="quota">
+        <div class="quota-top">
+          <span class="quota-label">Întrebări rămase</span>
+          <span class="quota-num">7 / 10</span>
+        </div>
+        <div class="meter" role="presentation"><span></span></div>
+      </div>
+      <div class="rail-legal">
+        <a href="#">Termeni</a>
+        <a href="#">Confidențialitate</a>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <span class="mock-flag">Mockup</span>
+      <span class="topbar-note">Conținut ilustrativ, neverificat într-un normativ real.</span>
+      <span class="doc-meta" style="margin-left:auto">Direcție aprobată 04-09-2026</span>
+    </div>
+
+    <div class="scroll">
+      <div class="thread">
+
+        <div class="turn-q">
+          <span class="turn-tag">Întrebare</span>
+          <p class="q-text">Care este lățimea liberă minimă a coridoarelor de evacuare într-o clădire de învățământ și cum se modifică ea în funcție de numărul de persoane?</p>
+        </div>
+
+        <article class="doc">
+          <div class="doc-head">
+            <span class="doc-kicker">Răspuns</span>
+            <span class="doc-meta">2 surse, 2 articole</span>
+          </div>
+
+          <div class="prose">
+            <p>Lățimea liberă minimă a coridoarelor de evacuare în clădirile de învățământ nu este o valoare fixă. Normativul pornește de la un prag minim absolut, apoi îl majorează proporțional cu numărul de persoane care traversează coridorul.<sup class="cite">[1]</sup></p>
+
+            <div class="sec">
+              <span class="sec-num">1.</span>
+              <h3 class="sec-h">Pragul minim absolut</h3>
+            </div>
+            <p>Indiferent câte persoane deservește, coridorul nu poate coborî sub pragul stabilit pentru circulațiile comune. Această valoare nu este o recomandare, ci o limită inferioară.<sup class="cite">[1]</sup></p>
+
+            <div class="art">
+              <div class="art-ref">
+                <span class="art-no">Art. 4.12</span>
+                <span class="art-doc">NP 010-2022</span>
+              </div>
+              <p class="art-body">Coridoarele care servesc drept căi de evacuare vor avea lățimea liberă de minimum 1,80 m în clădirile de învățământ, măsurată între elementele care reduc gabaritul de trecere.</p>
+            </div>
+
+            <div class="sec">
+              <span class="sec-num">2.</span>
+              <h3 class="sec-h">Majorarea în funcție de flux</h3>
+            </div>
+            <p>Peste pragul minim, dimensionarea se face pe unități de trecere. Fiecare unitate corespunde unui flux de evacuare, iar numărul de unități rezultă din numărul de persoane evacuate prin coridorul respectiv, nu din suprafața acestuia.<sup class="cite">[2]</sup></p>
+
+            <div class="art">
+              <div class="art-ref">
+                <span class="art-no">Art. 2.6.14</span>
+                <span class="art-doc">P 118/1-2025</span>
+              </div>
+              <p class="art-body">Lățimea căilor de evacuare se determină în funcție de numărul de fluxuri de evacuare, o unitate de trecere fiind de 0,60 m; lățimea rezultată se rotunjește în plus la multiplu de unitate.</p>
+            </div>
+
+            <p>Valoarea de dimensionare este cea mai mare dintre pragul minim de la punctul 1 și rezultatul calculului pe fluxuri de la punctul 2. Elementele care intră în gabarit, precum pilaștrii, ușile deschise sau corpurile de mobilier fixe, se scad din lățimea liberă și nu pot fi ignorate la verificare.<sup class="cite">[1]</sup></p>
+          </div>
+
+          <div class="refs">
+            <div class="refs-lab">Surse citate</div>
+            <ol>
+              <li>
+                <div>
+                  <div class="ref-code">NP 010-2022, art. 4.12</div>
+                  <div class="ref-title">Normativ privind proiectarea, realizarea și exploatarea construcțiilor pentru unități de învățământ</div>
+                  <div class="ref-quote">„…lățimea liberă de minimum 1,80 m în clădirile de învățământ…”</div>
+                </div>
+              </li>
+              <li>
+                <div>
+                  <div class="ref-code">P 118/1-2025, art. 2.6.14</div>
+                  <div class="ref-title">Normativ privind securitatea la incendiu a construcțiilor, Partea I, Construcții</div>
+                  <div class="ref-quote">„…o unitate de trecere fiind de 0,60 m; lățimea rezultată se rotunjește în plus…”</div>
+                </div>
+              </li>
+            </ol>
+          </div>
+        </article>
+
+      </div>
+    </div>
+
+    <div class="composer-wrap">
+      <div class="composer">
+        <label class="sr-only" for="q">Întrebarea ta</label>
+        <textarea id="q" rows="2" placeholder="Întreabă sau citează un articol, de exemplu „NP 010-2022, art. 4.12”"></textarea>
+        <div class="composer-bar">
+          <span class="composer-hint">Enter trimite, Shift+Enter rând nou</span>
+          <button class="send" type="button">Întreabă</button>
+        </div>
+      </div>
+      <p class="disclaimer">Răspunsurile sunt generate automat din documentele aprobate și includ întotdeauna sursa. Verifică textul oficial înainte de orice decizie tehnică.</p>
+    </div>
+  </div>
+</div>
