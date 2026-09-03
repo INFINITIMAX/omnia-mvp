@@ -209,7 +209,7 @@ class RuntimeDependencies:
     now_factory: Callable[[], datetime] = _utc_now
 
 
-app = FastAPI()
+app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 app.state.runtime_dependencies = RuntimeDependencies(
     connection_factory=_open_db_connection,
     embedder_factory=VoyageQueryEmbedder,
