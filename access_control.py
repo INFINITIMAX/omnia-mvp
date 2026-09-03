@@ -16,6 +16,9 @@ RATE_LIMIT_PER_MINUTE = 5
 RATE_LIMIT_PER_HOUR = 30
 COOKIE_MAX_AGE = timedelta(days=365)
 IP_BUCKET_RETENTION = timedelta(hours=24)
+# Plafon implicit prudent pentru apelurile plătite (Voyage + Anthropic) pe zi calendaristică
+# UTC; suprascris de variabila de mediu `DAILY_PAID_CALL_LIMIT` (vezi main.py și DEPLOYMENT.md).
+DEFAULT_DAILY_PAID_CALL_LIMIT = 200
 _MIN_SECRET_BYTES = 32
 _COOKIE_VERSION = "v1"
 
@@ -176,6 +179,14 @@ class PostgresAccessControlRepository:
         WHERE usage.questions_used < %s
         RETURNING questions_used
     """
+    _RESERVE_PAID_CALL_SQL = """
+        INSERT INTO public.paid_call_budget AS budget (bucket_date, request_count)
+        VALUES (%s, 1)
+        ON CONFLICT (bucket_date) DO UPDATE
+        SET request_count = budget.request_count + 1, updated_at = now()
+        WHERE budget.request_count < %s
+        RETURNING request_count
+    """
     _LOCK_IP_SQL = """
         SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))
     """
@@ -210,6 +221,20 @@ class PostgresAccessControlRepository:
         cursor = self._connection.cursor()
         try:
             cursor.execute(self._RESERVE_QUESTION_SQL, (visitor_hash, ANONYMOUS_QUOTA_LIMIT))
+            row = cursor.fetchone()
+            return int(row[0]) if row is not None else None
+        finally:
+            cursor.close()
+
+    def reserve_paid_call(self, *, now: datetime, daily_limit: int) -> int | None:
+        """Rezervă atomic un apel plătit (Voyage/Anthropic) pentru ziua calendaristică UTC
+        curentă; `None` înseamnă că plafonul zilei a fost deja atins, fără commit implicit."""
+        if type(daily_limit) is not int or daily_limit <= 0:
+            raise ValueError("daily_limit trebuie să fie întreg pozitiv")
+        bucket_date = _utc(now).date()
+        cursor = self._connection.cursor()
+        try:
+            cursor.execute(self._RESERVE_PAID_CALL_SQL, (bucket_date, daily_limit))
             row = cursor.fetchone()
             return int(row[0]) if row is not None else None
         finally:

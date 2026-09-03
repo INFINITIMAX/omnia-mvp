@@ -22,6 +22,7 @@ from voyageai.error import VoyageError
 
 from access_control import (
     ANONYMOUS_QUOTA_LIMIT,
+    DEFAULT_DAILY_PAID_CALL_LIMIT,
     RATE_LIMIT_PER_HOUR,
     RATE_LIMIT_PER_MINUTE,
     AccessControlConfig,
@@ -52,6 +53,10 @@ class DependencyConfigurationError(ServiceDependencyError):
 
 class ProviderUnavailableError(ServiceDependencyError):
     """Un SDK extern nu poate furniza un răspuns utilizabil."""
+
+
+class DailyBudgetExhaustedError(ServiceDependencyError):
+    """Plafonul zilnic pentru apelurile plătite (Voyage/Anthropic) a fost atins."""
 
 
 class QueryEmbedder(Protocol):
@@ -134,6 +139,59 @@ class AnthropicTextGenerator:
         return "\n".join(texts)
 
 
+class _PaidCallBudgetGuard:
+    """Rezervă cel mult o dată, per cerere, plafonul zilnic global, indiferent câte apeluri
+    plătite (Voyage și/sau Anthropic) declanșează întrebarea; folosește o conexiune DB proprie,
+    izolată de tranzacția de quota/generare, ca numărul să rămână corect chiar dacă restul
+    cererii eșuează și face rollback după ce banii au fost deja cheltuiți."""
+
+    def __init__(
+        self, connection_factory: Callable[[], object], *, now: datetime, daily_limit: int
+    ) -> None:
+        self._connection_factory = connection_factory
+        self._now = now
+        self._daily_limit = daily_limit
+        self._reserved = False
+
+    def reserve(self) -> None:
+        if self._reserved:
+            return
+        connection = self._connection_factory()
+        try:
+            repository = PostgresAccessControlRepository(connection)
+            result = repository.reserve_paid_call(now=self._now, daily_limit=self._daily_limit)
+            connection.commit()
+        finally:
+            connection.close()
+        if result is None:
+            raise DailyBudgetExhaustedError("plafon zilnic epuizat")
+        self._reserved = True
+
+
+class BudgetGatedEmbedder:
+    """Îmbracă un `QueryEmbedder` real; refuză apelul dacă plafonul zilnic e atins."""
+
+    def __init__(self, inner: QueryEmbedder, guard: _PaidCallBudgetGuard) -> None:
+        self._inner = inner
+        self._guard = guard
+
+    def embed_query(self, question: str) -> Sequence[float]:
+        self._guard.reserve()
+        return self._inner.embed_query(question)
+
+
+class BudgetGatedTextGenerator:
+    """Îmbracă un `TextGenerator` real; refuză apelul dacă plafonul zilnic e atins."""
+
+    def __init__(self, inner: TextGenerator, guard: _PaidCallBudgetGuard) -> None:
+        self._inner = inner
+        self._guard = guard
+
+    def generate(self, prompt: str, *, max_tokens: int) -> str:
+        self._guard.reserve()
+        return self._inner.generate(prompt, max_tokens=max_tokens)
+
+
 def _required_environment(name: str) -> str:
     value = os.getenv(name)
     if not value:
@@ -168,6 +226,18 @@ def _trusted_proxy_hops() -> int:
         return 0
     normalized = raw.strip()
     if not normalized.isascii() or not normalized.isdecimal():
+        raise DependencyConfigurationError("configurație indisponibilă")
+    return int(normalized)
+
+
+def _daily_paid_call_limit() -> int:
+    """Citește plafonul zilnic de apeluri plătite; absent înseamnă valoarea implicită prudentă,
+    orice altă valoare invalidă e fail-closed (503), la fel ca restul configurației."""
+    raw = os.getenv("DAILY_PAID_CALL_LIMIT")
+    if raw is None:
+        return DEFAULT_DAILY_PAID_CALL_LIMIT
+    normalized = raw.strip()
+    if not normalized.isascii() or not normalized.isdecimal() or int(normalized) <= 0:
         raise DependencyConfigurationError("configurație indisponibilă")
     return int(normalized)
 
@@ -207,6 +277,10 @@ class RuntimeDependencies:
     text_generator_factory: Callable[[], TextGenerator]
     access_control_config_factory: Callable[[], AnonymousAccessControlRuntimeConfig] = _anonymous_access_control_config
     now_factory: Callable[[], datetime] = _utc_now
+    daily_paid_call_limit_factory: Callable[[], int] = _daily_paid_call_limit
+    # Conexiune proprie, distinctă de `connection_factory`: plafonul zilnic trebuie să rămână
+    # corect chiar dacă restul tranzacției cererii curente face rollback (vezi _PaidCallBudgetGuard).
+    budget_connection_factory: Callable[[], object] = _open_db_connection
 
 
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
@@ -226,6 +300,54 @@ app.mount(
     StaticFiles(directory=_ASSETS_DIRECTORY, check_dir=False),
     name="assets",
 )
+
+
+# Hash-urile sha256 de mai jos corespund exact conținutului blocurilor inline din
+# static/index.html, static/termeni.html și static/confidentialitate.html (verificat manual:
+# niciuna dintre pagini nu încarcă altceva decât fonturile self-hostate din /assets și
+# fetch('/intreaba') same-origin). O modificare a acelor blocuri inline cere hash-uri noi aici,
+# altfel pagina se rupe silențios sub CSP.
+_CSP_SCRIPT_HASHES = ("'sha256-CXFpaA1nAnPr79Hagbe2CN1fPe84kD599ycNcoeIyFU='",)  # static/index.html <script>
+_CSP_STYLE_HASHES = (
+    "'sha256-bHtnvDsC3xABfNsXxutlE3/ITdo8w17Imbd8JtxsKhY='",  # static/index.html <style>
+    "'sha256-kUyxp8kcWn+qR+O4JbENkEzXFLSQLF+bM6N26VjKs0c='",  # static/termeni.html <style>
+    "'sha256-303Ph9pYTBdqEAWSTPYw5296I5SBQDxpsmFJ3UO3iMo='",  # static/confidentialitate.html <style>
+    "'sha256-iRTSbo/Ydn205oSWi3GzwimCP8819GmmNR28mXK/M70='",  # static/termeni.html style="margin-top: 40px;"
+)
+_CONTENT_SECURITY_POLICY = "; ".join((
+    "default-src 'none'",
+    "script-src " + " ".join(_CSP_SCRIPT_HASHES),
+    "style-src 'unsafe-hashes' " + " ".join(_CSP_STYLE_HASHES),
+    "font-src 'self'",
+    "connect-src 'self'",
+    "img-src 'self'",
+    "base-uri 'none'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+))
+_PERMISSIONS_POLICY = ", ".join((
+    "camera=()", "microphone=()", "geolocation=()", "payment=()", "usb=()",
+    "magnetometer=()", "gyroscope=()", "accelerometer=()", "fullscreen=()",
+))
+_SECURITY_HEADERS = {
+    "Content-Security-Policy": _CONTENT_SECURITY_POLICY,
+    "X-Frame-Options": "DENY",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": _PERMISSIONS_POLICY,
+    # Fără `preload`: Railway redirecționează deja 301 către HTTPS, dar înscrierea în lista de
+    # preload a browserelor e o decizie separată, ireversibilă fără proces manual de eliminare.
+    "Strict-Transport-Security": "max-age=15552000",
+}
+
+
+@app.middleware("http")
+async def _security_headers_middleware(request: Request, call_next):
+    """Adaugă antetele de securitate pe fiecare răspuns, inclusiv pe erori și pe fișierele statice."""
+    response = await call_next(request)
+    for header, value in _SECURITY_HEADERS.items():
+        response.headers[header] = value
+    return response
 
 
 def _anonymous_visitor_for_request(
@@ -479,11 +601,14 @@ def intreaba(
             )
         intrebari_ramase = ANONYMOUS_QUOTA_LIMIT - questions_used
 
+        budget_guard = _PaidCallBudgetGuard(
+            dependencies.budget_connection_factory, now=now, daily_limit=dependencies.daily_paid_call_limit_factory()
+        )
         parser = PostgresApprovedCatalogRepository(connection).load().create_parser()
         retrieval = RetrievalService(
             parser,
             PostgresRetrievalRepository(connection),
-            dependencies.embedder_factory(),
+            BudgetGatedEmbedder(dependencies.embedder_factory(), budget_guard),
         )
         result = retrieval.retrieve(cerere.intrebare)
 
@@ -500,7 +625,8 @@ def intreaba(
                 status="ambiguous_reference", raspuns=_AMBIGUOUS_REFERENCE, citari=[], intrebari_ramase=intrebari_ramase
             )
         else:
-            generated = GenerationService(dependencies.text_generator_factory()).generate(
+            generator = BudgetGatedTextGenerator(dependencies.text_generator_factory(), budget_guard)
+            generated = GenerationService(generator).generate(
                 cerere.intrebare, result.evidence
             )
             answer = IntreabaResponse(

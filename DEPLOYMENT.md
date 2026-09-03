@@ -125,7 +125,58 @@ antetul nu ar exista. Dacă în schimb fiecare valoare falsificată pare să pri
 proaspăt de 5 cereri pe minut, `TRUSTED_PROXY_HOPS` este prea mare și trebuie coborât
 înainte de a deschide accesul public.
 
-## 4. Rute publice
+### 3.5 Plafon zilnic global pentru apelurile plătite
+
+| Variabilă | Rol |
+| --- | --- |
+| `DAILY_PAID_CALL_LIMIT` | Numărul maxim de întrebări pe zi calendaristică **UTC** care pot ajunge la un apel plătit (Voyage embed și/sau Anthropic generate). Întreg strict pozitiv; implicit `200` dacă lipsește. |
+
+Acesta e un întrerupător de siguranță la nivelul întregii aplicații, separat de quota de
+10 întrebări/browser și de rate limiting-ul per IP: cele două de mai sus se pot ocoli
+(ștergerea cookie-ului, respectiv surse IP multiple), dar contorul zilnic e global și
+numără independent de cine face cererea.
+
+**Ce se numără:** o întrebare intră la plafon o singură dată, dacă declanșează **cel puțin
+unul** dintre apelurile plătite — embedding-ul Voyage (căutare semantică, când întrebarea nu
+conține un articol explicit) sau generarea Anthropic (când există dovadă găsită, exact sau
+semantic). O întrebare care se rezolvă complet din lookup-ul exact în baza de date, fără
+căutare semantică și fără generare (`not_found`, `ambiguous_article`, `ambiguous_reference`
+derivate direct din potrivirea exactă), **nu costă nimic și nu se numără**. O întrebare
+semantică ce declanșează atât embedding cât și generare numără o singură dată, nu de două ori.
+
+**Ce se întâmplă la atingerea pragului:** apelurile plătite se opresc înainte de a fi făcute
+(Voyage/Anthropic nu sunt niciodată contactate), iar răspunsul este exact același `503`
+generic („Serviciul este temporar indisponibil.”) folosit pentru orice altă eroare de
+infrastructură — deliberat nedistins de un incident tehnic obișnuit, ca să nu scurgă către
+public faptul că e vorba de un plafon de cost, pragul configurat sau mecanismul din spate.
+Quota personală (10/browser) **nu** se consumă când cererea eșuează din acest motiv.
+
+**Fusul orar al „zilei calendaristice":** contorul se resetează la miezul nopții **UTC**
+(ora 00:00 UTC = 02:00 sau 03:00 ora României, în funcție de ora de vară), nu la miezul
+nopții local. Alegerea urmează același model ca ferestrele de rate limit din §3.4, care
+sunt și ele calculate strict în UTC — un singur fus orar de referință în toată aplicația,
+fără conversii ad-hoc.
+
+**Stocare:** contorul este persistat în tabela `public.paid_call_budget`
+(`supabase/migrations/20260903120000_paid_call_daily_budget.sql`), un singur rând pe zi
+calendaristică, cu aceeași rezervare atomică „increment condiționat de prag, cu
+`RETURNING`" folosită deja pentru quota per-browser. Migrația nu a fost aplicată automat;
+se rulează manual, la fel ca migrația controalelor anonime din §3.3.
+
+## 4. Antete de securitate HTTP
+
+Fiecare răspuns (inclusiv erorile și fișierele din `/assets/*`) primește:
+
+| Antet | Valoare | De ce |
+| --- | --- | --- |
+| `Content-Security-Policy` | `default-src 'none'`, `script-src`/`style-src` cu hash-uri `sha256-` exacte ale blocurilor inline din `static/index.html`, `static/termeni.html` și `static/confidentialitate.html` (plus `'unsafe-hashes'` pentru singurul atribut `style=""` inline), `font-src 'self'`, `connect-src 'self'`, `img-src 'self'`, `base-uri 'none'`, `form-action 'self'`, `frame-ancestors 'none'` | UI-ul are CSS/JS inline și fonturi self-hostate din `/assets`; hash-urile permit exact acel conținut, fără `'unsafe-inline'`. O modificare a blocurilor `<style>`/`<script>` inline din oricare din cele trei pagini cere hash-uri noi în `main.py`, altfel pagina se rupe silențios sub CSP. |
+| `X-Frame-Options` | `DENY` | Anti-clickjacking pentru browsere fără suport `frame-ancestors`. |
+| `X-Content-Type-Options` | `nosniff` | Împiedică MIME-sniffing. |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` | Nu trimite path/query complet către alte origini. |
+| `Permissions-Policy` | dezactivează camera, microfonul, geolocația, plata, USB, senzorii de mișcare și fullscreen | Aplicația nu folosește niciuna dintre ele. |
+| `Strict-Transport-Security` | `max-age=15552000` (180 de zile, fără `preload`) | Railway redirecționează deja 301 către HTTPS; antetul e ignorat de browser pe conexiuni HTTP, deci e sigur să fie mereu prezent. Fără `preload` deliberat: înscrierea în lista de preload a browserelor e greu reversibilă. |
+
+## 5. Rute publice
 
 | Rută | Rol |
 | --- | --- |
@@ -139,7 +190,7 @@ proaspăt de 5 cereri pe minut, `TRUSTED_PROXY_HOPS` este prea mare și trebuie 
 Directorul `static/` **nu** este montat integral; nu există niciun endpoint care poate servi
 alte fișiere din repo, iar `/assets/*` refuză traversarea de cale.
 
-## 5. Ce NU se pune în variabile de mediu
+## 6. Ce NU se pune în variabile de mediu
 
 - Nicio cheie sau parolă nu se comite în repo și nu apare în `DEPLOYMENT.md`, `README.md`
   sau în loguri.
@@ -147,10 +198,14 @@ alte fișiere din repo, iar `/assets/*` refuză traversarea de cale.
   procesul web și nu trebuie rulate automat la deploy; importul de documente rămâne o
   operație manuală, decisă explicit.
 
-## 6. Restanțe cunoscute înainte de lansare publică
+## 7. Restanțe cunoscute înainte de lansare publică
 
 - Ștergerea fizică a bucket-urilor IP expirate (24 de ore) nu are încă scheduler; expirarea
-  este doar logică.
+  este doar logică. Același lucru e valabil, la o scară mult mai mică, pentru rândurile din
+  `public.paid_call_budget` (unul pe zi calendaristică).
 - `GET /documents` nu există; UI-ul nu trebuie să afișeze contoare de documente.
 - Afirmațiile din paginile juridice (regiunea Supabase, infrastructura de hosting, adresa de
   contact) trebuie verificate înainte de publicare.
+- Migrația `20260903120000_paid_call_daily_budget.sql` (§3.5) nu a fost aplicată încă pe
+  Supabase; fără ea, `POST /intreaba` răspunde `503` generic la orice întrebare care ar
+  costa (tabela lipsă e o eroare `psycopg2.Error`, tratată deja fail-closed).

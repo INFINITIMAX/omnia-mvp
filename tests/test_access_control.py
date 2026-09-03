@@ -8,6 +8,7 @@ import pytest
 from access_control import (
     ANONYMOUS_QUOTA_LIMIT,
     COOKIE_MAX_AGE,
+    DEFAULT_DAILY_PAID_CALL_LIMIT,
     IP_BUCKET_RETENTION,
     RATE_LIMIT_PER_HOUR,
     RATE_LIMIT_PER_MINUTE,
@@ -192,6 +193,44 @@ def test_rate_limit_contorizeaza_6_7_minut_si_31_32_ora_fara_commit_ascuns():
     assert connection.commits == connection.rollbacks == 0
 
 
+def test_rezervarea_bugetului_zilnic_respecta_pragul_fara_commit_ascuns():
+    cursor = CursorFake(responses=[(number,) for number in range(1, 4)] + [None])
+    connection = ConnectionFake(cursor)
+    repository = PostgresAccessControlRepository(connection)
+
+    assert [repository.reserve_paid_call(now=NOW, daily_limit=3) for _ in range(4)] == [1, 2, 3, None]
+
+    sql, parameters = cursor.calls[0]
+    assert "ON CONFLICT (bucket_date) DO UPDATE" in sql
+    assert "WHERE budget.request_count < %s" in sql
+    assert parameters == (NOW.date(), 3)
+    assert connection.commits == connection.rollbacks == 0
+    assert cursor.closed
+
+
+def test_bugetul_zilnic_este_scopat_pe_data_calendaristica_utc():
+    cursor = CursorFake(responses=[(1,), (1,)])
+    connection = ConnectionFake(cursor)
+    repository = PostgresAccessControlRepository(connection)
+
+    repository.reserve_paid_call(now=NOW, daily_limit=DEFAULT_DAILY_PAID_CALL_LIMIT)
+    repository.reserve_paid_call(now=NOW + timedelta(days=1), daily_limit=DEFAULT_DAILY_PAID_CALL_LIMIT)
+
+    first_date = cursor.calls[0][1][0]
+    second_date = cursor.calls[1][1][0]
+    assert second_date - first_date == timedelta(days=1)
+    # miezul nopții calendaristice e UTC, nu ora locală (EET); vezi DEPLOYMENT.md.
+    assert first_date == NOW.date()
+
+
+@pytest.mark.parametrize("daily_limit", [0, -1, 1.5, "200", True])
+def test_rezervarea_bugetului_refuza_prag_invalid(daily_limit):
+    connection = ConnectionFake(CursorFake())
+
+    with pytest.raises(ValueError):
+        PostgresAccessControlRepository(connection).reserve_paid_call(now=NOW, daily_limit=daily_limit)
+
+
 def test_ferestrele_sunt_utc_si_cleanup_ul_este_parametrizat():
     windows = rate_limit_windows(datetime(2026, 9, 1, 15, 34, 56, tzinfo=UTC))
     cursor = CursorFake(rowcount=2)
@@ -223,6 +262,18 @@ def test_migrarea_are_constraints_rls_revoke_preflight_si_retention():
     assert "enable row level security" in sql
     assert "revoke all on table public.anonymous_usage from anon, authenticated" in sql
     assert "revoke all on table public.rate_limit_buckets from anon, authenticated" in sql
+
+
+def test_migrarea_bugetului_zilnic_are_constraints_rls_revoke_si_preflight():
+    sql = (Path(__file__).resolve().parents[1] / "supabase" / "migrations" /
+           "20260903120000_paid_call_daily_budget.sql").read_text(encoding="utf-8")
+
+    assert "create table public.paid_call_budget" in sql
+    assert "bucket_date date primary key" in sql
+    assert "request_count >= 0" in sql
+    assert "Preflight oprit" in sql
+    assert "enable row level security" in sql
+    assert "revoke all on table public.paid_call_budget from anon, authenticated" in sql
 
 
 def test_auditul_nu_lasa_ip_cookie_brut_sau_source_key_in_schema_si_cod():

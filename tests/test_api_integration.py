@@ -1,8 +1,12 @@
 """Teste FastAPI complet mockuite pentru integrarea Retrieval + Generation."""
 
+import base64
+import hashlib
 import importlib
+import re
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from types import SimpleNamespace
 
 import anthropic
@@ -38,6 +42,8 @@ class CursorFake:
             raise self.connection.error
         if "INSERT INTO public.anonymous_usage" in sql:
             self.row = next(self.connection.quota_results)
+        elif "INSERT INTO public.paid_call_budget" in sql:
+            self.row = next(self.connection.budget_results)
         elif "SET request_count = request_count + 1" in sql:
             self.rows = [("minute", self.connection.minute_count), ("hour", self.connection.hour_count)]
         elif "SELECT document.document_id" in sql:
@@ -60,7 +66,8 @@ class CursorFake:
 class ConnectionFake:
     def __init__(
         self, *, catalog_rows=CATALOG_ROWS, exact_rows=(EXACT_ROW,), semantic_rows=(SEMANTIC_ROW,),
-        minute_count=1, hour_count=1, quota_results=((1,),), error=None, rollback_error=None,
+        minute_count=1, hour_count=1, quota_results=((1,),), budget_results=((1,),) * 10,
+        error=None, rollback_error=None,
     ):
         self.catalog_rows = catalog_rows
         self.exact_rows = exact_rows
@@ -68,6 +75,7 @@ class ConnectionFake:
         self.minute_count = minute_count
         self.hour_count = hour_count
         self.quota_results = iter(quota_results)
+        self.budget_results = iter(budget_results)
         self.error = error
         self.rollback_error = rollback_error
         self.calls = []
@@ -128,13 +136,22 @@ def api():
     main.app.state.runtime_dependencies = original_dependencies
 
 
-def configure(api, connection, embedder=None, generator=None, runtime_config=ACCESS_RUNTIME_CONFIG):
+def configure(
+    api, connection, embedder=None, generator=None, runtime_config=ACCESS_RUNTIME_CONFIG,
+    budget_connection=None, daily_paid_call_limit=main.DEFAULT_DAILY_PAID_CALL_LIMIT,
+):
+    # Conexiune proprie pentru plafonul zilnic, distinctă de `connection`: altfel testele
+    # care numără commit-uri/rollback-uri pe `connection` ar vedea efectele secundare ale
+    # rezervării bugetului, care în producție se întâmplă pe o conexiune separată.
+    resolved_budget_connection = budget_connection if budget_connection is not None else ConnectionFake()
     main.app.state.runtime_dependencies = main.RuntimeDependencies(
         connection_factory=lambda: connection,
         embedder_factory=lambda: embedder or EmbedderFake(),
         text_generator_factory=lambda: generator or GeneratorFake(),
         access_control_config_factory=lambda: runtime_config,
         now_factory=lambda: NOW,
+        daily_paid_call_limit_factory=lambda: daily_paid_call_limit,
+        budget_connection_factory=lambda: resolved_budget_connection,
     )
     return api
 
@@ -1062,3 +1079,213 @@ def test_pagina_juridica_lipsa_este_503_generic_fara_cale_absoluta(api, monkeypa
     assert response.json() == {"detail": "Serviciul este temporar indisponibil."}
     assert str(tmp_path) not in response.text
     assert ".html" not in response.text
+
+
+# --- Antete de securitate HTTP ---
+
+
+def test_antetele_de_securitate_sunt_prezente_pe_pagina_principala(api):
+    response = configure(api, ConnectionFake()).get("/")
+
+    csp = response.headers["content-security-policy"]
+    assert "default-src 'none'" in csp
+    assert "frame-ancestors 'none'" in csp
+    assert "script-src 'sha256-" in csp
+    assert "style-src 'unsafe-hashes' 'sha256-" in csp
+    assert "'unsafe-inline'" not in csp
+    assert response.headers["x-frame-options"] == "DENY"
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert response.headers["referrer-policy"] == "strict-origin-when-cross-origin"
+    assert "camera=()" in response.headers["permissions-policy"]
+    assert "microphone=()" in response.headers["permissions-policy"]
+    assert "geolocation=()" in response.headers["permissions-policy"]
+    hsts = response.headers["strict-transport-security"]
+    assert hsts.startswith("max-age=")
+    assert "preload" not in hsts
+
+
+@pytest.mark.parametrize("path", ["/health", "/nu-exista", "/termeni"])
+def test_antetele_de_securitate_apar_pe_orice_raspuns_inclusiv_erori(api, path):
+    response = configure(api, ConnectionFake()).get(path)
+
+    for header in (
+        "content-security-policy", "x-frame-options", "x-content-type-options",
+        "referrer-policy", "permissions-policy", "strict-transport-security",
+    ):
+        assert header in response.headers
+
+
+_STATIC_DIR = Path(__file__).resolve().parents[1] / "static"
+_INLINE_BLOCK = re.compile(r"<(script|style)(?:\s[^>]*)?>(.*?)</\1>", re.S)
+_STYLE_ATTRIBUTE = re.compile(r'style="([^"]*)"')
+
+
+def _csp_sha256(content: str) -> str:
+    digest = hashlib.sha256(content.encode("utf-8")).digest()
+    return "'sha256-" + base64.b64encode(digest).decode("ascii") + "'"
+
+
+def _inline_hashes_from_static_files() -> tuple[set[str], set[str]]:
+    """Recalculează, din conținutul REAL de pe disc, hash-urile pe care CSP-ul trebuie
+    să le conțină — exact ce ar face un browser înainte să decidă dacă execută blocul."""
+    script_hashes: set[str] = set()
+    style_hashes: set[str] = set()
+    for filename in ("index.html", "termeni.html", "confidentialitate.html"):
+        text = (_STATIC_DIR / filename).read_text(encoding="utf-8")
+        for tag, body in _INLINE_BLOCK.findall(text):
+            (script_hashes if tag == "script" else style_hashes).add(_csp_sha256(body))
+        for attribute_value in _STYLE_ATTRIBUTE.findall(text):
+            style_hashes.add(_csp_sha256(attribute_value))
+    return script_hashes, style_hashes
+
+
+def test_hash_urile_csp_corespund_exact_continutului_static_curent():
+    """Plasă de siguranță împotriva desincronizării: dacă cineva editează un <script>/<style>
+    inline sau un atribut style="" din static/*.html fără să regenereze hash-ul din main.py,
+    CSP-ul rămâne valid sintactic (testele de mai sus tot trec), dar browserul va bloca
+    silențios blocul respectiv în producție. Acest test recalculează hash-urile din fișierele
+    reale și le compară strict cu constantele din main.py, în ambele sensuri (lipsă și perimat)."""
+    expected_scripts, expected_styles = _inline_hashes_from_static_files()
+    actual_scripts = set(main._CSP_SCRIPT_HASHES)
+    actual_styles = set(main._CSP_STYLE_HASHES)
+
+    missing_scripts = expected_scripts - actual_scripts
+    stale_scripts = actual_scripts - expected_scripts
+    missing_styles = expected_styles - actual_styles
+    stale_styles = actual_styles - expected_styles
+
+    assert not (missing_scripts or stale_scripts or missing_styles or stale_styles), (
+        "\n_CSP_SCRIPT_HASHES / _CSP_STYLE_HASHES din main.py nu mai corespund conținutului "
+        "curent din static/index.html, static/termeni.html sau static/confidentialitate.html. "
+        "Un <script>/<style> inline sau un atribut style=\"...\" a fost editat fără să se "
+        "regenereze hash-ul CSP — browserul va bloca silențios acel bloc în producție.\n"
+        f"De adăugat în _CSP_SCRIPT_HASHES (calculate acum din fișierele curente): {sorted(missing_scripts)}\n"
+        f"De șters din _CSP_SCRIPT_HASHES (nu mai corespund niciunui <script> curent): {sorted(stale_scripts)}\n"
+        f"De adăugat în _CSP_STYLE_HASHES (calculate acum din fișierele curente): {sorted(missing_styles)}\n"
+        f"De șters din _CSP_STYLE_HASHES (nu mai corespund niciunui <style>/style=\"\" curent): {sorted(stale_styles)}\n"
+    )
+
+
+def test_raspunsul_intreaba_are_si_el_antetele_de_securitate(api):
+    response = configure(api, ConnectionFake()).post("/intreaba", json={"intrebare": "art. 4.4.7.2"})
+
+    assert response.status_code == 200
+    assert response.headers["x-frame-options"] == "DENY"
+    assert "frame-ancestors 'none'" in response.headers["content-security-policy"]
+
+
+# --- Plafon zilnic global pentru apelurile plătite (Voyage/Anthropic) ---
+
+
+def test_plafonul_zilnic_atins_opreste_generarea_platita_cu_raspuns_generic(api):
+    connection = ConnectionFake()
+    embedder = EmbedderFake()
+    generator = GeneratorFake()
+    budget_connection = ConnectionFake(budget_results=(None,))
+
+    response = configure(
+        api, connection, embedder, generator, budget_connection=budget_connection
+    ).post("/intreaba", json={"intrebare": "art. 4.4.7.2"})
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Serviciul este temporar indisponibil."}
+    assert embedder.calls == 0
+    assert generator.calls == 0
+    # Plafonul atins nu consumă quota personală (10/browser) a vizitatorului.
+    assert connection.rollbacks == 1
+    _assert_no_technical_identifiers(response)
+    # Mesajul public nu scurge pragul, mecanismul sau cuvinte care ar trăda motivul intern.
+    for leaked in ("plafon", "buget", "200", "DAILY_PAID_CALL_LIMIT", "zilnic"):
+        assert leaked not in response.text.lower()
+
+
+def test_plafonul_zilnic_nu_se_aplica_intrebarilor_fara_apel_platit(api):
+    connection = ConnectionFake(exact_rows=())
+    embedder = EmbedderFake()
+    generator = GeneratorFake()
+    budget_connection = ConnectionFake(budget_results=(None,))
+
+    response = configure(
+        api, connection, embedder, generator, budget_connection=budget_connection
+    ).post("/intreaba", json={"intrebare": "art. 99.99.99"})
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "not_found"
+    assert embedder.calls == 0
+    assert generator.calls == 0
+    # Plafonul nici măcar nu e verificat pe o cale care nu costă nimic.
+    assert budget_connection.calls == []
+
+
+def test_plafonul_zilnic_numara_o_singura_data_intrebarea_semantica_gasita(api):
+    connection = ConnectionFake()
+    embedder = EmbedderFake()
+    generator = GeneratorFake()
+    budget_connection = ConnectionFake(budget_results=((1,),))
+
+    response = configure(
+        api, connection, embedder, generator, budget_connection=budget_connection
+    ).post("/intreaba", json={"intrebare": "Care este regula sintetică?"})
+
+    assert response.status_code == 200
+    assert embedder.calls == 1
+    assert generator.calls == 1
+    # Un embed + un generate pentru aceeași întrebare = o singură rezervare de buget.
+    reservations = [sql for sql, _ in budget_connection.calls if "INSERT INTO public.paid_call_budget" in sql]
+    assert len(reservations) == 1
+
+
+def test_plafonul_zilnic_permite_pana_la_prag_apoi_blocheaza(api):
+    embedder = EmbedderFake()
+    generator = GeneratorFake()
+    budget_connection = ConnectionFake(budget_results=((1,), None))
+
+    client = configure(
+        api, ConnectionFake(quota_results=((1,), (2,))), embedder, generator,
+        budget_connection=budget_connection, daily_paid_call_limit=1,
+    )
+    first = client.post("/intreaba", json={"intrebare": "Care este regula sintetică?"})
+    second = client.post("/intreaba", json={"intrebare": "Care este regula sintetică?"})
+
+    assert first.status_code == 200
+    assert second.status_code == 503
+    assert second.json() == {"detail": "Serviciul este temporar indisponibil."}
+
+
+def test_plafonul_zilnic_se_reseteaza_pe_zi_calendaristica_utc_diferita(api, monkeypatch):
+    captured_dates = []
+    original = main.PostgresAccessControlRepository.reserve_paid_call
+
+    def spy(self, *, now, daily_limit):
+        captured_dates.append(now.date())
+        return original(self, now=now, daily_limit=daily_limit)
+
+    monkeypatch.setattr(main.PostgresAccessControlRepository, "reserve_paid_call", spy)
+    budget_connection = ConnectionFake(budget_results=((1,), (1,)))
+
+    for moment in (NOW, NOW + timedelta(days=1)):
+        main.app.state.runtime_dependencies = main.RuntimeDependencies(
+            connection_factory=lambda: ConnectionFake(),
+            embedder_factory=lambda: EmbedderFake(),
+            text_generator_factory=lambda: GeneratorFake(),
+            access_control_config_factory=lambda: ACCESS_RUNTIME_CONFIG,
+            now_factory=lambda moment=moment: moment,
+            budget_connection_factory=lambda: budget_connection,
+        )
+        response = api.post("/intreaba", json={"intrebare": "art. 4.4.7.2"})
+        assert response.status_code == 200
+
+    assert captured_dates[1] - captured_dates[0] == timedelta(days=1)
+
+
+def test_plafonul_zilnic_implicit_este_200_daca_lipseste_variabila_de_mediu(monkeypatch):
+    monkeypatch.delenv("DAILY_PAID_CALL_LIMIT", raising=False)
+    assert main._daily_paid_call_limit() == main.DEFAULT_DAILY_PAID_CALL_LIMIT == 200
+
+
+@pytest.mark.parametrize("raw", ["0", "-1", "1.5", "abc", ""])
+def test_plafonul_zilnic_invalid_este_eroare_generica(monkeypatch, raw):
+    monkeypatch.setenv("DAILY_PAID_CALL_LIMIT", raw)
+
+    with pytest.raises(main.DependencyConfigurationError):
+        main._daily_paid_call_limit()
