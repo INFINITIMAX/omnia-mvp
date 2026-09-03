@@ -143,10 +143,38 @@
 
 ### Constatări deschise, pentru decizia lui Lucian
 
-- [ ] **Paginile juridice sunt inaccesibile.** `main.py` are doar `@app.get("/")` cu `FileResponse`; nu montează `StaticFiles` și `index.html` nu are link către `termeni.html` / `confidentialitate.html`. Necesită rute + link în footer înainte de deployment.
+- [x] **Paginile juridice sunt accesibile pe server** prin `GET /termeni` și `GET /confidentialitate` (branch `feat/health-si-static`). Rămâne restant **doar** linkul din footer-ul `static/index.html`, care este în sarcina Coder-ului de UI.
 - [ ] **Afirmații din paginile juridice de verificat înainte de publicare:** „rulează pe infrastructura Railway" (încă nedeployat), „Supabase în regiunea UE (Irlanda)" (neverificat) și cookie „Secure" (adevărat doar cu `ANONYMOUS_COOKIE_SECURE=true` în producție — gate încă deschis). Email `contact@normativai.ro` este placeholder.
 - [ ] **P 118/2-2013 complet** este planificat de Lucian pentru **lotul 4**, azi. Până la import, o întrebare despre P 118/2 primește răspuns doar din amendamentul 2018 (22 chunk-uri), fără textul de bază modificat.
-- [ ] `/health` și `/documents` rămân neimplementate; `/health` este obligatoriu înainte de deployment (Faza 7).
+- [x] `/health` este implementat (branch `feat/health-si-static`): public, fără DB și fără provideri. `/documents` rămâne neimplementat, cu contractul public încă neaprobat.
+
+## Predare — Faza 7 pregătire deployment Railway (API)
+
+- [x] Suport trusted proxy fail-closed: `TRUSTED_PROXY_HOPS` (întreg nenegativ, implicit `0`).
+      La `0` se folosește exclusiv `request.client.host`, exact comportamentul anterior; la `N > 0`
+      se ia al N-lea element **de la dreapta** din `X-Forwarded-For`, iar antetul absent, prea scurt
+      sau cu element invalid cade înapoi pe `request.client.host`. Valoare invalidă = `503` generic,
+      consecvent cu `ANONYMOUS_COOKIE_SECURE`.
+- [x] `GET /health` public, fără DB, fără Voyage/Anthropic, fără configurație anonimă și fără cookie.
+- [x] `GET /termeni` și `GET /confidentialitate` servesc paginile juridice prin `FileResponse`, din
+      căi fixe; `static/` nu este montat integral.
+- [x] `GET /assets/*` montat read-only strict pe `static/assets/` (creat cu `.gitkeep`), pentru
+      fonturi self-hostate și favicon.
+- [x] `DEPLOYMENT.md` documentează variabilele de producție, fără nicio valoare reală, plus
+      `TRUSTED_PROXY_HOPS=1`, `ANONYMOUS_COOKIE_SECURE=true` și healthcheck pe `/health`.
+- [x] Remedieri după `REQUEST_CHANGES` de la Reviewer:
+      **F1 blocant** — `X-Forwarded-For` este citit cu `getlist` și unit cu `", "`, nu cu `get`,
+      care returna doar prima apariție; antetele duplicate nu mai permit falsificarea IP-ului și
+      ocolirea rate limiting-ului. Cele 4 teste noi de neregresie pică demonstrat pe codul dinainte.
+      **F2** — `DEPLOYMENT.md` avertizează explicit că supraevaluarea lui `N` este o breșă, nu o
+      imprecizie, cu regula „în dubiu scade `N`" și un smoke test post-deploy obligatoriu.
+      **F3** — paginile juridice cu fișier lipsă dau `503` generic, ca `/`, fără `RuntimeError` cu
+      cale absolută în loguri. **F4** — `StaticFiles(check_dir=False)`. **F5** — artefactul de test
+      din `static/assets/` este ignorat de Git și curățat în `finally`.
+- [x] Validare locală: `python -m pytest -q` → **258 passed** (de la 211), `git diff --check` fără erori.
+- [ ] `TRUSTED_PROXY_HOPS=1` și `ANONYMOUS_COOKIE_SECURE=true` **nu** sunt setate nicăieri de agent;
+      Lucian le configurează manual în panoul Railway.
+- [ ] Zero push, zero deploy, zero SQL, zero apeluri API plătite în acest task.
 
 ## Următorul task UI — brief pentru Coder
 
