@@ -120,6 +120,34 @@
 - [x] CSS moarte pentru elementele eliminate a fost curățată; fără redesign, restul aspectului este păstrat.
 - [x] Teste statice noi în `tests/test_ui_static.py` (31 teste) validează contractul de mai sus și rulează `node --check` pe JS-ul extras din pagină; suita completă `python -m pytest -q` → 209 passed.
 
+## Predare sesiune — Audit și prototip UI (03-09-2026)
+
+- [x] Auditul browser read-only a demonstrat că UI-ul MVP versionat este funcțional pe desktop, dar layout-ul cu sidebar fix este rupt pe mobil.
+- [x] A fost construit izolat prototipul „Technical Paper” în `feat/technical-paper-ui`; testele locale și verificările browser mockuite au trecut tehnic.
+- [x] Lucian a respins direcția executată deoarece rezultatul pare insuficient stilizat și nu atinge calitatea vizuală dorită.
+- [x] Prototipul nu a fost comis, îmbinat, împins sau publicat; nu reprezintă UI-ul aprobat al produsului.
+- [ ] La reluare: două propuneri vizuale desktop+mobil înainte de implementare, apoi alegerea explicită a uneia de către Lucian.
+- [ ] După alegere: implementare într-un worktree curat, verificări 200/403/429/422/503, Tester read-only, Reviewer read-only și gate vizual final separat.
+- [ ] Lucrul extern necomis observat în worktree-ul principal (Railway, pagini juridice și al doilea lot de documente) trebuie inventariat și revizuit separat; acest fișier nu îl declară finalizat și nu îi atribuie efecte DB/deployment.
+
+## Predare sesiune — Reconciliere Railway și lot 2 (03-09-2026)
+
+- [x] Inventariat diff-ul extern necomis din worktree-ul principal: 4 subiecte independente amestecate (docs roadmap, `Procfile`, pagini juridice, lot 2 de documente).
+- [x] Verificat că niciun fișier necomis nu conține secrete; `Procfile` are doar comanda uvicorn.
+- [x] Verificare READ-ONLY Supabase aprobată de Lucian și executată (`SET TRANSACTION READ ONLY`, doar `SELECT`): **6 documente, toate `approved`, 3345 chunk-uri** — nu 2 documente / 694 cum afirma documentația.
+- [x] Constatare: importul lotului 2 și migrarea `20260903120000` au fost **deja aplicate pe Supabase înainte de această sesiune**; costul Voyage pentru 2651 chunk-uri noi este deja consumat. Commit-urile versionează retroactiv o stare deja live.
+- [x] `supabase_migrations.schema_migrations` nu este vizibilă conexiunii; nu se afirmă istoric de migrare înregistrat și nu s-a modificat manual.
+- [x] Split în 4 commit-uri pe ramura `chore/reconciliere-railway` (`a55eeed`, `95ccd72`, `0e1f84b`, `a28bf1e`); `main` rămâne intact la `c6e14ba`. Zero push, zero deploy, zero SQL aplicat în această sesiune.
+- [x] Suita locală după split: `python -m pytest -q` → **211 passed** (209 + 2 teste noi pentru saritul reimportului neschimbat).
+- [x] Documentația la timpul prezent sincronizată cu starea reală (`PLAN.md`, `TASKS.md`, `docs/PROJECT_OVERVIEW.md`, `docs/DECISIONS.md`). Înregistrările istorice din `supabase/*.md` au fost lăsate neatinse — sunt corecte la momentul lor.
+
+### Constatări deschise, pentru decizia lui Lucian
+
+- [ ] **Paginile juridice sunt inaccesibile.** `main.py` are doar `@app.get("/")` cu `FileResponse`; nu montează `StaticFiles` și `index.html` nu are link către `termeni.html` / `confidentialitate.html`. Necesită rute + link în footer înainte de deployment.
+- [ ] **Afirmații din paginile juridice de verificat înainte de publicare:** „rulează pe infrastructura Railway" (încă nedeployat), „Supabase în regiunea UE (Irlanda)" (neverificat) și cookie „Secure" (adevărat doar cu `ANONYMOUS_COOKIE_SECURE=true` în producție — gate încă deschis). Email `contact@normativai.ro` este placeholder.
+- [ ] **P 118/2-2013 complet** este planificat de Lucian pentru **lotul 4**, azi. Până la import, o întrebare despre P 118/2 primește răspuns doar din amendamentul 2018 (22 chunk-uri), fără textul de bază modificat.
+- [ ] `/health` și `/documents` rămân neimplementate; `/health` este obligatoriu înainte de deployment (Faza 7).
+
 ## Backlog ordonat
 
 1. Faza 1: migrarea Supabase pentru metadata și chunk identity. **Finalizată.**
@@ -135,6 +163,6 @@
 ## Observații
 
 - `np057_02` nu are PDF original local; are doar `extracted.txt` și metadata notează acest lucru.
-- Supabase are 694 chunk-uri aprobate pentru retrieval: NP010 = 408, NP057 = 286.
+- Supabase are 3345 chunk-uri aprobate pentru retrieval, în 6 documente (verificare read-only 03-09-2026): NP010 = 408, NP057 = 286, I9-2022 = 650, P118/1-2025 = 1401, NP015-2022 = 578, P118/2-2013 modificări = 22.
 - `PLAN.md` și acest fișier sunt sursele active de coordonare.
 - Commit `319cf5f`: 17 scripturi legacy neutilizate (ex. `chunkingv2.py`, `omnia_qa.py`, `verificare_db.py`) au fost eliminate din proiectul activ. `_archive/` este în `.gitignore` și nu face parte din repo sau din starea versionată; versiunile eliminate rămân recuperabile din istoricul Git (`git show 319cf5f^:<cale>`).

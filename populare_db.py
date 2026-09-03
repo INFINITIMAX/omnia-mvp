@@ -204,6 +204,21 @@ def asigura_document(cursor, metadata):
         raise ValueError("upsert document refuzat; importul a fost oprit înainte de Voyage")
 
 
+def chunkurile_sunt_neschimbate(cursor, sursa, chunkuri):
+    """Compara hash-urile locale cu cele deja din DB pentru aceasta sursa.
+
+    Returneaza True doar daca DB are deja chunk-uri pentru sursa asta SI setul
+    de hash-uri e identic cu ce s-a extras acum local — caz in care documentul
+    nu s-a schimbat si reimportul (deci si apelurile Voyage) pot fi sarite.
+    """
+    cursor.execute("SELECT content_hash FROM documente_chunks WHERE sursa = %s", (sursa,))
+    hash_uri_db = sorted(rand[0] for rand in cursor.fetchall())
+    if not hash_uri_db:
+        return False
+    hash_uri_locale = sorted(calculeaza_content_hash(chunk["text"]) for chunk in chunkuri)
+    return hash_uri_db == hash_uri_locale
+
+
 def importa_document(cursor, client_voyage, metadata, chunkuri):
     """Reinlocuieste atomic doar chunk-urile sursei curente."""
     valideaza_metadata(metadata)
@@ -263,11 +278,19 @@ def main():
     conexiune = conecteaza_baza_de_date()
 
     try:
+        procesate = 0
+        sarite = 0
         with conexiune.cursor() as cursor:
             for metadata, chunkuri in documente:
+                sursa = metadata["source_key"]
+                if chunkurile_sunt_neschimbate(cursor, sursa, chunkuri):
+                    print(f"  NESCHIMBAT: {metadata['document_id']} — sarit, fara cost Voyage")
+                    sarite += 1
+                    continue
                 importa_document(cursor, client_voyage, metadata, chunkuri)
+                procesate += 1
         conexiune.commit()
-        print(f"\nImport finalizat: {total} chunk-uri din {len(documente)} documente.")
+        print(f"\nImport finalizat: {procesate} documente reimportate, {sarite} sarite (neschimbate).")
     except Exception:
         conexiune.rollback()
         raise

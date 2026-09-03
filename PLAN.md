@@ -4,6 +4,31 @@
 
 Omnia devine o aplicație publică pentru normative tehnice românești: răspunsuri bazate exclusiv pe dovezi, cu citare oficială, căutare exactă de articol, costuri API controlate și teste automate.
 
+## Stare executivă — 03-09-2026
+
+### Avem, în starea versionată sigură (`main` la `c6e14ba`)
+
+- ingestion reproductibil și 6 documente aprobate, cu 3345 chunk-uri în Supabase (lotul 1 = 694, lotul 2 = 2651; verificat read-only la 03-09-2026);
+- schemă Supabase versionată, RLS activ și fără acces public direct;
+- retrieval hibrid, generare cu citări validate și integrare `POST /intreaba`;
+- quota anonimă de 10 întrebări/browser și rate limiting 5/minut, 30/oră/IP;
+- UI MVP funcțional și factual, cu 209 teste locale/mockuite;
+- regression eval sintetic și determinist, fără a pretinde calitate reală Voyage/Claude.
+
+### Există, dar nu este încă livrat
+
+- prototipul UI „Technical Paper” din `feat/technical-paper-ui`: verificările tehnice și browser mockuit au trecut, însă Lucian a respins calitatea vizuală la 03-09-2026; prototipul nu se îmbină și nu se publică în forma actuală;
+- lucru extern necomis observat în worktree-ul principal pentru Railway, pagini juridice și un al doilea lot de documente; nu a fost revizuit în etapa UI și nu este considerat finalizat sau aprobat de acest roadmap.
+
+### Ordinea recomandată la reluare
+
+1. Reconciliere Railway: inventarierea diff-ului extern, separarea pe commit-uri și verificarea că nu există secrete sau efecte DB neaprobate.
+2. UI, înainte de cod: două propuneri vizuale reale, capturate desktop+mobil; Lucian alege explicit una.
+3. Implementarea variantei alese într-un worktree curat, păstrând contractul API și controalele anonime.
+4. Tester funcțional, Reviewer tehnic și gate vizual final al lui Lucian înainte de merge/push.
+5. Deployment gate: `/health`, trusted proxy, cookie `Secure=true`, secrete de producție, cleanup, monitoring și limite de cost.
+6. După deployment: smoke tests reale opt-in, `/documents` cu contract aprobat, apoi README/demo/CV.
+
 ## Faza 0 — Stabilizare
 
 - Review și commit pentru ingestion-ul structurat deja implementat.
@@ -71,15 +96,22 @@ Omnia devine o aplicație publică pentru normative tehnice românești: răspun
 - Eliminarea datelor demonstrative false.
 - Loading, erori și refuz explicit.
 - Brand public aprobat: **NormativAI**. `Omnia` rămâne numele intern al proiectului/repository-ului.
+- Redesign-ul pornește cu două capturi/prototipuri comparabile, nu direct cu implementare completă.
+- Acceptarea tehnică și acceptarea vizuală sunt gates separate; testele verzi nu pot înlocui aprobarea vizuală a lui Lucian.
+
+**Gata când:** varianta vizuală este aprobată explicit pe desktop și mobil, comportamentele 200/403/429/422/503 sunt reverificate, iar `/documents` are contract public aprobat și implementat.
 
 ## Faza 7 — Review și deployment
 
 - Review independent pentru cod, securitate și cost.
 - Aplicația publică și viitorul hosting/domeniu folosesc brandul **NormativAI**; verificarea de trademark a fost realizată de Lucian.
 - Hosting, secrete, pooling Supabase, health check și budget alerts.
-- Smoke tests pe URL public.
+- Configurare explicită trusted proxy înainte de a folosi IP-ul clientului în spatele Railway.
+- `ANONYMOUS_COOKIE_SECURE=true` și secrete distincte de producție.
+- Job aprobat pentru ștergerea fizică a bucket-urilor IP expirate.
+- Smoke tests pe URL public, cu providerii reali numai opt-in și cu limită de cost.
 
-**Gata când:** aplicația este publică și trece criteriile de acceptare.
+**Gata când:** diff-ul de deployment este revizuit, `/health` funcționează, configurația de securitate este validată, URL-ul public trece smoke tests și Lucian aprobă explicit lansarea.
 
 ## Faza 8 — Business și CV
 
