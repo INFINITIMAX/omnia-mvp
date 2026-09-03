@@ -1,54 +1,152 @@
 # Tokeni de design — NormativAI
 
-Sursă: valori **măsurate** (computed styles) de pe `https://ai.acquisition.com/` la 04-09-2026,
-paleta de referință aprobată de Lucian. Nu sunt ghicite și nu sunt copiate din `:root` —
-variabilele `:root` ale site-ului sunt tema light implicită shadcn și **nu** reflectă ce se
-randează efectiv. Valorile de mai jos vin din `getComputedStyle` pe pagina redată în dark mode.
+Direcție **aprobată de Lucian la 04-09-2026**, validată pe mockup vizual.
+
+Înlocuiește complet paleta violet derivată din `ai.acquisition.com`, explorată pe 03-09-2026
+și abandonată. Nu mai folosi acele valori nicăieri.
+
+## Concept
+
+Două straturi vizuale distincte, cu roluri diferite:
+
+1. **Carcasa aplicației** este o interfață modernă întunecată: nav lateral stânga, chat box
+   rotunjit, gradiente difuze. Registrul este cel al unei aplicații AI contemporane.
+2. **Răspunsul** este cules ca un document tipărit. Serif, text justificat cu despărțire în
+   silabe, secțiuni numerotate, citări `[1]`/`[2]` și o listă de surse la final.
+
+Distincția este intenționată. Prototipul „Technical Paper” respins pe 03-09-2026 a eșuat
+tocmai pentru că a transformat **toată** aplicația în hârtie, în light mode, fără nav lateral
+și fără gradiente, adică inversul a ceea ce se ceruse.
 
 ## Culori
 
-| Rol | Valoare | Note |
+### Fundal
+
+| Token | Valoare | Rol |
 |---|---|---|
-| Fundal de bază | `#131628` | `rgb(19, 22, 40)` |
-| Fundal body | `#161A27` | `rgb(22, 26, 39)` |
-| Gradient peste conținut | `linear-gradient(rgba(109,40,217,.25), rgba(162,28,175,.20), rgba(55,48,163,.25))` | violet → fucsia → indigo; dă tenta violet a paginii |
-| Accent / primary | `#811AFF` | `hsl(267 100% 50%)` — „acquisition purple” |
-| Accent, fundal difuz | `rgba(129, 26, 255, 0.10)` | pentru iconițe și stări active |
-| Text principal | `#FAFAFA` | |
-| Text titluri | `#FFFFFF` | |
-| Text secundar | `#A6A6A6` | |
-| Text secundar (alt) | `rgba(255, 255, 255, 0.70)` | |
-| Suprafață card | `rgba(255, 255, 255, 0.05)` | |
-| Bordură subtilă | `rgba(255, 255, 255, 0.10)` | pe carduri |
-| Bordură solidă | `#363B49` | separator footer |
+| `--ink-900` | `#0A0907` | fundalul paginii, negru cu tentă caldă |
+| `--ink-850` | `#100E0B` | foaia răspunsului, varianta închisă |
+| `--ink-800` | `#16130F` | fundal composer |
+| `--ink-750` | `#1C1813` | element activ în nav |
+| `--ink-700` | `#241F18` | suprafață ridicată |
+
+Gradientul de fundal:
+
+```css
+radial-gradient(1100px 620px at 8% -12%, rgba(232,185,49,.075), transparent 60%),
+linear-gradient(180deg, #0D0B08 0%, #0A0907 46%, #070605 100%)
+```
+
+Negrul are bias cald deliberat. Un gri neutru ar bate în albastru sub accentul auriu.
+
+### Accent
+
+| Token | Valoare | Rol |
+|---|---|---|
+| `--gold` | `#E8B931` | accent principal |
+| `--gold-hi` | `#FFD75E` | hover, inel de focus |
+| `--gold-deep` | `#7A5D00` | accent pe fundal deschis, capăt de gradient |
+
+Auriu, nu galben-semnal. Galbenul pur pe negru citește ca bandă de avertizare, ceea ce pentru
+o aplicație de normative de construcții ar fi o asociere greșită.
+
+### Text
+
+| Token | Valoare | Contrast pe `--ink-900` |
+|---|---|---|
+| `--paper` | `#F2EEE4` | ~17:1 |
+| `--paper-dim` | `#B7AF9D` | ~9:1 |
+| `--paper-quiet` | `#8E8674` | ~5.4:1, minim AA |
+| `--gold` pe fundal | `#E8B931` | ~10.7:1 |
+
+Nicio culoare de text sub 4.5:1. Etichetele mono nu coboară sub 11px.
+
+### Foaia „hârtie” (variantă)
+
+| Token | Valoare |
+|---|---|
+| `--sheet` | `#FAF7EF` |
+| `--sheet-ink` | `#141209` |
+| `--sheet-dim` | `#57513F` |
+| `--sheet-rule` | `#DCD4C0` |
+
+### Linii
+
+| Token | Valoare | Rol |
+|---|---|---|
+| `--rule` | `#241F18` | borduri, separatoare |
+| `--rule-lit` | `#3A3225` | linii în interiorul documentului |
 
 ## Tipografie
 
-- Familie: **Poppins**, fallback `system-ui, sans-serif`.
-- Bază: `16px`.
-- `h1`: `60px` / line-height `60px`, weight `700`, letter-spacing `-1.5px`.
-- Butoane și linkuri UI: `14px`, weight `500`.
+| Rol | Familie | Folosire |
+|---|---|---|
+| Interfață | **Archivo** 400/500/600 | nav, butoane, întrebare, composer |
+| Document | **Crimson Pro** 400/600 | corpul răspunsului, articole citate, titluri de secțiune |
+| Etichete și coduri | **IBM Plex Mono** 400/500 | etichete majuscule, numere de articol, coduri document, contoare |
 
-## Formă
+Crimson Pro este cea mai apropiată rudă liberă a lui Computer Modern, fontul LaTeX. Archivo
+este o grotescă cu caracter instituțional, potrivită pentru semnalistică și documente oficiale.
 
-- Raze: **6px** (butoane, inputuri), **8px** (implicit, `--radius: .5rem`), **12px** (carduri).
-- Padding card: `24px`.
-- CTA: fundal `#811AFF`, text `#FAFAFA`, rază `6px`, padding `0 32px`, weight `500`, `14px`, fără umbră.
-- Footer: fundal transparent, `border-top: 1px solid #363B49`.
-- Fără `box-shadow` pe carduri și CTA — separarea se face prin bordură și suprafață, nu prin umbră.
+Scară: corp document `19.5px/1.7`, articol citat `18px/1.62`, titlu secțiune `20px/600`,
+întrebare `17px`, interfață `15px`, etichete mono `11px` cu tracking `.13em` până la `.18em`.
 
-## Ce NU se preia
+Corpul răspunsului este justificat, cu `hyphens: auto`. Măsura utilă rămâne sub 780px.
 
-- Logo-ul, numele și textele Acquisition.com. Se preia **doar sistemul vizual**, nu identitatea.
-- Tema light a site-ului de referință. NormativAI pornește dark-only în această iterație.
+## Formă și spațiere
 
-## Avertisment: Poppins și GDPR
+Scară unică de spațiere, nimic în afara ei:
+`4, 8, 12, 16, 24, 32, 48, 64` px.
 
-Poppins este un Google Font. Încărcarea lui de pe `fonts.googleapis.com` trimite IP-ul
-vizitatorului către Google, ceea ce **adaugă un procesator terț** ce nu apare acum în
-`static/confidentialitate.html`. Două opțiuni, ambele acceptabile:
+| Element | Rază |
+|---|---|
+| Chat box, butonul de trimitere | `24px` |
+| Sigla, elemente de nav | `8px` |
+| Foaia răspunsului | `4px` |
 
-1. **Self-hosting** fontului din proiect (recomandat) — fără terț nou, fără modificarea politicii;
-2. păstrarea CDN-ului Google și **completarea explicită** a politicii de confidențialitate.
+Colțurile rotunde aparțin carcasei. **Documentul are colțuri aproape drepte**, deliberat:
+contrastul face ca răspunsul să citească drept alt tip de obiect, nu drept încă un card.
 
-Decizia îi aparține lui Lucian și trebuie luată înainte de implementare.
+Articolele citate se pun ca într-un standard tipărit: linii de păr sus și jos peste toată
+măsura, referința agățată în marginea stângă pe o coloană de `96px`, textul în roman.
+**Fără bară colorată la stânga, fără card, fără italice.**
+
+## Constrângeri obligatorii (cerute explicit de Lucian, 04-09-2026)
+
+Următoarele sunt interzise în orice mockup sau pagină finală. Lista se aplică integral, nu
+selectiv:
+
+- gradient violet spre albastru;
+- gradient pe textul titlurilor;
+- emoji în titluri;
+- Inter peste tot;
+- carduri cu bordură colorată la stânga;
+- glassmorphism;
+- dark mode cu contrast scăzut;
+- trei cutii cu iconițe pe un rând;
+- badge deasupra titlului;
+- iconițe Lucide peste tot;
+- componente shadcn nemodificate;
+- secțiuni care apar prin fade la scroll;
+- fascicul care urmărește cursorul;
+- efecte de hover care estompează butoanele;
+- spațiere inconsistentă;
+- em dash peste tot;
+- text generic cu cuvinte la modă;
+- italice serif pentru cuvinte accentuate;
+- Space Grotesk împreună cu Instrument Serif;
+- textură de grain peste gradient.
+
+## Decizie rămasă deschisă
+
+Foaia răspunsului are două tratamente implementate în mockup, între care Lucian nu a ales încă:
+
+- **închisă**, `--ink-850`, coerentă cu restul aplicației;
+- **hârtie**, `--sheet`, foaie crem care plutește în carcasa neagră, autoritate documentară maximă.
+
+## Avertisment GDPR
+
+Archivo, Crimson Pro și IBM Plex Mono sunt Google Fonts. Servite de pe `fonts.googleapis.com`,
+trimit IP-ul fiecărui vizitator către Google, ceea ce adaugă un procesator terț care nu apare
+în `static/confidentialitate.html`. Se rezolvă prin **self-hosting**, cum s-a procedat deja cu
+IBM Plex în prototipul anterior. Alternativa este completarea explicită a politicii.

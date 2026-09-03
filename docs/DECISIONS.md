@@ -21,14 +21,17 @@ Acest fișier separă deciziile explicite ale lui Lucian de propunerile agențil
 - Normativul complet P 118/2-2013 a fost pus deliberat pe hold și nu a fost importat; este planificat pentru un lot ulterior.
 - Orice document nou intră implicit în `indexed_pending_validation` și necesită aprobare explicită înainte să poată genera răspunsuri.
 
-### Interfață (decizie Lucian, 03-09-2026)
+### Interfață (decizie Lucian, aprobată 04-09-2026)
 
-- Cerința anterioară de „două propuneri vizuale comparate" este **anulată**. Lucian a dat direcția explicit; nu se mai cer variante alternative.
-- Direcția aprobată: **simplu și profesional**, în spiritul primei pagini / landing de la Claude sau Kimi. Prototipul estetic inițial din `index.html` era considerat suficient înainte de a fi modificat.
-- Elemente obligatorii: **nav bar pe stânga**, **chat box cu colțuri rotunde**, aceleași familii de fonturi, **dark mode**.
-- Paleta cromatică: similară cu `https://ai.acquisition.com/` (dark mode). Valorile exacte se capturează dintr-un screenshot real al site-ului, **nu se ghicesc** — o încercare de extragere prin fetch a eșuat (CSS extern/randat prin JS).
-- Scopul livrării: **bază solidă pe care se iterează**, nu design final. Interfața se va mai modifica.
-- Rămâne valabil: acceptarea vizuală este un gate separat de acceptarea tehnică, iar contractul API (`POST /intreaba`) și controalele anonime nu se modifică.
+- Cerința de „două propuneri vizuale comparate" a fost anulată la 03-09-2026; Lucian a dat direcția explicit.
+- Paleta violet derivată din `ai.acquisition.com`, explorată pe 03-09-2026, este **abandonată**. Nu se mai folosește.
+- **Direcție aprobată pe mockup vizual la 04-09-2026:** negru cu auriu, două straturi vizuale distincte.
+  - Carcasa aplicației: interfață modernă întunecată, nav lateral stânga, chat box rotunjit, gradiente difuze.
+  - Răspunsul: cules ca document tipărit, serif justificat, secțiuni numerotate, citări `[1]`/`[2]`, listă de surse.
+- Motivul respingerii prototipului „Technical Paper" este acum documentat: a transformat **toată** aplicația în hârtie, în light mode, fără nav lateral și fără gradiente, adică inversul cerinței.
+- Valorile exacte, tipografia și scara de spațiere sunt în `docs/UI_DESIGN_TOKENS.md`, sursa unică pentru implementare.
+- Lucian a impus o listă explicită de pattern-uri interzise (glassmorphism, carduri cu bordură colorată la stânga, italice serif ca accent, em dash peste tot, Inter peste tot, contrast scăzut și altele). Lista completă este în `docs/UI_DESIGN_TOKENS.md` și **se aplică integral, nu selectiv**.
+- Rămâne deschis un singur aspect: foaia răspunsului, variantă închisă sau variantă hârtie.
 
 ### Retrieval și răspunsuri
 

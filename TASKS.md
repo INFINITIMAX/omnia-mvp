@@ -150,26 +150,40 @@
 
 ## Următorul task UI — brief pentru Coder
 
-**Titlu:** Redesign `static/index.html` pe direcția aprobată de Lucian.
+**Titlu:** Redesign `static/index.html` pe direcția negru-auriu aprobată la 04-09-2026.
+
+**Referință obligatorie:** `docs/UI_DESIGN_TOKENS.md`. Conține paleta, tipografia, scara de
+spațiere, razele și lista de pattern-uri interzise. Nu inventa valori care nu sunt acolo.
 
 **Scope:**
-- nav bar pe stânga, chat box cu colțuri rotunde, dark mode, familii de fonturi consecvente;
-- paletă preluată dintr-un screenshot real al `https://ai.acquisition.com/`, nu ghicită;
-- registru vizual: simplu și profesional, în spiritul landing-ului Claude/Kimi;
-- livrabil = bază solidă pentru iterații ulterioare, nu design final.
+- carcasă întunecată cu nav lateral stânga, composer rotunjit, gradiente difuze de fundal;
+- răspunsul cules ca document tipărit: Crimson Pro justificat cu `hyphens: auto`, secțiuni
+  numerotate, citări `[1]`/`[2]` în superscript, listă de surse la final;
+- articolele citate randate ca într-un standard tipărit: linii de păr sus și jos peste toată
+  măsura, referința agățată în marginea stângă, text în roman;
+- fonturi **self-hostate** sub `static/assets/fonts/`, cu rută read-only `GET /assets/*`
+  (`StaticFiles` limitat strict la `static/assets/`), ca în prototipul anterior; fără CDN
+  Google, ca să nu apară un procesator terț neînregistrat în politica de confidențialitate.
 
 **Constrângeri:**
 - contractul `POST /intreaba` și controalele anonime rămân neschimbate;
-- fără date demonstrative false (fără contoare inventate, fără conversații fictive);
-- randare exclusiv prin `textContent`/DOM pentru date de la server; fără `innerHTML`; JS nu citește `document.cookie`;
-- cele 31 de teste statice din `tests/test_ui_static.py` rămân verzi sau se actualizează motivat, fără a fi slăbite;
+- lista de pattern-uri interzise din `docs/UI_DESIGN_TOKENS.md` se respectă integral;
+- fără date demonstrative false; contoarele de documente se afișează **numai** dacă
+  `GET /documents` există, altfel se omit (vezi constatarea deschisă mai jos);
+- randare exclusiv prin `textContent`/DOM pentru date de la server; fără `innerHTML`;
+  JS nu citește `document.cookie`;
+- cele 31 de teste statice din `tests/test_ui_static.py` rămân verzi sau se actualizează
+  motivat, fără a fi slăbite;
 - worktree separat; fără merge, push sau deploy.
 
 **Criterii de acceptare:**
 - comportamentele 200/403/429/422/503 reverificate în browser real;
-- desktop **și** mobil verificate (layout-ul cu sidebar fix era rupt pe mobil);
+- desktop și mobil verificate; layout-ul cu sidebar fix era rupt pe mobil;
+- contrastul fiecărei perechi text/fundal peste 4.5:1;
 - `python -m pytest -q` verde;
 - gate vizual final explicit al lui Lucian, separat de acceptarea tehnică.
+
+**Blocant înainte de start:** Lucian alege foaia răspunsului, variantă închisă sau hârtie.
 
 ## Backlog ordonat
 
