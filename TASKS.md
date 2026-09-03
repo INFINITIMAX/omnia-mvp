@@ -120,6 +120,16 @@
 - [x] CSS moarte pentru elementele eliminate a fost curățată; fără redesign, restul aspectului este păstrat.
 - [x] Teste statice noi în `tests/test_ui_static.py` (31 teste) validează contractul de mai sus și rulează `node --check` pe JS-ul extras din pagină; suita completă `python -m pytest -q` → 209 passed.
 
+## Predare sesiune — Audit și prototip UI (03-09-2026)
+
+- [x] Auditul browser read-only a demonstrat că UI-ul MVP versionat este funcțional pe desktop, dar layout-ul cu sidebar fix este rupt pe mobil.
+- [x] A fost construit izolat prototipul „Technical Paper” în `feat/technical-paper-ui`; testele locale și verificările browser mockuite au trecut tehnic.
+- [x] Lucian a respins direcția executată deoarece rezultatul pare insuficient stilizat și nu atinge calitatea vizuală dorită.
+- [x] Prototipul nu a fost comis, îmbinat, împins sau publicat; nu reprezintă UI-ul aprobat al produsului.
+- [ ] La reluare: două propuneri vizuale desktop+mobil înainte de implementare, apoi alegerea explicită a uneia de către Lucian.
+- [ ] După alegere: implementare într-un worktree curat, verificări 200/403/429/422/503, Tester read-only, Reviewer read-only și gate vizual final separat.
+- [ ] Lucrul extern necomis observat în worktree-ul principal (Railway, pagini juridice și al doilea lot de documente) trebuie inventariat și revizuit separat; acest fișier nu îl declară finalizat și nu îi atribuie efecte DB/deployment.
+
 ## Backlog ordonat
 
 1. Faza 1: migrarea Supabase pentru metadata și chunk identity. **Finalizată.**
