@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import ipaddress
 import math
 import os
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Annotated, Callable, Literal, Protocol, Sequence
 
 import psycopg2
@@ -13,6 +15,7 @@ from anthropic import Anthropic, AnthropicError
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 import voyageai
 from voyageai.error import VoyageError
@@ -151,10 +154,22 @@ def _open_db_connection() -> object:
 
 @dataclass(frozen=True)
 class AnonymousAccessControlRuntimeConfig:
-    """Configurația anonimă server-side și atributul HTTP al cookie-ului."""
+    """Configurația anonimă server-side, atributul cookie-ului și proxy-urile de încredere."""
 
     access_control: AccessControlConfig
     cookie_secure: bool
+    trusted_proxy_hops: int = 0
+
+
+def _trusted_proxy_hops() -> int:
+    """Citește numărul de proxy-uri de încredere; absent înseamnă zero, restul e fail-closed."""
+    raw = os.getenv("TRUSTED_PROXY_HOPS")
+    if raw is None:
+        return 0
+    normalized = raw.strip()
+    if not normalized.isascii() or not normalized.isdecimal():
+        raise DependencyConfigurationError("configurație indisponibilă")
+    return int(normalized)
 
 
 def _anonymous_access_control_config() -> AnonymousAccessControlRuntimeConfig:
@@ -165,6 +180,7 @@ def _anonymous_access_control_config() -> AnonymousAccessControlRuntimeConfig:
     normalized_secure = cookie_secure.strip().casefold()
     if normalized_secure not in {"true", "false"}:
         raise DependencyConfigurationError("configurație indisponibilă")
+    trusted_proxy_hops = _trusted_proxy_hops()
     try:
         return AnonymousAccessControlRuntimeConfig(
             AccessControlConfig(
@@ -172,6 +188,7 @@ def _anonymous_access_control_config() -> AnonymousAccessControlRuntimeConfig:
                 _required_environment("ANONYMOUS_IP_HASH_KEY").encode("utf-8"),
             ),
             cookie_secure=normalized_secure == "true",
+            trusted_proxy_hops=trusted_proxy_hops,
         )
     except ValueError as error:
         raise DependencyConfigurationError("configurație indisponibilă") from error
@@ -200,6 +217,10 @@ app.state.runtime_dependencies = RuntimeDependencies(
 )
 
 _COOKIE_NAME = "normativai_anon"
+
+_STATIC_DIRECTORY = Path(__file__).resolve().parent / "static"
+_ASSETS_DIRECTORY = _STATIC_DIRECTORY / "assets"
+app.mount("/assets", StaticFiles(directory=_ASSETS_DIRECTORY), name="assets")
 
 
 def _anonymous_visitor_for_request(
@@ -244,6 +265,24 @@ def pagina_principala(request: Request) -> FileResponse:
         raise HTTPException(status_code=503, detail="Serviciul este temporar indisponibil.") from error
 
 
+@app.get("/health")
+def health() -> dict[str, str]:
+    """Healthcheck public și ieftin: nu atinge DB-ul, providerii sau configurația."""
+    return {"status": "ok"}
+
+
+@app.get("/termeni")
+def pagina_termeni() -> FileResponse:
+    """Servește exclusiv pagina juridică Termeni, dintr-o cale fixă."""
+    return FileResponse(_STATIC_DIRECTORY / "termeni.html")
+
+
+@app.get("/confidentialitate")
+def pagina_confidentialitate() -> FileResponse:
+    """Servește exclusiv pagina juridică de confidențialitate, dintr-o cale fixă."""
+    return FileResponse(_STATIC_DIRECTORY / "confidentialitate.html")
+
+
 class IntrebareRequest(BaseModel):
     intrebare: Annotated[str, Field(min_length=1, max_length=MAX_QUESTION_CHARS)]
 
@@ -279,12 +318,42 @@ _AMBIGUOUS_ARTICLE = "Am găsit versiuni neconcordante ale articolului solicitat
 _AMBIGUOUS_REFERENCE = "Întrebarea conține referințe ambigue; te rog precizează documentul sau articolul."
 
 
-def _request_ip_hash(request: Request, runtime_config: AnonymousAccessControlRuntimeConfig) -> str:
-    """Extrage strict IP-ul direct al clientului, fără antete de proxy."""
-    client = request.client
-    host = getattr(client, "host", None)
+_FORWARDED_FOR_HEADER = "X-Forwarded-For"
+
+
+def _is_ip_literal(value: str) -> bool:
+    """Acceptă numai o adresă IP literală, fără zonă IPv6 și fără port."""
+    if "%" in value:
+        return False
+    try:
+        ipaddress.ip_address(value)
+    except ValueError:
+        return False
+    return True
+
+
+def _client_ip(request: Request, trusted_proxy_hops: int) -> str:
+    """Alege IP-ul clientului; folosește `X-Forwarded-For` doar pe pozițiile de încredere."""
+    host = getattr(request.client, "host", None)
     if host is None:
         raise ServiceDependencyError("IP client indisponibil")
+    if trusted_proxy_hops <= 0:
+        return host
+    forwarded = request.headers.get(_FORWARDED_FOR_HEADER)
+    if not forwarded:
+        return host
+    entries = [entry.strip() for entry in forwarded.split(",")]
+    if len(entries) < trusted_proxy_hops:
+        return host
+    candidate = entries[-trusted_proxy_hops]
+    if not _is_ip_literal(candidate):
+        return host
+    return candidate
+
+
+def _request_ip_hash(request: Request, runtime_config: AnonymousAccessControlRuntimeConfig) -> str:
+    """Derivă hash-ul IP din adresa aleasă fail-closed pentru numărul de proxy-uri de încredere."""
+    host = _client_ip(request, runtime_config.trusted_proxy_hops)
     try:
         return hash_ip(host, runtime_config.access_control)
     except ValueError as error:

@@ -678,3 +678,255 @@ def test_import_main_nu_creeaza_clienti_externi(monkeypatch):
         assert anthropic_calls == []
 
     importlib.reload(main)
+# --- Faza 7: trusted proxy, /health, pagini juridice și assets read-only ---
+
+
+def _proxy_runtime_config(trusted_proxy_hops):
+    return main.AnonymousAccessControlRuntimeConfig(
+        ACCESS_RUNTIME_CONFIG.access_control,
+        cookie_secure=False,
+        trusted_proxy_hops=trusted_proxy_hops,
+    )
+
+
+def _lock_ip_hash(connection):
+    parameters = next(
+        parameters for sql, parameters in connection.calls if "pg_advisory_xact_lock" in sql
+    )
+    return parameters[0]
+
+
+def _post_prin_proxy(api, connection, *, hops, forwarded=None):
+    headers = {} if forwarded is None else {"X-Forwarded-For": forwarded}
+    return configure(api, connection, runtime_config=_proxy_runtime_config(hops)).post(
+        "/intreaba", json={"intrebare": "art. 4.4.7.2"}, headers=headers
+    )
+
+
+def _hash_direct():
+    return main.hash_ip("127.0.0.1", ACCESS_RUNTIME_CONFIG.access_control)
+
+
+def test_hops_zero_ignora_complet_forwarded_chiar_daca_e_valid(api):
+    connection = ConnectionFake()
+
+    response = _post_prin_proxy(api, connection, hops=0, forwarded="203.0.113.9")
+
+    assert response.status_code == 200
+    assert _lock_ip_hash(connection) == _hash_direct()
+
+
+def test_forwarded_absent_cade_pe_ip_direct(api):
+    connection = ConnectionFake()
+
+    response = _post_prin_proxy(api, connection, hops=1)
+
+    assert response.status_code == 200
+    assert _lock_ip_hash(connection) == _hash_direct()
+
+
+def test_forwarded_gol_cade_pe_ip_direct(api):
+    connection = ConnectionFake()
+
+    response = _post_prin_proxy(api, connection, hops=1, forwarded="")
+
+    assert response.status_code == 200
+    assert _lock_ip_hash(connection) == _hash_direct()
+
+
+def test_forwarded_cu_prea_putine_elemente_cade_pe_ip_direct(api):
+    connection = ConnectionFake()
+
+    response = _post_prin_proxy(api, connection, hops=2, forwarded="203.0.113.9")
+
+    assert response.status_code == 200
+    assert _lock_ip_hash(connection) == _hash_direct()
+
+
+@pytest.mark.parametrize(
+    "forwarded",
+    [
+        "203.0.113.9, nu-e-ip",
+        "203.0.113.9, 203.0.113.9:8080",
+        "203.0.113.9, fe80::1%eth0",
+        "203.0.113.9, ",
+        "203.0.113.9, [2001:db8::1]",
+    ],
+)
+def test_forwarded_cu_element_selectat_invalid_cade_pe_ip_direct(api, forwarded):
+    connection = ConnectionFake()
+
+    response = _post_prin_proxy(api, connection, hops=1, forwarded=forwarded)
+
+    assert response.status_code == 200
+    assert _lock_ip_hash(connection) == _hash_direct()
+
+
+def test_forwarded_ignora_valorile_falsificate_din_stanga(api):
+    connection = ConnectionFake()
+
+    response = _post_prin_proxy(api, connection, hops=1, forwarded="1.2.3.4, 203.0.113.9")
+
+    assert response.status_code == 200
+    assert _lock_ip_hash(connection) == main.hash_ip(
+        "203.0.113.9", ACCESS_RUNTIME_CONFIG.access_control
+    )
+    assert _lock_ip_hash(connection) != main.hash_ip(
+        "1.2.3.4", ACCESS_RUNTIME_CONFIG.access_control
+    )
+
+
+def test_forwarded_alege_al_n_lea_element_numarand_de_la_dreapta(api):
+    connection = ConnectionFake()
+
+    response = _post_prin_proxy(
+        api, connection, hops=2, forwarded="1.2.3.4, 203.0.113.9, 10.0.0.1"
+    )
+
+    assert response.status_code == 200
+    assert _lock_ip_hash(connection) == main.hash_ip(
+        "203.0.113.9", ACCESS_RUNTIME_CONFIG.access_control
+    )
+
+
+def test_forwarded_accepta_ipv6_pe_pozitia_de_incredere(api):
+    connection = ConnectionFake()
+
+    response = _post_prin_proxy(api, connection, hops=1, forwarded="1.2.3.4, 2001:db8::1")
+
+    assert response.status_code == 200
+    assert _lock_ip_hash(connection) == main.hash_ip(
+        "2001:db8::1", ACCESS_RUNTIME_CONFIG.access_control
+    )
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"), [(None, 0), ("0", 0), ("1", 1), (" 2 ", 2), ("10", 10)]
+)
+def test_trusted_proxy_hops_accepta_numai_intregi_nenegativi(monkeypatch, raw, expected):
+    monkeypatch.setenv("ANONYMOUS_COOKIE_SIGNING_KEY", "abcdefghijklmnopqrstuvwxyz0123456789")
+    monkeypatch.setenv("ANONYMOUS_IP_HASH_KEY", "9876543210zyxwvutsrqponmlkjihgfedcba")
+    monkeypatch.setenv("ANONYMOUS_COOKIE_SECURE", "false")
+    if raw is None:
+        monkeypatch.delenv("TRUSTED_PROXY_HOPS", raising=False)
+    else:
+        monkeypatch.setenv("TRUSTED_PROXY_HOPS", raw)
+
+    assert main._anonymous_access_control_config().trusted_proxy_hops == expected
+
+
+@pytest.mark.parametrize("raw", ["", "-1", "1.5", "abc", "+1", "1,2", "١٢", "true"])
+def test_trusted_proxy_hops_invalid_este_eroare_generica(monkeypatch, raw):
+    monkeypatch.setenv("ANONYMOUS_COOKIE_SIGNING_KEY", "abcdefghijklmnopqrstuvwxyz0123456789")
+    monkeypatch.setenv("ANONYMOUS_IP_HASH_KEY", "9876543210zyxwvutsrqponmlkjihgfedcba")
+    monkeypatch.setenv("ANONYMOUS_COOKIE_SECURE", "false")
+    monkeypatch.setenv("TRUSTED_PROXY_HOPS", raw)
+
+    with pytest.raises(main.DependencyConfigurationError, match="configurație indisponibilă"):
+        main._anonymous_access_control_config()
+
+
+def _configure_cu_configuratie_reala(api, connection):
+    main.app.state.runtime_dependencies = main.RuntimeDependencies(
+        connection_factory=lambda: connection,
+        embedder_factory=EmbedderFake,
+        text_generator_factory=GeneratorFake,
+        now_factory=lambda: NOW,
+    )
+    return api
+
+
+def test_trusted_proxy_hops_invalid_este_503_generic_la_pornirea_cererii(api, monkeypatch):
+    monkeypatch.setenv("ANONYMOUS_COOKIE_SIGNING_KEY", "abcdefghijklmnopqrstuvwxyz0123456789")
+    monkeypatch.setenv("ANONYMOUS_IP_HASH_KEY", "9876543210zyxwvutsrqponmlkjihgfedcba")
+    monkeypatch.setenv("ANONYMOUS_COOKIE_SECURE", "false")
+    monkeypatch.setenv("TRUSTED_PROXY_HOPS", "-1")
+    connection = ConnectionFake()
+    client = _configure_cu_configuratie_reala(api, connection)
+
+    post_response = client.post("/intreaba", json={"intrebare": "art. 4.4.7.2"})
+    get_response = client.get("/")
+
+    assert post_response.status_code == get_response.status_code == 503
+    assert post_response.json() == {"detail": "Serviciul este temporar indisponibil."}
+    assert get_response.json() == {"detail": "Serviciul este temporar indisponibil."}
+    assert connection.calls == []
+    assert not connection.closed
+
+
+def test_health_este_public_ieftin_si_fara_db_sau_provideri(api):
+    connection = ConnectionFake()
+    embedder = EmbedderFake()
+    generator = GeneratorFake()
+
+    response = configure(api, connection, embedder, generator).get("/health")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+    assert connection.calls == []
+    assert connection.commits == connection.rollbacks == 0
+    assert not connection.closed
+    assert embedder.calls == generator.calls == 0
+    assert "set-cookie" not in response.headers
+
+
+def test_health_functioneaza_si_fara_configuratia_anonima(api, monkeypatch):
+    monkeypatch.delenv("ANONYMOUS_COOKIE_SECURE", raising=False)
+    monkeypatch.delenv("ANONYMOUS_COOKIE_SIGNING_KEY", raising=False)
+    monkeypatch.delenv("ANONYMOUS_IP_HASH_KEY", raising=False)
+    connection = ConnectionFake()
+
+    response = _configure_cu_configuratie_reala(api, connection).get("/health")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+    assert connection.calls == []
+
+
+@pytest.mark.parametrize("path", ["/termeni", "/confidentialitate"])
+def test_paginile_juridice_sunt_servite_public(api, path):
+    connection = ConnectionFake()
+
+    response = configure(api, connection).get(path)
+
+    assert response.status_code == 200
+    assert "text/html" in response.headers["content-type"]
+    assert connection.calls == []
+    assert "set-cookie" not in response.headers
+
+
+@pytest.fixture
+def asset_de_test():
+    asset = main._ASSETS_DIRECTORY / "test-asset.txt"
+    asset.write_text("asset de test", encoding="utf-8")
+    yield asset
+    asset.unlink()
+
+
+def test_assets_serveste_fisierele_din_static_assets(api, asset_de_test):
+    response = api.get("/assets/test-asset.txt")
+
+    assert response.status_code == 200
+    assert response.text == "asset de test"
+
+
+def test_assets_returneaza_404_pentru_fisier_inexistent(api):
+    assert api.get("/assets/nu-exista.woff2").status_code == 404
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/static/index.html",
+        "/index.html",
+        "/termeni.html",
+        "/confidentialitate.html",
+        "/assets/%2e%2e/index.html",
+        "/assets/..%2findex.html",
+        "/assets/%2e%2e%2fmain.py",
+    ],
+)
+def test_niciun_alt_fisier_din_repo_nu_este_expus(api, path):
+    response = api.get(path)
+
+    assert response.status_code == 404
