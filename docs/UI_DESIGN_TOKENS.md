@@ -56,10 +56,18 @@ o aplicație de normative de construcții ar fi o asociere greșită.
 |---|---|---|
 | `--paper` | `#F2EEE4` | ~17:1 |
 | `--paper-dim` | `#B7AF9D` | ~9:1 |
-| `--paper-quiet` | `#8E8674` | ~5.4:1, minim AA |
+| `--paper-quiet` | `#9E957F` | 6.7:1 |
 | `--gold` pe fundal | `#E8B931` | ~10.7:1 |
 
 Nicio culoare de text sub 4.5:1. Etichetele mono nu coboară sub 11px.
+
+**Corecție măsurată la 04-09-2026, în așteptarea confirmării lui Lucian.** Valoarea inițială
+`--paper-quiet: #8E8674` dă 5,51:1 pe `--ink-900` pur, dar fundalul real nu este `--ink-900`
+pur: peste el se compun vârful gradientului liniar (`#0D0B08`) și haloul auriu
+(`rgba(232,185,49,.075)`), iar în nav se mai adaugă gradientul propriu (`.05`). Pe fundalul
+efectiv cel mai deschis rezultat (`#27200D`), `#8E8674` coboară la **4,48:1**, adică sub
+pragul AA cerut explicit. `#9E957F` urcă aceeași pereche la **5,44:1** și păstrează 6,69:1 pe
+`--ink-900`. Restul paletei rămâne neschimbat.
 
 ### Linii
 

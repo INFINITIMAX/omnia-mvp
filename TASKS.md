@@ -213,6 +213,40 @@ spațiere, razele și lista de pattern-uri interzise. Nu inventa valori care nu 
 
 **Foaia răspunsului:** decis la 04-09-2026, varianta **închisă** (`--ink-850`). Fără comutator.
 
+## Predare — redesign UI negru-auriu (branch `feat/ui-negru-auriu`)
+
+- [x] `static/index.html` rescris pe direcția aprobată: carcasă întunecată cu nav lateral,
+      composer rotunjit, gradiente difuze, răspunsul cules ca document tipărit (Crimson Pro,
+      justificat, `hyphens: auto`), sursele citate cu linii de păr peste toată măsura și
+      referința agățată în marginea stângă. Fără bară colorată, fără card, fără italice.
+- [x] Logica JS este neschimbată funcțional: același `POST /intreaba`, aceleași ramuri
+      403/429/422/503/rețea, același guard `sendQuestion`, aceeași validare `Retry-After`.
+      Au fost atinse doar `setMessage` (structura DOM a citărilor) și `addMessage` (clase).
+- [x] Fonturi self-hostate în `static/assets/fonts/` (Archivo, Crimson Pro, IBM Plex Mono,
+      woff2, subseturi latin + latin-ext, `LICENSE.txt` OFL versionat). Zero CDN terț.
+      Depinde de ruta `GET /assets/*`, implementată separat de celălalt Coder.
+- [x] Linkuri către `/termeni` și `/confidentialitate` în footer-ul nav-ului, vizibile și pe mobil.
+- [x] Mobil reparat: sub 900px nav-ul colapsează într-o bară orizontală, coloana articolelor
+      se stivuiește, composer-ul devine `sticky` jos. Verificat în Chrome real la 390, 768 și
+      1440px: `scrollWidth == clientWidth`, deci fără scroll orizontal.
+- [x] Cele cinci statusuri reverificate în Chrome real cu răspunsuri interceptate, la 1440 și
+      390px: 200 (citări randate, contor 7), 403 (contor 0, blocare permanentă), 429
+      (`Retry-After: 42`, blocare temporară), 422 (mesaj dedicat, fără corpul brut al erorii),
+      503 (mesaj generic). Fără scurgeri de cod de status sau de text de excepție.
+- [x] Contrast recalculat cu formula WCAG pe fundalul efectiv (gradient + halou auriu compuse),
+      nu pe `--ink-900` pur. Toate perechile text/fundal ≥ 5,4:1. A fost nevoie de o corecție
+      măsurată a lui `--paper-quiet`, documentată în `docs/UI_DESIGN_TOKENS.md`.
+- [x] Validare locală: `python -m pytest -q` → **215 passed** (211 anterioare + 4 noi),
+      `node --check` pe JS-ul extras trece, `git diff --check` fără erori.
+- [ ] **Gate vizual final al lui Lucian** — încă nedat.
+- [ ] Contorul de documente din nav rămâne neimplementat: `GET /documents` nu există, deci
+      cifrele din mockup ar fi date inventate. În nav apar doar codurile documentelor.
+- [ ] Metrul de quotă din mockup (bara 7/10) nu este implementat: ar cere logică nouă de stare,
+      iar acest task este strict de prezentare. Contorul textual rămâne singura sursă.
+- [ ] Chips-urile de sugestie au rămas cele din MVP. Două dintre ele („stările limită”,
+      „debitul minim pentru grupuri sanitare”) nu sunt acoperite de cele 6 documente aprobate
+      și vor produce refuzuri. Înlocuirea lor este o decizie de conținut pentru Lucian.
+
 ## Backlog ordonat
 
 1. Faza 1: migrarea Supabase pentru metadata și chunk identity. **Finalizată.**
