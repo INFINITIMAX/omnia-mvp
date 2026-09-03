@@ -31,9 +31,13 @@ def test_quota_ulterior_foloseste_intrebari_ramase():
     assert "Number.isInteger(data.intrebari_ramase)" in SCRIPT
 
 
-def test_fara_localstorage_sau_ghicit_quota():
-    assert "localStorage" not in SCRIPT
+def test_fara_ghicire_quota_din_localstorage():
+    # localStorage e folosit pentru istoricul de conversații (vezi secțiunea Istoric),
+    # dar quota rămasă trebuie citită mereu din răspunsul serverului, niciodată ghicită local.
     assert "sessionStorage" not in SCRIPT
+    assert "localStorage.getItem('intrebari_ramase')" not in SCRIPT
+    assert "localStorage.setItem('intrebari_ramase'" not in SCRIPT
+    assert "data.intrebari_ramase" in SCRIPT
 
 
 # ---------- 403 / 429 / 422 / 503 / rețea ----------
@@ -141,6 +145,7 @@ def test_raspuns_si_citari_randate_prin_textcontent():
     # are propriul element. Aserțiunea rămâne aceeași ca fond și este întărită:
     # fiecare câmp trebuie să ajungă în DOM printr-o atribuire `.textContent`.
     for field, assignment in (
+        ("id", "refId.textContent = `[${citation.id}]`;"),
         ("articol", "articleNo.textContent = `Art. ${citation.articol}`;"),
         ("cod_document", "documentCode.textContent = citation.cod_document || 'Document oficial';"),
         ("titlu_document", "title.textContent = citation.titlu_document || '';"),
@@ -226,8 +231,16 @@ def test_elemente_demo_eliminate(forbidden):
 
 def test_vizitator_anonim_si_badge_neutru():
     assert "Vizitator anonim" in HTML
-    assert "Documente aprobate" in HTML
     assert "documente indexate" not in HTML
+
+
+def test_lista_publica_de_documente_nu_mai_exista():
+    # PROBLEMA 1: lista de normative indexate era informație sensibilă competitivă;
+    # a fost înlocuită complet cu istoricul local de conversații.
+    # NP 010-2022 rămâne legitim în placeholder-ul de input ca exemplu de întrebare.
+    for forbidden in ("Documente aprobate", "NP 015-2022", "NP 057-02", "I9-2022", "P 118/1-2025", "P 118/2-2013"):
+        assert forbidden not in HTML
+    assert "Istoric conversații" in HTML
 
 
 # ---------- Fără conturi/istoric/endpointuri suplimentare/persistență ----------
@@ -284,7 +297,7 @@ global.document = {
   getElementById() { return stubEl(); },
   querySelectorAll() { return []; },
 };
-global.window = { setTimeout: () => {} };
+global.window = { setTimeout: () => {}, addEventListener: () => {} };
 
 const fs = require('fs');
 const html = fs.readFileSync(process.argv[2], 'utf-8');
@@ -410,6 +423,476 @@ def test_markdown_text_gol_produce_container_gol_fara_eroare():
     [result] = _run_markdown_cases([""])
     assert result["threw"] is None
     assert result["tree"]["children"] == []
+
+
+# ---------- Marcaj de citare (PROBLEMA 3): id real, nu poziție CSS ----------
+
+_CITATION_HARNESS = r"""
+class Node {
+  constructor() { this.children = []; this.className = ''; this._text = ''; }
+  appendChild(n) { this.children.push(n); return n; }
+  append(...ns) { ns.forEach(n => this.children.push(n)); }
+  replaceChildren() { this.children = []; }
+  set textContent(v) { this._text = v; this.children = []; }
+  get textContent() {
+    if (this.children.length) return this.children.map(c => c.textContent !== undefined ? c.textContent : c.data).join('');
+    return this._text;
+  }
+}
+class TextNode { constructor(d) { this.data = d; } get textContent() { return this.data; } }
+
+function stubEl() {
+  const n = new Node();
+  n.addEventListener = () => {};
+  n.setAttribute = () => {};
+  n.classList = { toggle() {} };
+  n.style = {};
+  return n;
+}
+
+global.document = {
+  createElement(tag) { const n = new Node(); n.tag = tag; return n; },
+  createTextNode(d) { return new TextNode(d); },
+  getElementById() { return stubEl(); },
+  querySelectorAll() { return []; },
+};
+global.window = { setTimeout: () => {}, addEventListener: () => {} };
+
+const fs = require('fs');
+const html = fs.readFileSync(process.argv[2], 'utf-8');
+const m = html.match(/<script>([\s\S]*)<\/script>/);
+eval(m[1]);
+
+function describe(node) {
+  if (node instanceof TextNode) return { text: node.data };
+  const children = node.children.map(describe);
+  const result = { tag: node.tag, className: node.className, children };
+  if (children.length === 0) result.text = node._text;
+  return result;
+}
+
+const cases = JSON.parse(fs.readFileSync(process.argv[3], 'utf-8'));
+const results = cases.map(({ text, citations }) => {
+  const container = document.createElement('div');
+  let threw = null;
+  try {
+    setMessage(container, text, citations);
+  } catch (e) {
+    threw = String(e && e.message || e);
+  }
+  return { threw, tree: describe(container) };
+});
+process.stdout.write(JSON.stringify(results));
+"""
+
+
+def _run_citation_cases(cases):
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node nu este disponibil în acest mediu")
+    import json
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        harness_path = Path(tmp) / "harness.js"
+        cases_path = Path(tmp) / "cases.json"
+        harness_path.write_text(_CITATION_HARNESS, encoding="utf-8")
+        cases_path.write_text(json.dumps(cases), encoding="utf-8")
+        result = subprocess.run(
+            [node, str(harness_path), str(INDEX_PATH), str(cases_path)],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+    assert result.returncode == 0, result.stderr
+    return json.loads(result.stdout)
+
+
+def test_marcaj_citare_foloseste_id_real_din_api_nu_pozitie_css():
+    # Textul răspunsului conține [C7] inline; lista de surse trebuie să afișeze
+    # exact același identificator, nu un contor pozițional [1].
+    citation = {
+        "id": "C7",
+        "cod_document": "NP 010-2022",
+        "titlu_document": "Titlu articol",
+        "articol": "4.12",
+        "citat": "Text citat",
+    }
+    [result] = _run_citation_cases([{"text": "Vezi [C7] pentru detalii.", "citations": [citation]}])
+    assert result["threw"] is None
+    flat = _flatten_text(result["tree"])
+    assert "[C7]" in flat
+    assert "[1]" not in flat
+
+
+def test_marcaj_citare_fara_counter_css_pozitional():
+    assert "counter(ref)" not in HTML
+    assert "counter-reset: ref" not in HTML
+    assert "counter-increment: ref" not in HTML
+    assert "refId.textContent = `[${citation.id}]`;" in SCRIPT
+
+
+# ---------- Chenarul de la input (PROBLEMA 2) ----------
+
+def test_composer_nu_mai_are_chenar_auriu_la_focus_within():
+    assert "composer:focus-within" not in HTML
+
+
+def test_composer_input_nu_are_niciun_contur_nativ_focus_visible():
+    # :focus-visible nativ tot s-ar declanșa la un simplu click (browserele îl aplică
+    # pe câmpuri de text indiferent de modalitate), deci trebuie neutralizat explicit —
+    # logica reală de afișare a conturului e mutată în JS (clasa .kb-nav) + CSS de mai jos.
+    match = re.search(r"\.composer input:focus-visible\s*\{([^}]*)\}", HTML)
+    assert match is not None
+    assert match.group(1).strip() == "outline: none;"
+
+
+def test_conturul_neutru_apare_doar_cu_clasa_kb_nav():
+    match = re.search(r"html\.kb-nav \.composer input:focus\s*\{([^}]*)\}", HTML)
+    assert match is not None, "conturul trebuie condiționat de clasa kb-nav pusă prin JS"
+    block = match.group(1)
+    assert "var(--gold)" not in block and "var(--gold-hi)" not in block
+    assert "var(--paper-dim)" in block
+    assert "outline-offset: 0;" in block
+
+
+def test_gold_focus_visible_ramane_doar_pe_controale_ocazionale():
+    # .chip, .send-btn și .rail-legal a nu se scriu în ele, deci conturul auriu
+    # nu deranjează acolo — doar inputul din composer are logica specială.
+    match = re.search(r"\.chip:focus-visible,\s*\.rail-legal a:focus-visible,\s*\.send-btn:focus-visible\s*\{([^}]*)\}", HTML)
+    assert match is not None
+    assert "outline: 2px solid var(--gold-hi);" in match.group(1)
+    assert "composer input" not in match.group(0)
+
+
+def test_modalitate_navigare_tab_adauga_clasa_mouse_o_scoate():
+    assert "const KB_NAV_CLASS = 'kb-nav';" in SCRIPT
+    tab_match = re.search(r"window\.addEventListener\('keydown', \(event\) => \{\s*if \(event\.key === 'Tab'\) document\.documentElement\.classList\.add\(KB_NAV_CLASS\);", SCRIPT)
+    assert tab_match is not None, "Tab trebuie să adauge clasa kb-nav pe <html>"
+    assert "document.documentElement.classList.remove(KB_NAV_CLASS);" in SCRIPT
+    assert "window.addEventListener('mousedown', clearKbNav);" in SCRIPT
+    assert "window.addEventListener('pointerdown', clearKbNav);" in SCRIPT
+
+
+# ---------- Comportament efectiv al clasei kb-nav (simulare evenimente) ----------
+
+_MODALITY_HARNESS = r"""
+class Node {
+  constructor() {
+    this.children = [];
+    this.className = '';
+    this._text = '';
+    this._handlers = {};
+    this.hidden = false;
+    this.disabled = false;
+    this.value = '';
+    this.type = '';
+    this._classes = new Set();
+  }
+  appendChild(n) { this.children.push(n); return n; }
+  append(...ns) { ns.forEach(n => this.children.push(n)); }
+  replaceChildren() { this.children = []; }
+  set textContent(v) { this._text = v; this.children = []; }
+  get textContent() {
+    if (this.children.length) return this.children.map(c => c.textContent !== undefined ? c.textContent : c.data).join('');
+    return this._text;
+  }
+  addEventListener(evt, fn) { (this._handlers[evt] = this._handlers[evt] || []).push(fn); }
+  setAttribute() {}
+  get classList() {
+    const self = this;
+    return {
+      add(c) { self._classes.add(c); },
+      remove(c) { self._classes.delete(c); },
+      contains(c) { return self._classes.has(c); },
+      toggle(c) { if (self._classes.has(c)) self._classes.delete(c); else self._classes.add(c); },
+    };
+  }
+}
+class TextNode { constructor(d) { this.data = d; } get textContent() { return this.data; } }
+
+const registry = {};
+function elFor(id) { if (!registry[id]) registry[id] = new Node(); return registry[id]; }
+const docElement = new Node();
+
+global.document = {
+  documentElement: docElement,
+  createElement(tag) { const n = new Node(); n.tag = tag; return n; },
+  createTextNode(d) { return new TextNode(d); },
+  getElementById(id) { return elFor(id); },
+  querySelectorAll() { return []; },
+};
+
+const windowHandlers = {};
+global.window = {
+  setTimeout: () => {},
+  localStorage: { getItem() { return null; }, setItem() {}, removeItem() {} },
+  addEventListener(evt, fn) { (windowHandlers[evt] = windowHandlers[evt] || []).push(fn); },
+  removeEventListener() {},
+};
+
+const fs = require('fs');
+const html = fs.readFileSync(process.argv[2], 'utf-8');
+const m = html.match(/<script>([\s\S]*)<\/script>/);
+eval(m[1]);
+
+function fire(type, props) {
+  (windowHandlers[type] || []).forEach((fn) => fn(Object.assign({ preventDefault() {} }, props)));
+}
+
+const actions = JSON.parse(fs.readFileSync(process.argv[3], 'utf-8'));
+const states = actions.map((action) => {
+  fire(action.type, action.props || {});
+  return docElement.classList.contains('kb-nav');
+});
+process.stdout.write(JSON.stringify(states));
+"""
+
+
+def _run_modality_scenario(actions):
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node nu este disponibil în acest mediu")
+    import json
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        harness_path = Path(tmp) / "harness.js"
+        actions_path = Path(tmp) / "actions.json"
+        harness_path.write_text(_MODALITY_HARNESS, encoding="utf-8")
+        actions_path.write_text(json.dumps(actions), encoding="utf-8")
+        result = subprocess.run(
+            [node, str(harness_path), str(INDEX_PATH), str(actions_path)],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+    assert result.returncode == 0, result.stderr
+    return json.loads(result.stdout)
+
+
+def test_tab_activeaza_clasa_kb_nav_pe_elementul_radacina():
+    states = _run_modality_scenario([{"type": "keydown", "props": {"key": "Tab"}}])
+    assert states == [True]
+
+
+def test_alte_taste_decat_tab_nu_activeaza_clasa():
+    states = _run_modality_scenario([{"type": "keydown", "props": {"key": "Enter"}}])
+    assert states == [False]
+
+
+def test_mousedown_dezactiveaza_clasa_kb_nav():
+    states = _run_modality_scenario([
+        {"type": "keydown", "props": {"key": "Tab"}},
+        {"type": "mousedown"},
+    ])
+    assert states == [True, False]
+
+
+def test_pointerdown_dezactiveaza_clasa_kb_nav():
+    states = _run_modality_scenario([
+        {"type": "keydown", "props": {"key": "Tab"}},
+        {"type": "pointerdown"},
+    ])
+    assert states == [True, False]
+
+
+def test_secventa_click_apoi_tab_apoi_click_comuta_corect():
+    states = _run_modality_scenario([
+        {"type": "mousedown"},
+        {"type": "keydown", "props": {"key": "Tab"}},
+        {"type": "mousedown"},
+    ])
+    assert states == [False, True, False]
+
+
+# ---------- Istoric conversații în localStorage (PROBLEMA 1) ----------
+
+_HISTORY_HARNESS = r"""
+class Node {
+  constructor() {
+    this.children = [];
+    this.className = '';
+    this._text = '';
+    this._handlers = {};
+    this.hidden = false;
+    this.disabled = false;
+    this.value = '';
+    this.type = '';
+  }
+  appendChild(n) { this.children.push(n); return n; }
+  append(...ns) { ns.forEach(n => this.children.push(n)); }
+  replaceChildren() { this.children = []; }
+  set textContent(v) { this._text = v; this.children = []; }
+  get textContent() {
+    if (this.children.length) return this.children.map(c => c.textContent !== undefined ? c.textContent : c.data).join('');
+    return this._text;
+  }
+  addEventListener(evt, fn) { (this._handlers[evt] = this._handlers[evt] || []).push(fn); }
+  setAttribute() {}
+  get classList() { return { toggle() {} }; }
+}
+class TextNode { constructor(d) { this.data = d; } get textContent() { return this.data; } }
+
+const registry = {};
+function elFor(id) { if (!registry[id]) registry[id] = new Node(); return registry[id]; }
+
+global.document = {
+  createElement(tag) { const n = new Node(); n.tag = tag; return n; },
+  createTextNode(d) { return new TextNode(d); },
+  getElementById(id) { return elFor(id); },
+  querySelectorAll() { return []; },
+};
+
+const mode = process.argv[4];
+const store = {};
+global.window = {
+  setTimeout: () => {},
+  addEventListener: () => {},
+  localStorage: {
+    getItem(k) {
+      if (mode === 'throw_all') throw new Error('SecurityError');
+      return Object.prototype.hasOwnProperty.call(store, k) ? store[k] : null;
+    },
+    setItem(k, v) {
+      if (mode === 'throw_all' || mode === 'throw_write') throw new Error('QuotaExceededError');
+      store[k] = v;
+    },
+    removeItem(k) { delete store[k]; },
+  },
+};
+
+const fs = require('fs');
+const html = fs.readFileSync(process.argv[2], 'utf-8');
+const m = html.match(/<script>([\s\S]*)<\/script>/);
+eval(m[1]);
+
+const actions = JSON.parse(fs.readFileSync(process.argv[3], 'utf-8'));
+let threw = null;
+try {
+  actions.forEach((action) => {
+    if (action.type === 'add') addHistoryEntry(action.intrebare, action.raspuns, action.citari || []);
+    else if (action.type === 'replay') replayHistoryEntry(action.index);
+    else if (action.type === 'clear') clearHistory();
+  });
+} catch (e) {
+  threw = String(e && e.message || e);
+}
+
+function textOf(node) {
+  if (node instanceof TextNode) return node.data;
+  if (!node.children.length) return node._text || '';
+  return node.children.map(textOf).join('');
+}
+
+const historyList = elFor('historyList');
+const chatArea = elFor('chatArea');
+const clearBtn = elFor('clearHistoryBtn');
+
+process.stdout.write(JSON.stringify({
+  threw,
+  storedRaw: Object.prototype.hasOwnProperty.call(store, 'omnia_istoric_conversatii_v1') ? store['omnia_istoric_conversatii_v1'] : null,
+  historyItemTexts: historyList.children.map(textOf),
+  clearHidden: clearBtn.hidden,
+  chatChildCount: chatArea.children.length,
+  chatTexts: chatArea.children.map(textOf),
+}));
+"""
+
+
+def _run_history_scenario(actions, mode="ok"):
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node nu este disponibil în acest mediu")
+    import json
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        harness_path = Path(tmp) / "harness.js"
+        actions_path = Path(tmp) / "actions.json"
+        harness_path.write_text(_HISTORY_HARNESS, encoding="utf-8")
+        actions_path.write_text(json.dumps(actions), encoding="utf-8")
+        result = subprocess.run(
+            [node, str(harness_path), str(INDEX_PATH), str(actions_path), mode],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+    assert result.returncode == 0, result.stderr
+    return json.loads(result.stdout)
+
+
+def test_istoric_salveaza_raspuns_si_citari_fara_apel_api():
+    citari = [{"id": "C1", "cod_document": "NP 010-2022", "titlu_document": "T", "articol": "1.1", "citat": "text"}]
+    result = _run_history_scenario([
+        {"type": "add", "intrebare": "Ce este X?", "raspuns": "Răspuns X", "citari": citari},
+    ])
+    assert result["threw"] is None
+    import json
+    stored = json.loads(result["storedRaw"])
+    assert stored[0]["intrebare"] == "Ce este X?"
+    assert stored[0]["raspuns"] == "Răspuns X"
+    assert stored[0]["citari"][0]["id"] == "C1"
+    assert result["historyItemTexts"] == ["Ce este X?"]
+    assert result["clearHidden"] is False
+
+
+def test_istoric_reafisare_nu_reapeleaza_api():
+    result = _run_history_scenario([
+        {"type": "add", "intrebare": "Ce este X?", "raspuns": "Răspuns X", "citari": []},
+        {"type": "replay", "index": 0},
+    ])
+    # fetch nu e definit în acest mediu de test; dacă replay ar reapela API-ul, ar arunca ReferenceError
+    assert result["threw"] is None
+    assert result["chatChildCount"] == 2
+    assert "Ce este X?" in result["chatTexts"][0]
+    assert "Răspuns X" in result["chatTexts"][1]
+
+
+def test_istoric_limiteaza_la_20_conversatii_cele_mai_recente_primele():
+    actions = [
+        {"type": "add", "intrebare": f"Q{i}", "raspuns": f"R{i}", "citari": []}
+        for i in range(25)
+    ]
+    result = _run_history_scenario(actions)
+    import json
+    stored = json.loads(result["storedRaw"])
+    assert len(stored) == 20
+    assert len(result["historyItemTexts"]) == 20
+    assert stored[0]["intrebare"] == "Q24"
+    assert stored[-1]["intrebare"] == "Q5"
+
+
+def test_istoric_functioneaza_fara_localstorage_disponibil():
+    result = _run_history_scenario(
+        [{"type": "add", "intrebare": "Q", "raspuns": "R", "citari": []}],
+        mode="throw_all",
+    )
+    assert result["threw"] is None
+    assert result["historyItemTexts"] == ["Q"]
+    assert result["storedRaw"] is None
+
+
+def test_istoric_functioneaza_cand_localstorage_e_plin():
+    result = _run_history_scenario(
+        [{"type": "add", "intrebare": "Q", "raspuns": "R", "citari": []}],
+        mode="throw_write",
+    )
+    assert result["threw"] is None
+    assert result["historyItemTexts"] == ["Q"]
+    assert result["storedRaw"] is None
+
+
+def test_istoric_are_buton_de_stergere_care_goleste_totul():
+    result = _run_history_scenario([
+        {"type": "add", "intrebare": "Q", "raspuns": "R", "citari": []},
+        {"type": "clear"},
+    ])
+    import json
+    assert result["threw"] is None
+    assert json.loads(result["storedRaw"]) == []
+    assert result["clearHidden"] is True
+    assert result["historyItemTexts"] == ["Nicio conversație salvată încă."]
 
 
 # ---------- Sintaxă JS ----------
