@@ -118,8 +118,24 @@ def test_fara_innerhtml_in_tot_scriptul():
     assert "innerHTML" not in SCRIPT
 
 
+@pytest.mark.parametrize(
+    "unsafe",
+    ["innerHTML", "outerHTML", "insertAdjacentHTML", "document.write", "createContextualFragment"],
+)
+def test_fara_html_brut_in_tot_fisierul(unsafe):
+    # Plasă de siguranță împotriva unei regresii viitoare: verifică tot fișierul
+    # (nu doar blocul <script>), pentru cazul în care s-ar adăuga un alt <script>
+    # sau un atribut inline care ar reintroduce un vector de injectare de marcaj.
+    assert unsafe not in HTML
+
+
 def test_raspuns_si_citari_randate_prin_textcontent():
-    assert "answer.textContent = text;" in SCRIPT
+    # Răspunsul e randat printr-un parser Markdown propriu (renderMarkdown), care
+    # construiește exclusiv noduri DOM cu createElement și pune text doar prin
+    # textContent/createTextNode — niciodată prin marcaj brut.
+    assert "function renderMarkdown(container, text)" in SCRIPT
+    assert "parent.appendChild(document.createTextNode(" in SCRIPT
+    assert "strong.textContent = match[1];" in SCRIPT
     # Citarea nu mai este o singură linie de text: redesign-ul o culege ca într-un
     # standard tipărit (referință agățată în margine + corp), deci fiecare câmp public
     # are propriul element. Aserțiunea rămâne aceeași ca fond și este întărită:
@@ -235,6 +251,165 @@ def test_questioninput_are_label_accesibil_asociat():
     match = re.search(r'<label[^>]*\bfor="questionInput"[^>]*>(.*?)</label>', HTML, re.S)
     assert match is not None, "questionInput trebuie să aibă un <label for=\"questionInput\"> asociat"
     assert match.group(1).strip() != ""
+
+
+# ---------- Randare Markdown (renderMarkdown) ----------
+
+_MARKDOWN_HARNESS = r"""
+class Node {
+  constructor() { this.children = []; this.className = ''; this._text = ''; }
+  appendChild(n) { this.children.push(n); return n; }
+  append(...ns) { ns.forEach(n => this.children.push(n)); }
+  replaceChildren() { this.children = []; }
+  set textContent(v) { this._text = v; this.children = []; }
+  get textContent() {
+    if (this.children.length) return this.children.map(c => c.textContent !== undefined ? c.textContent : c.data).join('');
+    return this._text;
+  }
+}
+class TextNode { constructor(d) { this.data = d; } get textContent() { return this.data; } }
+
+function stubEl() {
+  const n = new Node();
+  n.addEventListener = () => {};
+  n.setAttribute = () => {};
+  n.classList = { toggle() {} };
+  n.style = {};
+  return n;
+}
+
+global.document = {
+  createElement(tag) { const n = new Node(); n.tag = tag; return n; },
+  createTextNode(d) { return new TextNode(d); },
+  getElementById() { return stubEl(); },
+  querySelectorAll() { return []; },
+};
+global.window = { setTimeout: () => {} };
+
+const fs = require('fs');
+const html = fs.readFileSync(process.argv[2], 'utf-8');
+const m = html.match(/<script>([\s\S]*)<\/script>/);
+eval(m[1]);
+
+function describe(node) {
+  if (node instanceof TextNode) return { text: node.data };
+  const children = node.children.map(describe);
+  const result = { tag: node.tag, className: node.className, children };
+  if (children.length === 0) result.text = node._text;
+  return result;
+}
+
+const cases = JSON.parse(fs.readFileSync(process.argv[3], 'utf-8'));
+const results = cases.map((markdown) => {
+  const container = document.createElement('div');
+  let threw = null;
+  try {
+    renderMarkdown(container, markdown);
+  } catch (e) {
+    threw = String(e && e.message || e);
+  }
+  return { threw, tree: describe(container) };
+});
+process.stdout.write(JSON.stringify(results));
+"""
+
+
+def _run_markdown_cases(cases):
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node nu este disponibil în acest mediu")
+    import json
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        harness_path = Path(tmp) / "harness.js"
+        cases_path = Path(tmp) / "cases.json"
+        harness_path.write_text(_MARKDOWN_HARNESS, encoding="utf-8")
+        cases_path.write_text(json.dumps(cases), encoding="utf-8")
+        result = subprocess.run(
+            [node, str(harness_path), str(INDEX_PATH), str(cases_path)],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+    assert result.returncode == 0, result.stderr
+    return json.loads(result.stdout)
+
+
+def _flatten_tags(node):
+    tags = [node.get("tag")] if "tag" in node else []
+    for child in node.get("children", []):
+        tags.extend(_flatten_tags(child))
+    return tags
+
+
+def _flatten_text(node):
+    if not node.get("children"):
+        return node.get("text") or ""
+    return "".join(_flatten_text(child) for child in node["children"])
+
+
+def test_markdown_titluri_folosesc_h3_h4_nu_h1_h2():
+    results = _run_markdown_cases(["## Titlu principal", "### Subtitlu secundar"])
+    assert results[0]["threw"] is None
+    assert "h3" in _flatten_tags(results[0]["tree"])
+    assert "h1" not in _flatten_tags(results[0]["tree"])
+    assert "h2" not in _flatten_tags(results[0]["tree"])
+    assert results[1]["threw"] is None
+    assert "h4" in _flatten_tags(results[1]["tree"])
+
+
+def test_markdown_bold_produce_strong():
+    [result] = _run_markdown_cases(["Text cu **cuvânt important** în mijloc."])
+    assert result["threw"] is None
+    assert "strong" in _flatten_tags(result["tree"])
+    assert _flatten_text(result["tree"]) == "Text cu cuvânt important în mijloc."
+
+
+def test_markdown_liste_neordonate_si_ordonate():
+    results = _run_markdown_cases(["- unu\n- doi\n- trei", "1. primul\n2. al doilea"])
+    assert results[0]["threw"] is None
+    assert "ul" in _flatten_tags(results[0]["tree"])
+    assert _flatten_tags(results[0]["tree"]).count("li") == 3
+    assert results[1]["threw"] is None
+    assert "ol" in _flatten_tags(results[1]["tree"])
+    assert _flatten_tags(results[1]["tree"]).count("li") == 2
+
+
+def test_markdown_tabel_randat_cu_wrapper_scrollabil():
+    markdown = "| Coloană A | Coloană B |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |"
+    [result] = _run_markdown_cases([markdown])
+    assert result["threw"] is None
+    tags = _flatten_tags(result["tree"])
+    assert "table" in tags
+    assert tags.count("tr") == 3  # 1 header + 2 rânduri
+    assert "thead" in tags and "tbody" in tags
+    # containerul de scroll orizontal e clasa dedicată, nu tabelul direct
+    assert result["tree"]["children"][0]["className"] == "msg-table-wrap"
+
+
+@pytest.mark.parametrize(
+    "markdown",
+    [
+        "| a | b | c |\n|---|---|---|\n| 1 | 2 |\n| x | y | z | w |",  # coloane inegale
+        "**bold neînchis, fără asterisc final",
+        "###",
+        "###fără spațiu",
+        "",
+        "   \n\n   ",
+        "* item fără spațiu dublu\n* al doilea",
+        "1.fara spatiu dupa punct",
+    ],
+)
+def test_markdown_cazuri_malformate_nu_arunca_si_nu_pierd_tot_continutul(markdown):
+    [result] = _run_markdown_cases([markdown])
+    assert result["threw"] is None, f"randarea a aruncat pentru: {markdown!r}"
+
+
+def test_markdown_text_gol_produce_container_gol_fara_eroare():
+    [result] = _run_markdown_cases([""])
+    assert result["threw"] is None
+    assert result["tree"]["children"] == []
 
 
 # ---------- Sintaxă JS ----------

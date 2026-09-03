@@ -345,7 +345,7 @@
   }
 
   .doc .msg-text {
-    margin: 0;
+    margin: 0 0 var(--s4);
     font-family: var(--serif);
     font-size: 19.5px;
     line-height: 1.7;
@@ -355,6 +355,63 @@
     white-space: pre-line;
     overflow-wrap: anywhere;
   }
+  .doc .msg-text:last-child { margin-bottom: 0; }
+
+  /* ---------- Markdown din raspuns: titluri, liste, tabele ---------- */
+  .doc .msg-heading {
+    margin: var(--s6) 0 var(--s3);
+    font-family: var(--serif);
+    font-weight: 600;
+    line-height: 1.35;
+    color: var(--paper);
+  }
+  .doc .msg-heading:first-child { margin-top: 0; }
+  h3.msg-heading { font-size: 22px; }
+  h4.msg-heading { font-size: 19px; }
+
+  .doc .msg-list {
+    margin: 0 0 var(--s4);
+    padding-left: var(--s6);
+    font-family: var(--serif);
+    font-size: 17.5px;
+    line-height: 1.65;
+    color: var(--paper);
+  }
+  .doc .msg-list:last-child { margin-bottom: 0; }
+  .doc .msg-list li { margin-bottom: var(--s2); }
+  .doc .msg-list li:last-child { margin-bottom: 0; }
+
+  .doc .msg-table-wrap {
+    margin: 0 0 var(--s4);
+    overflow-x: auto;
+    border: 1px solid var(--rule-lit);
+    border-radius: var(--s1);
+  }
+  .doc .msg-table-wrap:last-child { margin-bottom: 0; }
+  .doc .msg-table {
+    width: 100%;
+    min-width: 420px;
+    border-collapse: collapse;
+    font-family: var(--serif);
+    font-size: 16px;
+    line-height: 1.5;
+    color: var(--paper);
+  }
+  .doc .msg-table th, .doc .msg-table td {
+    padding: var(--s2) var(--s3);
+    border-bottom: 1px solid var(--rule-lit);
+    text-align: left;
+    vertical-align: top;
+  }
+  .doc .msg-table thead th {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--gold);
+    background: var(--ink-800);
+  }
+  .doc .msg-table tbody tr:last-child td { border-bottom: 0; }
 
   /* Sursele citate se pun ca intr-un standard tiparit: linii de par sus si jos
      peste toata masura, referinta agatata in marginea stanga, text in roman.
@@ -549,6 +606,10 @@
     /* Sub 900px masura devine prea ingusta pentru justificare: fara silabisire
        romaneasca in browser, textul justificat ar deschide goluri intre cuvinte. */
     .doc .msg-text { font-size: 17.5px; text-align: left; }
+    .doc .msg-list { font-size: 16px; padding-left: var(--s5); }
+    .doc .msg-table { font-size: 14.5px; min-width: 360px; }
+    h3.msg-heading { font-size: 20px; }
+    h4.msg-heading { font-size: 17.5px; }
     .intro p { font-size: 17.5px; }
     .citation-list li { grid-template-columns: minmax(0, 1fr); gap: var(--s2); }
 
@@ -661,12 +722,193 @@
       chatArea.scrollTop = chatArea.scrollHeight;
     }
 
-    function setMessage(body, text, citations) {
+    // Randare Markdown minimala si sigura: doar noduri DOM construite cu
+    // createElement, text pus exclusiv prin textContent/createTextNode. Fara nicio
+    // cale de a injecta marcaj brut, pentru ca textul vine din LLM si din documente
+    // normative (vector de XSS prin prompt injection). Markdown nesuportat sau
+    // malformat trebuie sa cada elegant pe text simplu, niciodata sa arunce
+    // exceptie sau sa piarda continut.
+
+    function appendInline(parent, text) {
+      const boldPattern = /\*\*(.+?)\*\*/g;
+      let lastIndex = 0;
+      let match;
+      while ((match = boldPattern.exec(text)) !== null) {
+        if (match.index > lastIndex) {
+          parent.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
+        }
+        const strong = document.createElement('strong');
+        strong.textContent = match[1];
+        parent.appendChild(strong);
+        lastIndex = boldPattern.lastIndex;
+      }
+      if (lastIndex < text.length) {
+        parent.appendChild(document.createTextNode(text.slice(lastIndex)));
+      }
+    }
+
+    function isListItem(line) {
+      return /^\s*([-*]|\d+\.)\s+/.test(line);
+    }
+
+    function isListOrdered(line) {
+      return /^\s*\d+\.\s+/.test(line);
+    }
+
+    function listItemText(line) {
+      return line.replace(/^\s*([-*]|\d+\.)\s+/, '');
+    }
+
+    function isTableRow(line) {
+      const trimmed = line.trim();
+      return trimmed.length > 0 && trimmed.includes('|');
+    }
+
+    function splitTableRow(line) {
+      let trimmed = line.trim();
+      if (trimmed.startsWith('|')) trimmed = trimmed.slice(1);
+      if (trimmed.endsWith('|')) trimmed = trimmed.slice(0, -1);
+      return trimmed.split('|').map((cell) => cell.trim());
+    }
+
+    function isTableSeparator(line) {
+      if (!isTableRow(line)) return false;
+      const cells = splitTableRow(line);
+      if (cells.length === 0) return false;
+      return cells.every((cell) => /^:?-+:?$/.test(cell));
+    }
+
+    function isBlockStart(line) {
+      return /^#{2,3}\s+/.test(line) || isListItem(line) || isTableRow(line);
+    }
+
+    function makeHeading(level, text) {
+      const heading = document.createElement(level === 2 ? 'h3' : 'h4');
+      heading.className = 'msg-heading';
+      appendInline(heading, text);
+      return heading;
+    }
+
+    function makeParagraph(text) {
+      const p = document.createElement('p');
+      p.className = 'msg-text';
+      appendInline(p, text);
+      return p;
+    }
+
+    function makeList(ordered, items) {
+      const list = document.createElement(ordered ? 'ol' : 'ul');
+      list.className = 'msg-list';
+      items.forEach((itemText) => {
+        const li = document.createElement('li');
+        appendInline(li, itemText);
+        list.appendChild(li);
+      });
+      return list;
+    }
+
+    function makeTable(headerLine, rowLines) {
+      const wrap = document.createElement('div');
+      wrap.className = 'msg-table-wrap';
+      const table = document.createElement('table');
+      table.className = 'msg-table';
+
+      const thead = document.createElement('thead');
+      const headRow = document.createElement('tr');
+      splitTableRow(headerLine).forEach((cellText) => {
+        const th = document.createElement('th');
+        appendInline(th, cellText);
+        headRow.appendChild(th);
+      });
+      thead.appendChild(headRow);
+      table.appendChild(thead);
+
+      const tbody = document.createElement('tbody');
+      rowLines.forEach((rowLine) => {
+        const tr = document.createElement('tr');
+        splitTableRow(rowLine).forEach((cellText) => {
+          const td = document.createElement('td');
+          appendInline(td, cellText);
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+
+      wrap.appendChild(table);
+      return wrap;
+    }
+
+    function renderMarkdownBlocks(container, src) {
+      const lines = src.replace(/\r\n?/g, '\n').split('\n');
+      let i = 0;
+      while (i < lines.length) {
+        const line = lines[i];
+        if (line.trim() === '') { i++; continue; }
+
+        const headingMatch = /^(#{2,3})\s+(.*)$/.exec(line);
+        if (headingMatch) {
+          const headingText = headingMatch[2].trim();
+          i++;
+          if (headingText) container.appendChild(makeHeading(headingMatch[1].length, headingText));
+          continue;
+        }
+
+        if (isTableRow(line) && i + 1 < lines.length && isTableSeparator(lines[i + 1])) {
+          const headerLine = line;
+          i += 2;
+          const rowLines = [];
+          while (i < lines.length && isTableRow(lines[i])) {
+            rowLines.push(lines[i]);
+            i++;
+          }
+          container.appendChild(makeTable(headerLine, rowLines));
+          continue;
+        }
+
+        if (isListItem(line)) {
+          const ordered = isListOrdered(line);
+          const items = [];
+          while (i < lines.length && isListItem(lines[i]) && isListOrdered(lines[i]) === ordered) {
+            items.push(listItemText(lines[i]));
+            i++;
+          }
+          container.appendChild(makeList(ordered, items));
+          continue;
+        }
+
+        const paraLines = [line];
+        i++;
+        while (i < lines.length && lines[i].trim() !== '' && !isBlockStart(lines[i])) {
+          paraLines.push(lines[i]);
+          i++;
+        }
+        const paraText = paraLines.join(' ').trim();
+        if (paraText) container.appendChild(makeParagraph(paraText));
+      }
+    }
+
+    function renderMarkdown(container, text) {
+      container.replaceChildren();
+      const src = typeof text === 'string' ? text : '';
+      try {
+        renderMarkdownBlocks(container, src);
+      } catch (_) {
+        container.replaceChildren();
+        container.appendChild(makeParagraph(src));
+      }
+    }
+
+    function setPlainMessage(body, text) {
       body.replaceChildren();
-      const answer = document.createElement('p');
-      answer.className = 'msg-text';
-      answer.textContent = text;
-      body.appendChild(answer);
+      const p = document.createElement('p');
+      p.className = 'msg-text';
+      p.textContent = text;
+      body.appendChild(p);
+    }
+
+    function setMessage(body, text, citations) {
+      renderMarkdown(body, text);
 
       if (!Array.isArray(citations) || citations.length === 0) return;
       const refs = document.createElement('div');
@@ -726,7 +968,11 @@
       head.appendChild(tag);
       const body = document.createElement('div');
       body.className = isUser ? 'turn-body' : 'doc-body';
-      setMessage(body, text);
+      if (isUser) {
+        setPlainMessage(body, text);
+      } else {
+        setMessage(body, text);
+      }
       message.append(head, body);
       chatArea.appendChild(message);
       scrollChatToEnd();
