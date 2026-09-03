@@ -137,6 +137,101 @@ def test_importul_face_upsert_inainte_de_delete_si_populeaza_metadata_noilor_col
     assert parametri[4:6] == (1, "document-test")
 
 
+def test_chunkurile_sunt_neschimbate_compara_hash_uri_local_vs_db(modul_ingestie):
+    chunkuri = [{"articol": "1.1.", "text": "Text A"}, {"articol": "1.2.", "text": "Text B"}]
+    hash_a = modul_ingestie.calculeaza_content_hash("Text A")
+    hash_b = modul_ingestie.calculeaza_content_hash("Text B")
+
+    class CursorDbIdentic:
+        def execute(self, _instructiune, _parametri):
+            self.rezultat = [(hash_a,), (hash_b,)]
+
+        def fetchall(self):
+            return self.rezultat
+
+    assert modul_ingestie.chunkurile_sunt_neschimbate(CursorDbIdentic(), "sursa", chunkuri) is True
+
+    class CursorDbDiferit:
+        def execute(self, _instructiune, _parametri):
+            self.rezultat = [(hash_a,), ("alt-hash",)]
+
+        def fetchall(self):
+            return self.rezultat
+
+    assert modul_ingestie.chunkurile_sunt_neschimbate(CursorDbDiferit(), "sursa", chunkuri) is False
+
+    class CursorDbGol:
+        def execute(self, _instructiune, _parametri):
+            self.rezultat = []
+
+        def fetchall(self):
+            return self.rezultat
+
+    assert modul_ingestie.chunkurile_sunt_neschimbate(CursorDbGol(), "sursa", chunkuri) is False
+
+
+def test_import_real_sare_documentele_neschimbate_fara_apel_voyage(modul_ingestie, monkeypatch, tmp_path, capsys):
+    folder_document = tmp_path / "document_test"
+    folder_document.mkdir()
+    (folder_document / "metadata.json").write_text(
+        """
+        {
+            "document_id": "document-test",
+            "source_key": "document_test",
+            "cod_oficial": "NP TEST-2026",
+            "titlu_oficial": "Document local de test",
+            "an": 2026,
+            "status": "indexed_pending_validation"
+        }
+        """,
+        encoding="utf-8",
+    )
+    (folder_document / "extracted.txt").write_text("1.1.\nText local valid.", encoding="utf-8")
+    monkeypatch.setattr(modul_ingestie, "FOLDER_DOCUMENTE", tmp_path)
+    monkeypatch.setattr(sys, "argv", ["populare_db.py"])
+
+    hash_existent = modul_ingestie.calculeaza_content_hash("Text local valid.")
+
+    class CursorFalsNeschimbat:
+        def execute(self, instructiune, _parametri):
+            self.select_hash = "SELECT content_hash" in instructiune
+
+        def fetchall(self):
+            return [(hash_existent,)]
+
+        def fetchone(self):
+            raise AssertionError("nu trebuie apelat cand documentul e neschimbat")
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_exc):
+            return False
+
+    class ConexiuneFalsa:
+        def cursor(self):
+            return CursorFalsNeschimbat()
+
+        def commit(self):
+            pass
+
+        def close(self):
+            pass
+
+    class ClientVoyageInterzis:
+        def embed(self, *_args, **_kwargs):
+            raise AssertionError("Voyage nu trebuie apelat pentru document neschimbat")
+
+    monkeypatch.setattr(modul_ingestie, "load_dotenv", lambda *_a, **_k: None)
+    monkeypatch.setattr(modul_ingestie.voyageai, "Client", lambda **_k: ClientVoyageInterzis())
+    monkeypatch.setattr(modul_ingestie, "conecteaza_baza_de_date", lambda: ConexiuneFalsa())
+    monkeypatch.setattr(modul_ingestie.os, "getenv", lambda *_a, **_k: "fals")
+
+    modul_ingestie.main()
+
+    assert "NESCHIMBAT: document-test" in capsys.readouterr().out
+
+
 def test_chunk_invalid_opreste_inainte_de_sql_si_voyage(modul_ingestie):
     class CursorInterzis:
         def execute(self, *_args, **_kwargs):
