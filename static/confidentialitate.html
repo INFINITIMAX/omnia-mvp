@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Politica de confidențialitate — NormativAI</title>
+<style>
+  body { max-width: 720px; margin: 0 auto; padding: 40px 24px 80px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height: 1.65; color: #1a1a1a; }
+  h1 { font-size: 26px; margin-bottom: 4px; }
+  .updated { color: #666; font-size: 13px; margin-bottom: 32px; }
+  h2 { font-size: 18px; margin-top: 36px; }
+  p, li { font-size: 15px; }
+  a { color: #2a5fd9; }
+  .notice { background: #fff8e1; border: 1px solid #f0d97a; border-radius: 8px; padding: 14px 16px; font-size: 13.5px; margin-bottom: 32px; }
+</style>
+</head>
+<body>
+
+<h1>Politica de confidențialitate</h1>
+<p class="updated">Ultima actualizare: septembrie 2026</p>
+
+<div class="notice">
+  Acest document e un draft tehnic, scris pe baza exactă a modului în care funcționează aplicația.
+  Nu este consultanță juridică. Recomandăm revizuirea de către un jurist înainte de lansarea publică oficială.
+</div>
+
+<h2>1. Ce este NormativAI</h2>
+<p>NormativAI este un asistent care răspunde la întrebări despre normative tehnice românești, pe baza documentelor aprobate explicit pentru utilizare. Aplicația nu necesită cont sau înregistrare.</p>
+
+<h2>2. Ce date colectăm</h2>
+<ul>
+  <li><strong>Un cookie anonim</strong> (<code>normativai_anon</code>) — un identificator aleatoriu, semnat criptografic, folosit exclusiv pentru a limita numărul de întrebări per browser (maximum 10). Nu conține nume, email sau alte date personale. Expiră după 365 de zile.</li>
+  <li><strong>Adresa IP, sub formă de hash</strong> (nu stocăm IP-ul brut) — folosită exclusiv pentru limitarea automatizărilor (maximum 5 cereri/minut, 30/oră). Hash-ul se calculează cu o cheie criptografică separată de cea a cookie-ului, deci cele două nu pot fi corelate.</li>
+  <li><strong>Textul întrebării</strong> pe care o pui — necesar pentru a genera răspunsul. Nu este asociat cu numele sau alte date de identificare.</li>
+</ul>
+<p>Nu folosim cookie-uri de urmărire, publicitate sau analiză a comportamentului. Nu creăm profiluri de utilizator.</p>
+
+<h2>3. De ce colectăm aceste date</h2>
+<p>Exclusiv pentru funcționarea serviciului: prevenirea abuzului (quota, rate limiting) și generarea răspunsului la întrebarea ta. Temeiul legal este interesul legitim de a proteja serviciul de utilizare abuzivă și de a controla costurile operaționale.</p>
+
+<h2>4. Cine mai procesează aceste date (terți)</h2>
+<p>Pentru a genera un răspuns, întrebarea ta poate fi trimisă către:</p>
+<ul>
+  <li><strong>Anthropic</strong> (generarea răspunsului) — procesator din SUA; procesarea se supune politicii lor de confidențialitate.</li>
+  <li><strong>Voyage AI</strong> (căutare semantică, doar pentru întrebări fără articol exact indicat) — procesator din SUA.</li>
+</ul>
+<p>Baza de date (documentele normative, contoarele de quota) este găzduită prin <strong>Supabase</strong>, în regiunea UE (Irlanda). Aplicația rulează pe infrastructura <strong>Railway</strong>.</p>
+<p>Niciun terț nu primește identificatori tehnici interni, nume de fișiere sursă sau conținutul brut al documentelor normative — doar textul întrebării și, la generare, fragmentele relevante deja aprobate.</p>
+
+<h2>5. Cât timp păstrăm datele</h2>
+<ul>
+  <li>Cookie-ul anonim: 365 de zile de la emitere.</li>
+  <li>Contorul de quota (asociat unui hash, nu unui IP sau nume): pe durata valabilității cookie-ului.</li>
+  <li>Ferestrele de rate-limiting (hash IP): expiră logic după 24 de ore și nu mai sunt reutilizate.</li>
+</ul>
+
+<h2>6. Drepturile tale</h2>
+<p>Conform GDPR, ai dreptul de a solicita acces, rectificare sau ștergerea datelor asociate ție, în măsura în care pot fi identificate (dat fiind că folosim identificatori anonimi/hash, este posibil ca unele date să nu poată fi asociate unei persoane fără informații suplimentare din partea ta, ex. cookie-ul folosit). Pentru orice solicitare, contactează-ne la adresa de mai jos.</p>
+
+<h2>7. Securitate</h2>
+<p>IP-urile nu sunt stocate niciodată în formă brută. Cookie-ul este semnat criptografic (HMAC) și marcat <code>HttpOnly</code>/<code>Secure</code>, deci nu poate fi citit sau falsificat din JavaScript. Baza de date nu este accesibilă direct din browser.</p>
+
+<h2>8. Contact</h2>
+<p>Pentru întrebări despre această politică: <a href="mailto:contact@normativai.ro">contact@normativai.ro</a> <em>(adresă de completat)</em>.</p>
+
+<h2>9. Modificări</h2>
+<p>Această politică poate fi actualizată. Data ultimei actualizări este afișată la începutul paginii.</p>
+
+</body>
+</html>
