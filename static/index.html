@@ -207,6 +207,44 @@
     line-height: 1.4;
   }
 
+  .rail-history-btn {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    background: transparent;
+    border: 0;
+    text-align: left;
+    cursor: pointer;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .rail-history-btn:hover { background: rgba(232, 185, 49, .08); color: var(--paper); }
+  .rail-history-btn:focus-visible { outline: 2px solid var(--gold-hi); outline-offset: 2px; }
+
+  .rail-empty {
+    padding: var(--s2) var(--s3);
+    color: var(--paper-quiet);
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  .rail-clear {
+    align-self: flex-start;
+    margin: var(--s2) 0 0;
+    padding: var(--s1) var(--s3);
+    background: transparent;
+    border: 0;
+    color: var(--paper-quiet);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .06em;
+    cursor: pointer;
+  }
+  .rail-clear:hover { color: var(--gold); text-decoration: underline; }
+  .rail-clear:focus-visible { outline: 2px solid var(--gold-hi); outline-offset: 2px; }
+
   .rail-foot { margin-top: auto; display: flex; flex-direction: column; gap: var(--s4); }
 
   .rail-user { display: flex; align-items: center; gap: var(--s2); padding: 0 var(--s3); }
@@ -435,12 +473,10 @@
     list-style: none;
     margin: 0;
     padding: 0;
-    counter-reset: ref;
     border-bottom: 1px solid var(--rule-lit);
   }
 
   .citation-list li {
-    counter-increment: ref;
     display: grid;
     grid-template-columns: 96px minmax(0, 1fr);
     gap: var(--s5);
@@ -450,8 +486,7 @@
 
   .art-ref { display: flex; flex-direction: column; gap: var(--s1); min-width: 0; }
 
-  .art-ref::before {
-    content: "[" counter(ref) "]";
+  .art-ref-id {
     font-family: var(--mono);
     font-size: 12px;
     color: var(--gold);
@@ -504,8 +539,6 @@
     background: var(--ink-800);
     padding: var(--s4) var(--s4) var(--s3);
   }
-  .composer:focus-within { border-color: var(--gold); }
-
   .composer input {
     display: block;
     width: 100%;
@@ -562,10 +595,22 @@
 
   .chip:focus-visible,
   .rail-legal a:focus-visible,
-  .send-btn:focus-visible,
-  .composer input:focus-visible {
+  .send-btn:focus-visible {
     outline: 2px solid var(--gold-hi);
     outline-offset: 2px;
+  }
+
+  /* Câmpul de scriere primește focus la fiecare click, deci :focus-visible nativ tot
+     ar arăta chenar cât timp utilizatorul scrie. Modalitatea de navigare e detectată
+     manual în JS (clasa .kb-nav pe <html>, vezi mai jos): conturul apare EXCLUSIV
+     când ultima interacțiune a fost de la tastatură (Tab), niciodată la click cu mouse-ul.
+     Ton neutru din paleta paper, lipit de margine (fără offset). Contrast față de
+     fundalul --ink-800: 8,46:1 (WCAG 2.4.13 / 1.4.11). */
+  .composer input:focus-visible { outline: none; }
+
+  html.kb-nav .composer input:focus {
+    outline: 2px solid var(--paper-dim);
+    outline-offset: 0;
   }
 
   @media (prefers-reduced-motion: no-preference) {
@@ -593,7 +638,21 @@
       border-bottom: 1px solid var(--rule);
       background: var(--ink-900);
     }
-    .rail-group { display: none; }
+    .rail-group {
+      order: 3;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: var(--s2);
+    }
+    .rail-list {
+      flex-direction: row;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      padding-bottom: var(--s1);
+    }
+    .rail-list li { flex: none; }
+    .rail-history-btn { max-width: 220px; padding: var(--s2) var(--s3); }
     .brand-sub { display: none; }
     .rail-foot { margin-top: 0; flex-direction: row; align-items: center; gap: var(--s4); }
     .rail-user { display: none; }
@@ -639,16 +698,10 @@
         </div>
       </div>
 
-      <section class="rail-group" aria-labelledby="railDocsLabel">
-        <h2 class="rail-label" id="railDocsLabel">Documente aprobate</h2>
-        <ul class="rail-list">
-          <li class="rail-item">NP 010-2022</li>
-          <li class="rail-item">NP 015-2022</li>
-          <li class="rail-item">NP 057-02</li>
-          <li class="rail-item">I9-2022</li>
-          <li class="rail-item">P 118/1-2025</li>
-          <li class="rail-item">P 118/2-2013, modificări 2018</li>
-        </ul>
+      <section class="rail-group" aria-labelledby="railHistoryLabel">
+        <h2 class="rail-label" id="railHistoryLabel">Istoric conversații</h2>
+        <ul class="rail-list" id="historyList"></ul>
+        <button type="button" class="rail-clear" id="clearHistoryBtn" hidden>Șterge istoricul</button>
       </section>
 
       <div class="rail-foot">
@@ -698,16 +751,105 @@
   </div>
 
   <script>
+    // Detectare modalitate de navigare: conturul de focus pe inputul din composer
+    // trebuie să apară doar când utilizatorul chiar navighează cu tastatura (Tab),
+    // niciodată la un simplu click cu mouse-ul (vezi regula CSS html.kb-nav .composer
+    // input:focus). Tab pune clasa; orice interacțiune cu mouse-ul o scoate.
+    const KB_NAV_CLASS = 'kb-nav';
+    window.addEventListener('keydown', (event) => {
+      if (event.key === 'Tab') document.documentElement.classList.add(KB_NAV_CLASS);
+    });
+    function clearKbNav() { document.documentElement.classList.remove(KB_NAV_CLASS); }
+    window.addEventListener('mousedown', clearKbNav);
+    window.addEventListener('pointerdown', clearKbNav);
+
     const chatArea = document.getElementById('chatArea');
     const questionForm = document.getElementById('questionForm');
     const inputEl = document.getElementById('questionInput');
     const sendBtn = document.getElementById('sendButton');
     const quotaStatus = document.getElementById('quotaStatus');
     const chips = document.querySelectorAll('.chip');
+    const historyListEl = document.getElementById('historyList');
+    const clearHistoryBtn = document.getElementById('clearHistoryBtn');
     const GENERIC_ERROR = 'Răspunsul nu este disponibil momentan. Încearcă din nou mai târziu.';
+    // Istoricul se ține strict local, per browser: nicio conversație nu ajunge pe server.
+    // Reafișarea unei conversații salvate nu reapelează niciodată /intreaba (ar consuma
+    // din quota reală, plătită). localStorage poate fi indisponibil (mod privat) sau plin
+    // (cotă depășită): orice acces trece prin try/catch, iar aplicația funcționează normal
+    // și fără istoric dacă localStorage nu răspunde.
+    const HISTORY_KEY = 'omnia_istoric_conversatii_v1';
+    const HISTORY_LIMIT = 20;
     let requestActive = false;
     let permanentlyLocked = false;
     let temporarilyLocked = false;
+
+    function loadHistory() {
+      try {
+        const raw = window.localStorage.getItem(HISTORY_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [];
+        return parsed.filter((entry) => entry && typeof entry.intrebare === 'string' && typeof entry.raspuns === 'string');
+      } catch (_) {
+        return [];
+      }
+    }
+
+    function saveHistory(list) {
+      try {
+        window.localStorage.setItem(HISTORY_KEY, JSON.stringify(list));
+      } catch (_) {
+        // localStorage indisponibil sau plin: istoricul nu persistă, restul aplicației e neafectat.
+      }
+    }
+
+    let historyEntries = loadHistory();
+
+    function renderHistoryList() {
+      historyListEl.replaceChildren();
+      if (historyEntries.length === 0) {
+        const empty = document.createElement('li');
+        empty.className = 'rail-empty';
+        empty.textContent = 'Nicio conversație salvată încă.';
+        historyListEl.appendChild(empty);
+        clearHistoryBtn.hidden = true;
+        return;
+      }
+      historyEntries.forEach((entry, index) => {
+        const li = document.createElement('li');
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'rail-item rail-history-btn';
+        btn.textContent = entry.intrebare;
+        btn.addEventListener('click', () => replayHistoryEntry(index));
+        li.appendChild(btn);
+        historyListEl.appendChild(li);
+      });
+      clearHistoryBtn.hidden = false;
+    }
+
+    function addHistoryEntry(intrebare, raspuns, citari) {
+      historyEntries = [{ intrebare, raspuns, citari: Array.isArray(citari) ? citari : [] }, ...historyEntries].slice(0, HISTORY_LIMIT);
+      saveHistory(historyEntries);
+      renderHistoryList();
+    }
+
+    function replayHistoryEntry(index) {
+      const entry = historyEntries[index];
+      if (!entry) return;
+      addMessage('user', entry.intrebare);
+      const body = addMessage('assistant', '');
+      setMessage(body, entry.raspuns, entry.citari);
+    }
+
+    function clearHistory() {
+      historyEntries = [];
+      saveHistory(historyEntries);
+      renderHistoryList();
+    }
+
+    clearHistoryBtn.addEventListener('click', clearHistory);
+    renderHistoryList();
 
     function setControlsDisabled(disabled) {
       inputEl.disabled = disabled;
@@ -925,6 +1067,12 @@
 
         const reference = document.createElement('div');
         reference.className = 'art-ref';
+        if (citation.id) {
+          const refId = document.createElement('span');
+          refId.className = 'art-ref-id';
+          refId.textContent = `[${citation.id}]`;
+          reference.appendChild(refId);
+        }
         if (citation.articol) {
           const articleNo = document.createElement('span');
           articleNo.className = 'art-no';
@@ -1068,6 +1216,7 @@
         }
         quotaStatus.textContent = `Întrebări rămase: ${data.intrebari_ramase}/browser`;
         setMessage(pendingBody, data.raspuns, data.citari);
+        addHistoryEntry(intrebare, data.raspuns, data.citari);
       } catch (_) {
         setMessage(pendingBody, GENERIC_ERROR);
       } finally {
