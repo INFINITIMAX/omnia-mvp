@@ -9,7 +9,25 @@
 - [x] Verificare end-to-end pe producție: `/health` 200, `/docs` 404, `POST /intreaba` răspunde cu citări reale (I9-2022, art. 15.22/15.44).
 - [x] Worktree-uri vechi șterse (toate merge-uite în `main`); prototipul „Technical Paper" respins a fost eliminat definitiv.
 
-**Rămâne deschis:** `/documents` cu contract aprobat, lotul 4 (P118/2), monitorizare costuri Anthropic/Voyage în timpul testării externe.
+## Predare — randare Markdown sigură (03-09-2026, seara)
+
+- [x] Bug găsit prin verificarea live: răspunsul venea cu Markdown brut (`##`, `**`, tabele) afișat literal într-un singur `<p>`, fără `white-space: pre-wrap` și cu `text-align: justify` — tot răspunsul se prăbușea într-un paragraf ilizibil.
+- [x] Renderer Markdown propriu în `static/index.html`, construit exclusiv cu `createElement`/`createTextNode`/`textContent`: titluri (`##`→h3, `###`→h4), paragrafe, bold inline, liste cu buline și numerotate, tabele cu scroll orizontal propriu pe mobil.
+- [x] **Zero `innerHTML`/`insertAdjacentHTML`/`outerHTML`/`document.write`**, păstrate intenționat absente: textul randat vine din LLM și din documente normative, deci randarea prin HTML ar fi fost un vector de XSS prin prompt injection. Un test static anti-regresie interzice explicit reintroducerea lor.
+- [x] Markdown malformat (tabel cu coloane inegale, bold neînchis, titlu fără text) cade elegant pe text simplu, fără excepție și fără pierdere de conținut.
+- [x] 280 de teste trec (262 + 18 noi). Gate vizual dat de Lucian pe capturi desktop 1280px și mobil 390×844.
+- [x] Mergeuit (`c2f2bd5`), push pe `origin/main`, deploy manual pe Railway, verificat live în producție.
+
+**Rămâne deschis, ordonat după impact:**
+1. Antete de securitate — lipsesc toate (CSP, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, HSTS, `Permissions-Policy`). Risc: clickjacking prin iframe, MIME sniffing.
+2. Kill switch global de cost — limitele Anthropic $20 / Voyage $10 sunt doar alerte, nu opresc nimic automat.
+3. `GET /documents` cu contract aprobat — blochează contorul de documente din nav.
+4. Scheduler pentru ștergerea fizică a bucket-urilor IP expirate în max 24h (acum expiră doar logic).
+5. Chips-urile de sugestie: două întreabă lucruri neacoperite de cele 6 documente aprobate, deci produc refuzuri garantate. Decizie de conținut.
+6. Metrul vizual de quotă (bara 7/10 din mockup) — acum e doar text.
+7. Lotul 4: P118/2-2013 complet (acum doar 22 chunk-uri din amendamentul 2018).
+8. Testare reală de calitate Voyage/Claude pe date reale; smoke tests plătite opt-in.
+9. Faza 8: README, diagramă arhitectură, demo/capturi, metrici și limitări, bullets CV.
 
 ## Acum
 
@@ -117,7 +135,7 @@
 - [x] Folosește numai `request.client.host` pentru hash IP și o singură conexiune: rate-limit commit separat, apoi quota commit pentru răspuns normal sau rollback pentru refuz/eroare tehnică.
 - [x] Contracte publice: 429 `rate_limited`, `Retry-After` și mesajul generic aprobat; 403 `quota_exhausted`, mesajul clar aprobat și `intrebari_ramase: 0`; răspunsurile normale includ `intrebari_ramase`; excepțiile neașteptate fac rollback și sunt repropagate.
 - [x] Teste locale/mockuite acoperă cookie absent/falsificat/expirat, `Secure=true`, config, ordine tranzacții, rate/quota, rollback, IP direct și erori; invarianta fail-closed post-increment cere contoare `int` strict pozitive și `allowed` echivalent limitelor, fără quota/retrieval/provider la invalidare; cheia publică este numai `intrebari_ramase` (0..9, respectiv 0 la epuizare).
-- [ ] Gate producție pentru `ANONYMOUS_COOKIE_SECURE=true`, proxy/UI/CORS rămân explicit out of scope.
+- [x] Gate producție pentru `ANONYMOUS_COOKIE_SECURE=true` — setat în Railway la 03-09-2026 și confirmat live (`Set-Cookie` are `Secure`, `HttpOnly`, `SameSite=lax`). Suportul de trusted proxy a fost implementat ulterior; CORS rămâne out of scope.
 - [ ] Cerința țintă de ștergere fizică a bucket-urilor IP în maximum 24 de ore este deferred: ferestrele expiră logic și nu mai sunt reutilizate, însă nu există scheduler/job; acesta necesită aprobare separată înainte de deployment.
 
 ## Predare — UI MVP conectat la controalele anonime
@@ -138,8 +156,8 @@
 - [x] Lucian a respins direcția executată deoarece rezultatul pare insuficient stilizat și nu atinge calitatea vizuală dorită.
 - [x] Prototipul nu a fost comis, îmbinat, împins sau publicat; nu reprezintă UI-ul aprobat al produsului.
 - [x] ~~La reluare: două propuneri vizuale desktop+mobil~~ — **anulat la 03-09-2026**: Lucian a dat direcția explicit, vezi „Interfață" în `docs/DECISIONS.md`.
-- [ ] Implementare a direcției aprobate într-un worktree curat, verificări 200/403/429/422/503, Tester read-only, Reviewer read-only și gate vizual final separat.
-- [ ] Lucrul extern necomis observat în worktree-ul principal (Railway, pagini juridice și al doilea lot de documente) trebuie inventariat și revizuit separat; acest fișier nu îl declară finalizat și nu îi atribuie efecte DB/deployment.
+- [x] Implementare a direcției aprobate (negru-auriu) într-un worktree curat, Reviewer read-only pe branch-ul API, Tester read-only pe pornirea sub uvicorn, gate vizual final dat de Lucian; livrat în producție la 03-09-2026.
+- [x] Lucrul extern necomis a fost inventariat, separat pe commit-uri și integrat (branch `chore/reconciliere-railway`, mergeuit în `main`); auditul din 03-09-2026 a confirmat zero secrete și zero documente normative în Git.
 
 ## Predare sesiune — Reconciliere Railway și lot 2 (03-09-2026)
 
@@ -155,7 +173,7 @@
 ### Constatări deschise, pentru decizia lui Lucian
 
 - [x] **Paginile juridice sunt accesibile pe server** prin `GET /termeni` și `GET /confidentialitate` (branch `feat/health-si-static`). Rămâne restant **doar** linkul din footer-ul `static/index.html`, care este în sarcina Coder-ului de UI.
-- [ ] **Afirmații din paginile juridice de verificat înainte de publicare:** „rulează pe infrastructura Railway" (încă nedeployat), „Supabase în regiunea UE (Irlanda)" (neverificat) și cookie „Secure" (adevărat doar cu `ANONYMOUS_COOKIE_SECURE=true` în producție — gate încă deschis). Email `contact@normativai.ro` este placeholder.
+- [x] **Afirmațiile din paginile juridice au fost verificate și corectate la 03-09-2026:** aplicația chiar rulează pe Railway; regiunea Supabase confirmată de Lucian ca West EU (Ireland) și păstrată ca atare; cookie-ul `Secure` confirmat live; adresa de contact placeholder înlocuită cu `ilielucian97@gmail.com`. Fonturile sunt self-hostate, deci nu există scurgere de IP-uri către Google ca procesator nedeclarat.
 - [ ] **P 118/2-2013 complet** este planificat de Lucian pentru **lotul 4**, azi. Până la import, o întrebare despre P 118/2 primește răspuns doar din amendamentul 2018 (22 chunk-uri), fără textul de bază modificat.
 - [x] `/health` este implementat (branch `feat/health-si-static`): public, fără DB și fără provideri. `/documents` rămâne neimplementat, cu contractul public încă neaprobat.
 
@@ -183,7 +201,7 @@
       cale absolută în loguri. **F4** — `StaticFiles(check_dir=False)`. **F5** — artefactul de test
       din `static/assets/` este ignorat de Git și curățat în `finally`.
 - [x] Validare locală: `python -m pytest -q` → **258 passed** (de la 211), `git diff --check` fără erori.
-- [ ] `TRUSTED_PROXY_HOPS=1` și `ANONYMOUS_COOKIE_SECURE=true` **nu** sunt setate nicăieri de agent;
+- [x] `TRUSTED_PROXY_HOPS=1` și `ANONYMOUS_COOKIE_SECURE=true` au fost setate de Lucian direct în Railway la 03-09-2026 (niciodată de agent);
       Lucian le configurează manual în panoul Railway.
 - [ ] Zero push, zero deploy, zero SQL, zero apeluri API plătite în acest task.
 
@@ -249,7 +267,7 @@ spațiere, razele și lista de pattern-uri interzise. Nu inventa valori care nu 
       măsurată a lui `--paper-quiet`, documentată în `docs/UI_DESIGN_TOKENS.md`.
 - [x] Validare locală: `python -m pytest -q` → **215 passed** (211 anterioare + 4 noi),
       `node --check` pe JS-ul extras trece, `git diff --check` fără erori.
-- [ ] **Gate vizual final al lui Lucian** — încă nedat.
+- [x] **Gate vizual final al lui Lucian** — dat la 03-09-2026 pentru designul negru-auriu și, separat, pentru randarea Markdown.
 - [ ] Contorul de documente din nav rămâne neimplementat: `GET /documents` nu există, deci
       cifrele din mockup ar fi date inventate. În nav apar doar codurile documentelor.
 - [ ] Metrul de quotă din mockup (bara 7/10) nu este implementat: ar cere logică nouă de stare,
