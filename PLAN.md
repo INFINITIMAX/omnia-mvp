@@ -8,7 +8,7 @@ Omnia devine o aplicație publică pentru normative tehnice românești: răspun
 
 ### Avem, în starea versionată sigură (`main` la `c6e14ba`)
 
-- ingestion reproductibil și 2 documente aprobate, cu 694 chunk-uri validate;
+- ingestion reproductibil și 6 documente aprobate, cu 3345 chunk-uri în Supabase (lotul 1 = 694, lotul 2 = 2651; verificat read-only la 03-09-2026);
 - schemă Supabase versionată, RLS activ și fără acces public direct;
 - retrieval hibrid, generare cu citări validate și integrare `POST /intreaba`;
 - quota anonimă de 10 întrebări/browser și rate limiting 5/minut, 30/oră/IP;

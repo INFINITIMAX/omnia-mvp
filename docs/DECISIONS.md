@@ -17,6 +17,8 @@ Acest fișier separă deciziile explicite ale lui Lucian de propunerile agențil
 - Retrieval-ul folosește numai documente cu status `approved`.
 - Lucian a aprobat explicit documentele `np010_2022` și `np057_02`; statusurile au fost actualizate în Supabase, iar cele 694 chunk-uri au fost reconfirmate.
 - Decizia este reproductibilă prin migrarea `20260831220000_approve_initial_documents.sql`, care verifică identitatea și nu aprobă alte documente.
+- Lotul 2 (03-09-2026): Lucian a aprobat `i9_2022`, `p118_1_2025`, `p118_2_2013_modificari` și `spitale_2022`. Importul și aprobarea au fost executate direct pe Supabase înainte de versionare; migrarea `20260903120000_approve_second_batch_documents.sql` le înregistrează retroactiv, fail-fast pe identitate sau status incompatibil.
+- Normativul complet P 118/2-2013 a fost pus deliberat pe hold și nu a fost importat; este planificat pentru un lot ulterior.
 - Orice document nou intră implicit în `indexed_pending_validation` și necesită aprobare explicită înainte să poată genera răspunsuri.
 
 ### Retrieval și răspunsuri
