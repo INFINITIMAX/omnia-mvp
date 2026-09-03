@@ -12,3 +12,6 @@ _archive/
 .agents/
 .claude/
 skills-lock.json
+
+# artefact temporar al testelor pentru mount-ul /assets
+static/assets/test-asset.txt

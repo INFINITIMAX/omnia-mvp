@@ -220,7 +220,12 @@ _COOKIE_NAME = "normativai_anon"
 
 _STATIC_DIRECTORY = Path(__file__).resolve().parent / "static"
 _ASSETS_DIRECTORY = _STATIC_DIRECTORY / "assets"
-app.mount("/assets", StaticFiles(directory=_ASSETS_DIRECTORY), name="assets")
+app.mount(
+    "/assets",
+    # `check_dir=False`: un director absent degradează la 404, nu blochează pornirea.
+    StaticFiles(directory=_ASSETS_DIRECTORY, check_dir=False),
+    name="assets",
+)
 
 
 def _anonymous_visitor_for_request(
@@ -271,16 +276,33 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+def _static_page_response(file_name: str) -> FileResponse:
+    """Servește o pagină statică fixă; absența ei devine 503 generic, ca la `/`."""
+    path = _STATIC_DIRECTORY / file_name
+    try:
+        if not path.is_file():
+            raise ServiceDependencyError("pagină statică indisponibilă")
+        return FileResponse(path, stat_result=os.stat(path))
+    except OSError as error:
+        raise ServiceDependencyError("pagină statică indisponibilă") from error
+
+
 @app.get("/termeni")
 def pagina_termeni() -> FileResponse:
     """Servește exclusiv pagina juridică Termeni, dintr-o cale fixă."""
-    return FileResponse(_STATIC_DIRECTORY / "termeni.html")
+    try:
+        return _static_page_response("termeni.html")
+    except ServiceDependencyError as error:
+        raise HTTPException(status_code=503, detail="Serviciul este temporar indisponibil.") from error
 
 
 @app.get("/confidentialitate")
 def pagina_confidentialitate() -> FileResponse:
     """Servește exclusiv pagina juridică de confidențialitate, dintr-o cale fixă."""
-    return FileResponse(_STATIC_DIRECTORY / "confidentialitate.html")
+    try:
+        return _static_page_response("confidentialitate.html")
+    except ServiceDependencyError as error:
+        raise HTTPException(status_code=503, detail="Serviciul este temporar indisponibil.") from error
 
 
 class IntrebareRequest(BaseModel):
@@ -339,8 +361,10 @@ def _client_ip(request: Request, trusted_proxy_hops: int) -> str:
         raise ServiceDependencyError("IP client indisponibil")
     if trusted_proxy_hops <= 0:
         return host
-    forwarded = request.headers.get(_FORWARDED_FOR_HEADER)
-    if not forwarded:
+    # Un proxy poate adăuga un antet separat în loc să extindă valoarea existentă;
+    # `getlist` le vede pe toate, `get` ar returna numai prima, adică pe cea a clientului.
+    forwarded = ", ".join(request.headers.getlist(_FORWARDED_FOR_HEADER))
+    if not forwarded.strip():
         return host
     entries = [entry.strip() for entry in forwarded.split(",")]
     if len(entries) < trusted_proxy_hops:

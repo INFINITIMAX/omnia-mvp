@@ -897,10 +897,13 @@ def test_paginile_juridice_sunt_servite_public(api, path):
 
 @pytest.fixture
 def asset_de_test():
+    # Numele este ignorat de Git (vezi .gitignore), ca o intrerupere sa nu lase gunoi comisibil.
     asset = main._ASSETS_DIRECTORY / "test-asset.txt"
     asset.write_text("asset de test", encoding="utf-8")
-    yield asset
-    asset.unlink()
+    try:
+        yield asset
+    finally:
+        asset.unlink(missing_ok=True)
 
 
 def test_assets_serveste_fisierele_din_static_assets(api, asset_de_test):
@@ -930,3 +933,132 @@ def test_niciun_alt_fisier_din_repo_nu_este_expus(api, path):
     response = api.get(path)
 
     assert response.status_code == 404
+# --- Neregresie: antete X-Forwarded-For duplicate (finding F1) ---
+
+
+def _post_cu_antete(api, connection, *, hops, headers):
+    return configure(api, connection, runtime_config=_proxy_runtime_config(hops)).post(
+        "/intreaba", json={"intrebare": "art. 4.4.7.2"}, headers=headers
+    )
+
+
+def test_antetele_forwarded_duplicate_sunt_unite_nu_doar_primul(api):
+    connection = ConnectionFake()
+
+    response = _post_cu_antete(
+        api,
+        connection,
+        hops=1,
+        headers=[("X-Forwarded-For", "9.9.9.9"), ("X-Forwarded-For", "203.0.113.9")],
+    )
+
+    assert response.status_code == 200
+    assert _lock_ip_hash(connection) == main.hash_ip(
+        "203.0.113.9", ACCESS_RUNTIME_CONFIG.access_control
+    )
+    assert _lock_ip_hash(connection) != main.hash_ip(
+        "9.9.9.9", ACCESS_RUNTIME_CONFIG.access_control
+    )
+
+
+def test_antetele_forwarded_duplicate_respecta_doi_hopi_de_incredere(api):
+    connection = ConnectionFake()
+
+    response = _post_cu_antete(
+        api,
+        connection,
+        hops=2,
+        headers=[("X-Forwarded-For", "1.2.3.4"), ("X-Forwarded-For", "203.0.113.9, 10.0.0.1")],
+    )
+
+    assert response.status_code == 200
+    assert _lock_ip_hash(connection) == main.hash_ip(
+        "203.0.113.9", ACCESS_RUNTIME_CONFIG.access_control
+    )
+
+
+def test_clientul_nu_poate_impinge_pozitia_de_incredere_in_afara_ferestrei(api):
+    connection = ConnectionFake()
+
+    response = _post_cu_antete(
+        api,
+        connection,
+        hops=1,
+        headers=[
+            ("X-Forwarded-For", "1.0.0.1, 1.0.0.2, 1.0.0.3"),
+            ("X-Forwarded-For", "203.0.113.9"),
+        ],
+    )
+
+    assert response.status_code == 200
+    assert _lock_ip_hash(connection) == main.hash_ip(
+        "203.0.113.9", ACCESS_RUNTIME_CONFIG.access_control
+    )
+    for falsificat in ("1.0.0.1", "1.0.0.2", "1.0.0.3"):
+        assert _lock_ip_hash(connection) != main.hash_ip(
+            falsificat, ACCESS_RUNTIME_CONFIG.access_control
+        )
+
+
+def test_antete_falsificate_diferite_nu_creeaza_bucket_nou_de_rate_limit(api):
+    prima = ConnectionFake()
+    a_doua = ConnectionFake()
+
+    _post_cu_antete(
+        api,
+        prima,
+        hops=1,
+        headers=[("X-Forwarded-For", "1.0.0.1"), ("X-Forwarded-For", "203.0.113.9")],
+    )
+    _post_cu_antete(
+        api,
+        a_doua,
+        hops=1,
+        headers=[("X-Forwarded-For", "1.0.0.2"), ("X-Forwarded-For", "203.0.113.9")],
+    )
+
+    # Bucket-ul de rate limit rămâne același, deci limitele nu pot fi ocolite prin antete.
+    assert _lock_ip_hash(prima) == _lock_ip_hash(a_doua)
+    assert _lock_ip_hash(prima) == main.hash_ip(
+        "203.0.113.9", ACCESS_RUNTIME_CONFIG.access_control
+    )
+
+
+def test_antete_forwarded_duplicate_goale_cad_pe_ip_direct(api):
+    connection = ConnectionFake()
+
+    response = _post_cu_antete(
+        api, connection, hops=1, headers=[("X-Forwarded-For", ""), ("X-Forwarded-For", "")]
+    )
+
+    assert response.status_code == 200
+    assert _lock_ip_hash(connection) == _hash_direct()
+
+
+def test_antetele_duplicate_sunt_ignorate_complet_la_hops_zero(api):
+    connection = ConnectionFake()
+
+    response = _post_cu_antete(
+        api,
+        connection,
+        hops=0,
+        headers=[("X-Forwarded-For", "9.9.9.9"), ("X-Forwarded-For", "203.0.113.9")],
+    )
+
+    assert response.status_code == 200
+    assert _lock_ip_hash(connection) == _hash_direct()
+
+
+# --- Pagini juridice lipsă (finding F3) ---
+
+
+@pytest.mark.parametrize("path", ["/termeni", "/confidentialitate"])
+def test_pagina_juridica_lipsa_este_503_generic_fara_cale_absoluta(api, monkeypatch, tmp_path, path):
+    monkeypatch.setattr(main, "_STATIC_DIRECTORY", tmp_path)
+
+    response = configure(api, ConnectionFake()).get(path)
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Serviciul este temporar indisponibil."}
+    assert str(tmp_path) not in response.text
+    assert ".html" not in response.text
