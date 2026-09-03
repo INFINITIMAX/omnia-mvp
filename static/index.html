@@ -3,235 +3,119 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>NormativAI — Asistent AI pentru normative</title>
+<title>NormativAI · Asistent AI pentru normative</title>
 <style>
+  /* ---------- Fonturi self-hostate (fara CDN tert, vezi confidentialitate) ---------- */
+  @font-face {
+    font-family: "Archivo";
+    font-style: normal;
+    font-weight: 400 600;
+    font-display: swap;
+    src: url("/assets/fonts/archivo-var-latin.woff2") format("woff2");
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  }
+  @font-face {
+    font-family: "Archivo";
+    font-style: normal;
+    font-weight: 400 600;
+    font-display: swap;
+    src: url("/assets/fonts/archivo-var-latin-ext.woff2") format("woff2");
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+  }
+  @font-face {
+    font-family: "Crimson Pro";
+    font-style: normal;
+    font-weight: 400 600;
+    font-display: swap;
+    src: url("/assets/fonts/crimson-pro-var-latin.woff2") format("woff2");
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  }
+  @font-face {
+    font-family: "Crimson Pro";
+    font-style: normal;
+    font-weight: 400 600;
+    font-display: swap;
+    src: url("/assets/fonts/crimson-pro-var-latin-ext.woff2") format("woff2");
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+  }
+  @font-face {
+    font-family: "IBM Plex Mono";
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url("/assets/fonts/plex-mono-400-latin.woff2") format("woff2");
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  }
+  @font-face {
+    font-family: "IBM Plex Mono";
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url("/assets/fonts/plex-mono-400-latin-ext.woff2") format("woff2");
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+  }
+  @font-face {
+    font-family: "IBM Plex Mono";
+    font-style: normal;
+    font-weight: 500;
+    font-display: swap;
+    src: url("/assets/fonts/plex-mono-500-latin.woff2") format("woff2");
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  }
+  @font-face {
+    font-family: "IBM Plex Mono";
+    font-style: normal;
+    font-weight: 500;
+    font-display: swap;
+    src: url("/assets/fonts/plex-mono-500-latin-ext.woff2") format("woff2");
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+  }
+
+  /* ---------- Tokeni de design (docs/UI_DESIGN_TOKENS.md) ---------- */
   :root {
-    --bg: #0a0d12;
-    --surface: #12161e;
-    --surface-2: #171c26;
-    --surface-hover: #1c2230;
-    --border: #232a37;
-    --border-soft: #1a2029;
-    --text: #e8eaed;
-    --text-dim: #8b93a3;
-    --text-faint: #565f70;
-    --accent: #4c8dff;
-    --accent-dim: #4c8dff26;
-    --accent-hover: #6ba0ff;
-    --mono: "SF Mono", "Cascadia Code", Consolas, monospace;
-    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif;
+    --ink-900: #0A0907;
+    --ink-850: #100E0B;
+    --ink-800: #16130F;
+    --ink-750: #1C1813;
+    --ink-700: #241F18;
+
+    --gold: #E8B931;
+    --gold-hi: #FFD75E;
+    --gold-deep: #7A5D00;
+    --on-gold: #0D0B06;
+
+    --paper: #F2EEE4;
+    --paper-dim: #B7AF9D;
+    --paper-quiet: #9E957F;
+
+    --rule: #241F18;
+    --rule-lit: #3A3225;
+
+    --sans: "Archivo", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --serif: "Crimson Pro", "Iowan Old Style", Georgia, serif;
+    --mono: "IBM Plex Mono", "SF Mono", Consolas, monospace;
+
+    --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px;
+    --s5: 24px; --s6: 32px; --s7: 48px; --s8: 64px;
   }
 
   * { box-sizing: border-box; }
 
   body {
     margin: 0;
-    background: var(--bg);
-    color: var(--text);
+    min-height: 100vh;
+    background: var(--ink-900);
+    background-image:
+      radial-gradient(1100px 620px at 8% -12%, rgba(232, 185, 49, .075), transparent 60%),
+      linear-gradient(180deg, #0D0B08 0%, #0A0907 46%, #070605 100%);
+    background-attachment: fixed;
+    color: var(--paper);
     font-family: var(--sans);
-    height: 100vh;
-    display: flex;
-    overflow: hidden;
-  }
-
-  /* ---------- Sidebar ---------- */
-  .sidebar {
-    width: 260px;
-    min-width: 260px;
-    background: var(--surface);
-    border-right: 1px solid var(--border-soft);
-    display: flex;
-    flex-direction: column;
-    padding: 20px 16px;
-  }
-
-  .brand {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 4px 4px 20px 4px;
-  }
-
-  .brand-mark {
-    width: 34px;
-    height: 34px;
-    border-radius: 9px;
-    background: linear-gradient(145deg, var(--accent), #2a5fd9);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: var(--mono);
-    font-weight: 700;
-    font-size: 18px;
-    color: white;
-    flex-shrink: 0;
-  }
-
-  .brand-name {
-    font-weight: 600;
     font-size: 15px;
-    letter-spacing: -0.01em;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
   }
 
-  .brand-sub {
-    font-size: 11.5px;
-    color: var(--text-faint);
-    margin-top: 1px;
-  }
-
-  .sidebar-footer {
-    margin-top: auto;
-    padding-top: 14px;
-    border-top: 1px solid var(--border-soft);
-    display: flex;
-    align-items: center;
-    gap: 9px;
-  }
-
-  .avatar {
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    background: var(--surface-2);
-    border: 1px solid var(--border);
-    flex-shrink: 0;
-  }
-
-  .footer-name { font-size: 12.5px; color: var(--text-dim); }
-
-  /* ---------- Main ---------- */
-  .main {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-  }
-
-  .topbar {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    padding: 26px 36px 20px 36px;
-    border-bottom: 1px solid var(--border-soft);
-  }
-
-  .topbar h1 {
-    font-size: 22px;
-    font-weight: 600;
-    letter-spacing: -0.015em;
-    margin: 0 0 6px 0;
-  }
-
-  .topbar p {
-    margin: 0;
-    font-size: 13px;
-    color: var(--text-dim);
-  }
-
-  .topbar p .dot {
-    color: var(--accent);
-    margin: 0 6px;
-  }
-
-  /* ---------- Doc badge (static, non-interactive) ---------- */
-  .doc-badge {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: var(--surface-2);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 7px 14px 7px 12px;
-    font-size: 12.5px;
-    color: var(--text-dim);
-    cursor: default;
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
-
-  .status-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: #3ecf8e;
-    flex-shrink: 0;
-  }
-
-  .doc-badge strong { color: var(--text); font-weight: 600; }
-
-  /* ---------- Chat area ---------- */
-  .chat-area {
-    flex: 1;
-    overflow-y: auto;
-    padding: 28px 36px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
-
-  .msg {
-    display: flex;
-    gap: 12px;
-    max-width: 640px;
-  }
-
-  .msg-avatar {
-    width: 30px;
-    height: 30px;
-    border-radius: 8px;
-    background: var(--accent-dim);
-    border: 1px solid #4c8dff40;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: var(--mono);
-    font-size: 13px;
-    color: var(--accent-hover);
-    flex-shrink: 0;
-    font-weight: 700;
-  }
-
-  .msg.user .msg-avatar {
-    background: var(--surface-2);
-    border-color: var(--border);
-    color: var(--text-dim);
-  }
-
-  .msg-body {
-    background: var(--surface);
-    border: 1px solid var(--border-soft);
-    border-radius: 12px;
-    padding: 14px 16px;
-    font-size: 14px;
-    line-height: 1.6;
-    color: var(--text);
-  }
-
-  .msg-body p { margin: 0 0 10px 0; }
-  .msg-body p:last-child { margin-bottom: 0; }
-
-  .suggestions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 14px;
-    padding-left: 42px;
-  }
-
-  .chip {
-    background: var(--surface-2);
-    border: 1px solid var(--border);
-    color: var(--text-dim);
-    border-radius: 18px;
-    padding: 8px 14px;
-    font-size: 12.5px;
-    cursor: pointer;
-    transition: border-color 0.15s ease, color 0.15s ease;
-  }
-  .chip:hover { border-color: var(--accent); color: var(--text); }
-  .chip[aria-disabled="true"] { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
-
-  /* ---------- Input ---------- */
   .sr-only {
     position: absolute;
     width: 1px;
@@ -244,135 +128,513 @@
     border: 0;
   }
 
-  .input-bar {
-    padding: 16px 36px 22px 36px;
-    border-top: 1px solid var(--border-soft);
+  .shell {
+    display: grid;
+    grid-template-columns: 266px minmax(0, 1fr);
+    min-height: 100vh;
   }
 
-  .input-shell {
+  /* ---------- Nav lateral ---------- */
+  .rail {
     display: flex;
-    align-items: center;
-    gap: 10px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 6px 6px 6px 18px;
-    transition: border-color 0.15s ease;
+    flex-direction: column;
+    gap: var(--s6);
+    padding: var(--s5) var(--s4) var(--s4);
+    border-right: 1px solid var(--rule);
+    background: linear-gradient(180deg, rgba(232, 185, 49, .05) 0%, rgba(232, 185, 49, .008) 34%, transparent 72%);
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    min-width: 0;
   }
-  .input-shell:focus-within { border-color: var(--accent); }
 
-  .input-shell input {
-    flex: 1;
-    background: transparent;
-    border: none;
-    outline: none;
-    color: var(--text);
-    font-size: 14px;
-    font-family: var(--sans);
-    padding: 10px 0;
-  }
-  .input-shell input::placeholder { color: var(--text-faint); }
+  .brand { display: flex; align-items: center; gap: var(--s3); min-width: 0; }
 
-  .send-btn {
-    background: var(--accent);
-    color: white;
-    border: none;
-    border-radius: 9px;
-    padding: 10px 18px;
-    font-size: 13.5px;
+  .sigil {
+    width: 34px;
+    height: 34px;
+    flex: none;
+    display: grid;
+    place-items: center;
+    border-radius: var(--s2);
+    background: linear-gradient(150deg, var(--gold-hi) 0%, var(--gold) 46%, var(--gold-deep) 100%);
+    color: var(--on-gold);
+    font-family: var(--serif);
+    font-size: 21px;
     font-weight: 600;
-    cursor: pointer;
-    transition: background 0.15s ease;
-    flex-shrink: 0;
-  }
-  .send-btn:hover:not(:disabled) { background: var(--accent-hover); }
-  .send-btn:disabled, .input-shell input:disabled {
-    cursor: not-allowed;
-    opacity: 0.6;
+    line-height: 1;
   }
 
-  .input-hint {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 9px;
+  .brand-name { font-size: 16px; font-weight: 600; letter-spacing: -.012em; }
+
+  .brand-sub {
+    font-family: var(--mono);
     font-size: 11px;
-    color: var(--text-faint);
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    color: var(--paper-quiet);
+    margin-top: var(--s1);
   }
-  .input-hint .v { font-family: var(--mono); }
+
+  .rail-group { display: flex; flex-direction: column; gap: var(--s1); min-width: 0; }
+
+  .rail-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    color: var(--paper-quiet);
+    margin: 0;
+    padding: 0 var(--s3) var(--s3);
+  }
+
+  .rail-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--s1);
+  }
+
+  .rail-item {
+    padding: var(--s2) var(--s3);
+    border-radius: var(--s2);
+    color: var(--paper-dim);
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 1.4;
+  }
+
+  .rail-foot { margin-top: auto; display: flex; flex-direction: column; gap: var(--s4); }
+
+  .rail-user { display: flex; align-items: center; gap: var(--s2); padding: 0 var(--s3); }
+
+  .rail-user .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--gold);
+    flex: none;
+  }
+
+  .footer-name { font-size: 12.5px; color: var(--paper-dim); }
+
+  .rail-legal {
+    display: flex;
+    gap: var(--s4);
+    padding: var(--s3) var(--s3) 0;
+    border-top: 1px solid var(--rule);
+  }
+
+  .rail-legal a { font-size: 12.5px; color: var(--paper-dim); text-decoration: none; }
+  .rail-legal a:hover { color: var(--gold); text-decoration: underline; }
+
+  /* ---------- Coloana principala ---------- */
+  .main { display: flex; flex-direction: column; min-width: 0; height: 100vh; }
+
+  .topbar {
+    padding: var(--s4) var(--s6);
+    border-bottom: 1px solid var(--rule);
+    background: var(--ink-900);
+  }
+
+  .topbar h1 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -.012em; }
+  .topbar p { margin: var(--s1) 0 0; font-size: 13px; color: var(--paper-quiet); }
+
+  .scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--s7) var(--s6) var(--s5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--s7);
+  }
+
+  .scroll > * {
+    width: 100%;
+    max-width: 780px;
+    margin-left: auto;
+    margin-right: auto;
+    min-width: 0;
+  }
+
+  /* ---------- Bloc introductiv ---------- */
+  .intro { display: flex; flex-direction: column; gap: var(--s3); }
+
+  .intro-kicker {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--gold);
+  }
+
+  .intro p {
+    margin: 0;
+    font-family: var(--serif);
+    font-size: 19.5px;
+    line-height: 1.7;
+    color: var(--paper);
+    max-width: 62ch;
+  }
+
+  /* ---------- Sugestii ---------- */
+  .suggestions { display: flex; flex-wrap: wrap; gap: var(--s2); }
+
+  .chip {
+    background: var(--ink-800);
+    border: 1px solid var(--rule-lit);
+    color: var(--paper-dim);
+    border-radius: var(--s5);
+    padding: var(--s2) var(--s4);
+    font-family: var(--sans);
+    font-size: 13px;
+    line-height: 1.4;
+    cursor: pointer;
+    max-width: 100%;
+  }
+  .chip:hover { border-color: var(--gold); color: var(--paper); }
+  .chip[aria-disabled="true"] { opacity: .5; cursor: not-allowed; pointer-events: none; }
+
+  /* ---------- Intrebarea ---------- */
+  .turn-q { display: flex; flex-direction: column; gap: var(--s2); }
+
+  .turn-tag {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    color: var(--paper-quiet);
+  }
+
+  .turn-q .msg-text {
+    margin: 0;
+    font-size: 17px;
+    line-height: 1.5;
+    color: var(--paper);
+    max-width: 62ch;
+    overflow-wrap: anywhere;
+  }
+
+  /* ---------- Raspunsul, cules ca document tiparit ---------- */
+  .doc {
+    border: 1px solid var(--rule);
+    border-radius: var(--s1);
+    background: var(--ink-850);
+    padding: var(--s6) var(--s7);
+    min-width: 0;
+  }
+
+  .doc-head {
+    display: flex;
+    align-items: baseline;
+    gap: var(--s4);
+    padding-bottom: var(--s3);
+    margin-bottom: var(--s5);
+    border-bottom: 1px solid var(--rule-lit);
+  }
+
+  .doc-kicker {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--gold);
+  }
+
+  .doc .msg-text {
+    margin: 0;
+    font-family: var(--serif);
+    font-size: 19.5px;
+    line-height: 1.7;
+    color: var(--paper);
+    text-align: justify;
+    hyphens: auto;
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+  }
+
+  /* Sursele citate se pun ca intr-un standard tiparit: linii de par sus si jos
+     peste toata masura, referinta agatata in marginea stanga, text in roman.
+     Fara bara colorata la stanga, fara card, fara italice. */
+  .refs {
+    margin-top: var(--s6);
+    padding-top: var(--s4);
+    border-top: 1px solid var(--rule-lit);
+  }
+
+  .refs-lab {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    color: var(--paper-quiet);
+    margin-bottom: var(--s4);
+  }
 
   .citation-list {
-    margin: 10px 0 0;
-    padding-left: 18px;
-    color: var(--text-dim);
-    font-size: 12px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    counter-reset: ref;
+    border-bottom: 1px solid var(--rule-lit);
   }
 
-  /* scrollbars */
+  .citation-list li {
+    counter-increment: ref;
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr);
+    gap: var(--s5);
+    padding: var(--s4) 0;
+    border-top: 1px solid var(--rule-lit);
+  }
+
+  .art-ref { display: flex; flex-direction: column; gap: var(--s1); min-width: 0; }
+
+  .art-ref::before {
+    content: "[" counter(ref) "]";
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--gold);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .art-no {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--gold);
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+  }
+
+  .art-doc {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--paper-quiet);
+    overflow-wrap: anywhere;
+  }
+
+  .art-body { min-width: 0; }
+
+  .art-title {
+    margin: 0;
+    font-family: var(--serif);
+    font-size: 18px;
+    line-height: 1.62;
+    color: var(--paper);
+    overflow-wrap: anywhere;
+  }
+
+  .art-quote {
+    margin: var(--s2) 0 0;
+    font-family: var(--serif);
+    font-size: 16px;
+    line-height: 1.6;
+    color: var(--paper-dim);
+    overflow-wrap: anywhere;
+  }
+
+  /* ---------- Composer ---------- */
+  .composer-wrap { padding: 0 var(--s6) var(--s5); }
+
+  .composer {
+    max-width: 780px;
+    margin: 0 auto;
+    border: 1px solid var(--rule-lit);
+    border-radius: var(--s5);
+    background: var(--ink-800);
+    padding: var(--s4) var(--s4) var(--s3);
+  }
+  .composer:focus-within { border-color: var(--gold); }
+
+  .composer input {
+    display: block;
+    width: 100%;
+    border: 0;
+    background: transparent;
+    color: var(--paper);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.55;
+    padding: var(--s2) 0;
+  }
+  .composer input:focus { outline: none; }
+  .composer input::placeholder { color: var(--paper-quiet); }
+
+  .composer-bar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--s3);
+    margin-top: var(--s2);
+  }
+
+  .composer-hint { font-family: var(--mono); font-size: 11.5px; color: var(--paper-quiet); }
+
+  .composer-quota {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--gold);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .send-btn {
+    margin-left: auto;
+    cursor: pointer;
+    padding: var(--s2) var(--s5);
+    border-radius: var(--s5);
+    border: 1px solid var(--gold);
+    background: var(--gold);
+    color: var(--on-gold);
+    font-family: var(--sans);
+    font-size: 13.5px;
+    font-weight: 600;
+  }
+  .send-btn:hover:not(:disabled) { background: var(--gold-hi); border-color: var(--gold-hi); }
+  .send-btn:disabled, .composer input:disabled { cursor: not-allowed; opacity: .6; }
+
+  .disclaimer {
+    max-width: 780px;
+    margin: var(--s3) auto 0;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--paper-quiet);
+  }
+
+  .chip:focus-visible,
+  .rail-legal a:focus-visible,
+  .send-btn:focus-visible,
+  .composer input:focus-visible {
+    outline: 2px solid var(--gold-hi);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .chip, .send-btn, .composer, .rail-legal a {
+      transition: background-color .14s, border-color .14s, color .14s;
+    }
+  }
+
+  /* ---------- Mobil: nav lateral colapsat, coloana articolelor stivuita ---------- */
+  @media (max-width: 900px) {
+    .shell { grid-template-columns: minmax(0, 1fr); }
+
+    .rail {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      height: auto;
+      flex-direction: row;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--s3) var(--s4);
+      padding: var(--s3) var(--s4);
+      border-right: 0;
+      border-bottom: 1px solid var(--rule);
+      background: var(--ink-900);
+    }
+    .rail-group { display: none; }
+    .brand-sub { display: none; }
+    .rail-foot { margin-top: 0; flex-direction: row; align-items: center; gap: var(--s4); }
+    .rail-user { display: none; }
+    .rail-legal { border-top: 0; padding: 0; gap: var(--s3); }
+
+    .main { height: auto; }
+    .scroll { padding: var(--s5) var(--s4) var(--s4); gap: var(--s6); overflow-y: visible; }
+    .topbar { padding: var(--s3) var(--s4); }
+    .doc { padding: var(--s5) var(--s4); }
+    /* Sub 900px masura devine prea ingusta pentru justificare: fara silabisire
+       romaneasca in browser, textul justificat ar deschide goluri intre cuvinte. */
+    .doc .msg-text { font-size: 17.5px; text-align: left; }
+    .intro p { font-size: 17.5px; }
+    .citation-list li { grid-template-columns: minmax(0, 1fr); gap: var(--s2); }
+
+    .composer-wrap {
+      position: sticky;
+      bottom: 0;
+      padding: var(--s3) var(--s4) var(--s4);
+      background: var(--ink-900);
+      border-top: 1px solid var(--rule);
+    }
+  }
+
   ::-webkit-scrollbar { width: 8px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; }
+  ::-webkit-scrollbar-thumb { background: var(--rule-lit); border-radius: var(--s2); }
 </style>
 </head>
 <body>
 
-  <aside class="sidebar">
-    <div class="brand">
-      <div class="brand-mark">§</div>
-      <div>
-        <div class="brand-name">NormativAI</div>
-        <div class="brand-sub">Normative tehnice România</div>
+  <div class="shell">
+    <aside class="rail">
+      <div class="brand">
+        <div class="sigil" aria-hidden="true">&sect;</div>
+        <div>
+          <div class="brand-name">NormativAI</div>
+          <div class="brand-sub">Normative tehnice</div>
+        </div>
       </div>
-    </div>
 
-    <div class="sidebar-footer">
-      <div class="avatar" aria-hidden="true"></div>
-      <div class="footer-name">Vizitator anonim</div>
-    </div>
-  </aside>
+      <section class="rail-group" aria-labelledby="railDocsLabel">
+        <h2 class="rail-label" id="railDocsLabel">Documente aprobate</h2>
+        <ul class="rail-list">
+          <li class="rail-item">NP 010-2022</li>
+          <li class="rail-item">NP 015-2022</li>
+          <li class="rail-item">NP 057-02</li>
+          <li class="rail-item">I9-2022</li>
+          <li class="rail-item">P 118/1-2025</li>
+          <li class="rail-item">P 118/2-2013, modificări 2018</li>
+        </ul>
+      </section>
 
-  <main class="main">
-    <div class="topbar">
-      <div>
+      <div class="rail-foot">
+        <div class="rail-user">
+          <span class="dot" aria-hidden="true"></span>
+          <span class="footer-name">Vizitator anonim</span>
+        </div>
+        <nav class="rail-legal" aria-label="Pagini juridice">
+          <a href="/termeni">Termeni</a>
+          <a href="/confidentialitate">Confidențialitate</a>
+        </nav>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
         <h1>Asistent AI pentru normative</h1>
-        <p>Răspunsuri citate<span class="dot">•</span>Verificare articole<span class="dot">•</span>Căutare semantică</p>
+        <p>Fiecare răspuns indică documentul și articolul oficial din care provine.</p>
       </div>
 
-      <div class="doc-badge" aria-label="Documente aprobate">
-        <span class="status-dot" aria-hidden="true"></span>
-        <span><strong>Documente aprobate</strong></span>
-      </div>
-    </div>
+      <div class="scroll" id="chatArea" role="log" aria-live="polite" aria-relevant="additions text">
+        <div class="intro">
+          <span class="intro-kicker">Bun venit</span>
+          <p>Întreabă despre documentele aprobate. Răspunsul este cules ca un extras de normativ și listează la final sursele pe care se sprijină.</p>
+        </div>
 
-    <div class="chat-area" id="chatArea" role="log" aria-live="polite" aria-relevant="additions text">
-      <div class="msg">
-        <div class="msg-avatar" aria-hidden="true">§</div>
-        <div class="msg-body">
-          <p><strong>Bun venit în NormativAI.</strong></p>
-          <p>Întreabă despre documentele aprobate. Răspunsurile indică sursa oficială disponibilă.</p>
+        <div class="suggestions" id="suggestions">
+          <div class="chip" role="button" tabindex="0">Cum sunt clasificate stările limită?</div>
+          <div class="chip" role="button" tabindex="0">Care este debitul minim pentru grupuri sanitare?</div>
+          <div class="chip" role="button" tabindex="0">Rezistența la foc a tubulaturii</div>
         </div>
       </div>
 
-      <div class="suggestions" id="suggestions">
-        <div class="chip" role="button" tabindex="0">Cum sunt clasificate stările limită?</div>
-        <div class="chip" role="button" tabindex="0">Care este debitul minim pentru grupuri sanitare?</div>
-        <div class="chip" role="button" tabindex="0">Rezistența la foc a tubulaturii</div>
+      <div class="composer-wrap">
+        <form id="questionForm" class="composer">
+          <label class="sr-only" for="questionInput">Întreabă despre un normativ</label>
+          <input id="questionInput" type="text" maxlength="1000" required autocomplete="off" placeholder="Întreabă sau citează un articol, de exemplu „NP 010-2022, art. 4.12”" aria-describedby="inputHint quotaStatus">
+          <div class="composer-bar">
+            <span class="composer-hint" id="inputHint">Enter pentru trimitere</span>
+            <span class="composer-quota" id="quotaStatus" aria-live="polite">Limită: 10 întrebări/browser</span>
+            <button class="send-btn" id="sendButton" type="submit">Întreabă</button>
+          </div>
+        </form>
+        <p class="disclaimer">Răspunsurile sunt generate automat din documentele aprobate și includ întotdeauna sursa. Verifică textul oficial înainte de orice decizie tehnică.</p>
       </div>
-    </div>
-
-    <div class="input-bar">
-      <form id="questionForm">
-        <label class="sr-only" for="questionInput">Întreabă despre un normativ</label>
-        <div class="input-shell">
-          <input id="questionInput" type="text" maxlength="1000" required autocomplete="off" placeholder="Întreabă despre un normativ..." aria-describedby="inputHint quotaStatus">
-          <button class="send-btn" id="sendButton" type="submit">Trimite</button>
-        </div>
-      </form>
-      <div class="input-hint" id="inputHint">
-        <span>Enter pentru trimitere</span>
-        <span class="v" id="quotaStatus" aria-live="polite">Limită: 10 întrebări/browser</span>
-      </div>
-    </div>
-  </main>
+    </main>
+  </div>
 
   <script>
     const chatArea = document.getElementById('chatArea');
@@ -402,33 +664,70 @@
     function setMessage(body, text, citations) {
       body.replaceChildren();
       const answer = document.createElement('p');
+      answer.className = 'msg-text';
       answer.textContent = text;
       body.appendChild(answer);
 
       if (!Array.isArray(citations) || citations.length === 0) return;
-      const list = document.createElement('ul');
+      const refs = document.createElement('div');
+      refs.className = 'refs';
+      const refsLabel = document.createElement('div');
+      refsLabel.className = 'refs-lab';
+      refsLabel.textContent = 'Surse citate';
+      refs.appendChild(refsLabel);
+
+      const list = document.createElement('ol');
       list.className = 'citation-list';
       citations.forEach((citation) => {
         const item = document.createElement('li');
-        const article = citation.articol ? `, art. ${citation.articol}` : '';
-        const excerpt = citation.citat ? ` — ${citation.citat}` : '';
-        item.textContent = `${citation.cod_document || 'Document oficial'}${article}: ${citation.titlu_document || ''}${excerpt}`;
+
+        const reference = document.createElement('div');
+        reference.className = 'art-ref';
+        if (citation.articol) {
+          const articleNo = document.createElement('span');
+          articleNo.className = 'art-no';
+          articleNo.textContent = `Art. ${citation.articol}`;
+          reference.appendChild(articleNo);
+        }
+        const documentCode = document.createElement('span');
+        documentCode.className = 'art-doc';
+        documentCode.textContent = citation.cod_document || 'Document oficial';
+        reference.appendChild(documentCode);
+
+        const article = document.createElement('div');
+        article.className = 'art-body';
+        const title = document.createElement('p');
+        title.className = 'art-title';
+        title.textContent = citation.titlu_document || '';
+        article.appendChild(title);
+        if (citation.citat) {
+          const quote = document.createElement('p');
+          quote.className = 'art-quote';
+          quote.textContent = citation.citat;
+          article.appendChild(quote);
+        }
+
+        item.append(reference, article);
         list.appendChild(item);
       });
-      body.appendChild(list);
+      refs.appendChild(list);
+      body.appendChild(refs);
     }
 
     function addMessage(role, text) {
-      const message = document.createElement('div');
-      message.className = `msg${role === 'user' ? ' user' : ''}`;
-      const avatar = document.createElement('div');
-      avatar.className = 'msg-avatar';
-      avatar.setAttribute('aria-hidden', 'true');
-      avatar.textContent = role === 'user' ? 'T' : '§';
+      const isUser = role === 'user';
+      const message = document.createElement(isUser ? 'section' : 'article');
+      message.className = isUser ? 'turn-q' : 'doc';
+      const head = document.createElement('div');
+      head.className = isUser ? 'turn-head' : 'doc-head';
+      const tag = document.createElement('span');
+      tag.className = isUser ? 'turn-tag' : 'doc-kicker';
+      tag.textContent = isUser ? 'Întrebare' : 'Răspuns';
+      head.appendChild(tag);
       const body = document.createElement('div');
-      body.className = 'msg-body';
+      body.className = isUser ? 'turn-body' : 'doc-body';
       setMessage(body, text);
-      message.append(avatar, body);
+      message.append(head, body);
       chatArea.appendChild(message);
       scrollChatToEnd();
       return body;

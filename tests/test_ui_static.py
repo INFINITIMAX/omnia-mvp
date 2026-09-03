@@ -120,15 +120,70 @@ def test_fara_innerhtml_in_tot_scriptul():
 
 def test_raspuns_si_citari_randate_prin_textcontent():
     assert "answer.textContent = text;" in SCRIPT
-    assert "item.textContent" in SCRIPT
-    assert "citation.cod_document" in SCRIPT
-    assert "citation.titlu_document" in SCRIPT
-    assert "citation.articol" in SCRIPT
-    assert "citation.citat" in SCRIPT
+    # Citarea nu mai este o singură linie de text: redesign-ul o culege ca într-un
+    # standard tipărit (referință agățată în margine + corp), deci fiecare câmp public
+    # are propriul element. Aserțiunea rămâne aceeași ca fond și este întărită:
+    # fiecare câmp trebuie să ajungă în DOM printr-o atribuire `.textContent`.
+    for field, assignment in (
+        ("articol", "articleNo.textContent = `Art. ${citation.articol}`;"),
+        ("cod_document", "documentCode.textContent = citation.cod_document || 'Document oficial';"),
+        ("titlu_document", "title.textContent = citation.titlu_document || '';"),
+        ("citat", "quote.textContent = citation.citat;"),
+    ):
+        assert f"citation.{field}" in SCRIPT
+        assert assignment in SCRIPT
+    # Nicio cale alternativă de injectare de marcaj pentru date de la server.
+    for unsafe in (
+        "innerHTML",
+        "outerHTML",
+        "insertAdjacentHTML",
+        "document.write",
+        "createContextualFragment",
+        "srcdoc",
+    ):
+        assert unsafe not in SCRIPT
+    # Niciun `citation.<câmp>` nu este folosit în altă parte decât într-o atribuire
+    # `.textContent` sau într-un simplu guard de prezență.
+    for match in re.finditer(r"citation\.\w+", SCRIPT):
+        start = SCRIPT.rfind("\n", 0, match.start()) + 1
+        end = SCRIPT.find("\n", match.end())
+        line = SCRIPT[start:end].strip()
+        assert ".textContent =" in line or line.startswith("if (citation."), line
 
 
 def test_js_nu_citeste_cookie_httponly():
     assert "document.cookie" not in SCRIPT
+
+
+# ---------- Fonturi self-hostate (fără procesator terț nedeclarat în GDPR) ----------
+
+FONTS_DIR = INDEX_PATH.parent / "assets" / "fonts"
+
+
+def test_pagina_nu_incarca_niciun_font_de_pe_cdn_tert():
+    for host in ("fonts.googleapis.com", "fonts.gstatic.com", "cdnjs", "jsdelivr", "unpkg"):
+        assert host not in HTML
+    # nicio referință absolută către alt origin, indiferent de schemă
+    assert not re.search(r'(?:src|href)\s*[:=]\s*["\']?(?:https?:)?//', HTML)
+
+
+def test_fiecare_font_face_indica_un_fisier_local_existent():
+    sources = re.findall(r'src:\s*url\("([^"]+)"\)', HTML)
+    assert len(sources) >= 6, "cele trei familii trebuie declarate self-hostat"
+    for source in sources:
+        assert source.startswith("/assets/fonts/"), source
+        assert (FONTS_DIR / Path(source).name).is_file(), source
+
+
+def test_fonturile_au_licenta_versionata():
+    assert (FONTS_DIR / "LICENSE.txt").is_file()
+
+
+# ---------- Linkuri către paginile juridice ----------
+
+def test_footerul_are_linkuri_catre_paginile_juridice():
+    assert re.search(r'<a href="/termeni">[^<]+</a>', HTML)
+    assert re.search(r'<a href="/confidentialitate">[^<]+</a>', HTML)
 
 
 # ---------- Elemente demo/false eliminate ----------
