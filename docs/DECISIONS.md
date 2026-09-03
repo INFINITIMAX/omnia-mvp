@@ -21,6 +21,15 @@ Acest fișier separă deciziile explicite ale lui Lucian de propunerile agențil
 - Normativul complet P 118/2-2013 a fost pus deliberat pe hold și nu a fost importat; este planificat pentru un lot ulterior.
 - Orice document nou intră implicit în `indexed_pending_validation` și necesită aprobare explicită înainte să poată genera răspunsuri.
 
+### Interfață (decizie Lucian, 03-09-2026)
+
+- Cerința anterioară de „două propuneri vizuale comparate" este **anulată**. Lucian a dat direcția explicit; nu se mai cer variante alternative.
+- Direcția aprobată: **simplu și profesional**, în spiritul primei pagini / landing de la Claude sau Kimi. Prototipul estetic inițial din `index.html` era considerat suficient înainte de a fi modificat.
+- Elemente obligatorii: **nav bar pe stânga**, **chat box cu colțuri rotunde**, aceleași familii de fonturi, **dark mode**.
+- Paleta cromatică: similară cu `https://ai.acquisition.com/` (dark mode). Valorile exacte se capturează dintr-un screenshot real al site-ului, **nu se ghicesc** — o încercare de extragere prin fetch a eșuat (CSS extern/randat prin JS).
+- Scopul livrării: **bază solidă pe care se iterează**, nu design final. Interfața se va mai modifica.
+- Rămâne valabil: acceptarea vizuală este un gate separat de acceptarea tehnică, iar contractul API (`POST /intreaba`) și controalele anonime nu se modifică.
+
 ### Retrieval și răspunsuri
 
 - Referința explicită la articol folosește exact lookup înainte de semantic search.

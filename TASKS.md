@@ -126,8 +126,8 @@
 - [x] A fost construit izolat prototipul „Technical Paper” în `feat/technical-paper-ui`; testele locale și verificările browser mockuite au trecut tehnic.
 - [x] Lucian a respins direcția executată deoarece rezultatul pare insuficient stilizat și nu atinge calitatea vizuală dorită.
 - [x] Prototipul nu a fost comis, îmbinat, împins sau publicat; nu reprezintă UI-ul aprobat al produsului.
-- [ ] La reluare: două propuneri vizuale desktop+mobil înainte de implementare, apoi alegerea explicită a uneia de către Lucian.
-- [ ] După alegere: implementare într-un worktree curat, verificări 200/403/429/422/503, Tester read-only, Reviewer read-only și gate vizual final separat.
+- [x] ~~La reluare: două propuneri vizuale desktop+mobil~~ — **anulat la 03-09-2026**: Lucian a dat direcția explicit, vezi „Interfață" în `docs/DECISIONS.md`.
+- [ ] Implementare a direcției aprobate într-un worktree curat, verificări 200/403/429/422/503, Tester read-only, Reviewer read-only și gate vizual final separat.
 - [ ] Lucrul extern necomis observat în worktree-ul principal (Railway, pagini juridice și al doilea lot de documente) trebuie inventariat și revizuit separat; acest fișier nu îl declară finalizat și nu îi atribuie efecte DB/deployment.
 
 ## Predare sesiune — Reconciliere Railway și lot 2 (03-09-2026)
@@ -147,6 +147,29 @@
 - [ ] **Afirmații din paginile juridice de verificat înainte de publicare:** „rulează pe infrastructura Railway" (încă nedeployat), „Supabase în regiunea UE (Irlanda)" (neverificat) și cookie „Secure" (adevărat doar cu `ANONYMOUS_COOKIE_SECURE=true` în producție — gate încă deschis). Email `contact@normativai.ro` este placeholder.
 - [ ] **P 118/2-2013 complet** este planificat de Lucian pentru **lotul 4**, azi. Până la import, o întrebare despre P 118/2 primește răspuns doar din amendamentul 2018 (22 chunk-uri), fără textul de bază modificat.
 - [ ] `/health` și `/documents` rămân neimplementate; `/health` este obligatoriu înainte de deployment (Faza 7).
+
+## Următorul task UI — brief pentru Coder
+
+**Titlu:** Redesign `static/index.html` pe direcția aprobată de Lucian.
+
+**Scope:**
+- nav bar pe stânga, chat box cu colțuri rotunde, dark mode, familii de fonturi consecvente;
+- paletă preluată dintr-un screenshot real al `https://ai.acquisition.com/`, nu ghicită;
+- registru vizual: simplu și profesional, în spiritul landing-ului Claude/Kimi;
+- livrabil = bază solidă pentru iterații ulterioare, nu design final.
+
+**Constrângeri:**
+- contractul `POST /intreaba` și controalele anonime rămân neschimbate;
+- fără date demonstrative false (fără contoare inventate, fără conversații fictive);
+- randare exclusiv prin `textContent`/DOM pentru date de la server; fără `innerHTML`; JS nu citește `document.cookie`;
+- cele 31 de teste statice din `tests/test_ui_static.py` rămân verzi sau se actualizează motivat, fără a fi slăbite;
+- worktree separat; fără merge, push sau deploy.
+
+**Criterii de acceptare:**
+- comportamentele 200/403/429/422/503 reverificate în browser real;
+- desktop **și** mobil verificate (layout-ul cu sidebar fix era rupt pe mobil);
+- `python -m pytest -q` verde;
+- gate vizual final explicit al lui Lucian, separat de acceptarea tehnică.
 
 ## Backlog ordonat
 
