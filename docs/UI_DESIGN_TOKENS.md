@@ -61,15 +61,6 @@ o aplicație de normative de construcții ar fi o asociere greșită.
 
 Nicio culoare de text sub 4.5:1. Etichetele mono nu coboară sub 11px.
 
-### Foaia „hârtie” (variantă)
-
-| Token | Valoare |
-|---|---|
-| `--sheet` | `#FAF7EF` |
-| `--sheet-ink` | `#141209` |
-| `--sheet-dim` | `#57513F` |
-| `--sheet-rule` | `#DCD4C0` |
-
 ### Linii
 
 | Token | Valoare | Rol |
@@ -137,12 +128,11 @@ selectiv:
 - Space Grotesk împreună cu Instrument Serif;
 - textură de grain peste gradient.
 
-## Decizie rămasă deschisă
+## Foaia răspunsului (decis 04-09-2026)
 
-Foaia răspunsului are două tratamente implementate în mockup, între care Lucian nu a ales încă:
-
-- **închisă**, `--ink-850`, coerentă cu restul aplicației;
-- **hârtie**, `--sheet`, foaie crem care plutește în carcasa neagră, autoritate documentară maximă.
+Varianta **închisă** este cea aprobată: răspunsul se culege pe `--ink-850`, coerent cu restul
+aplicației. Varianta „hârtie”, o foaie crem plutind în carcasa neagră, a fost prototipată și
+respinsă. Nu se implementează comutator între cele două.
 
 ## Avertisment GDPR
 

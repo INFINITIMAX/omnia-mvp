@@ -31,7 +31,7 @@ Acest fișier separă deciziile explicite ale lui Lucian de propunerile agențil
 - Motivul respingerii prototipului „Technical Paper" este acum documentat: a transformat **toată** aplicația în hârtie, în light mode, fără nav lateral și fără gradiente, adică inversul cerinței.
 - Valorile exacte, tipografia și scara de spațiere sunt în `docs/UI_DESIGN_TOKENS.md`, sursa unică pentru implementare.
 - Lucian a impus o listă explicită de pattern-uri interzise (glassmorphism, carduri cu bordură colorată la stânga, italice serif ca accent, em dash peste tot, Inter peste tot, contrast scăzut și altele). Lista completă este în `docs/UI_DESIGN_TOKENS.md` și **se aplică integral, nu selectiv**.
-- Rămâne deschis un singur aspect: foaia răspunsului, variantă închisă sau variantă hârtie.
+- Foaia răspunsului: decis la 04-09-2026, varianta **închisă** (`--ink-850`). Varianta „hârtie” a fost prototipată și respinsă; nu se implementează comutator.
 
 ### Retrieval și răspunsuri
 

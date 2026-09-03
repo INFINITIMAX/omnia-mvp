@@ -183,7 +183,7 @@ spațiere, razele și lista de pattern-uri interzise. Nu inventa valori care nu 
 - `python -m pytest -q` verde;
 - gate vizual final explicit al lui Lucian, separat de acceptarea tehnică.
 
-**Blocant înainte de start:** Lucian alege foaia răspunsului, variantă închisă sau hârtie.
+**Foaia răspunsului:** decis la 04-09-2026, varianta **închisă** (`--ink-850`). Fără comutator.
 
 ## Backlog ordonat
 
