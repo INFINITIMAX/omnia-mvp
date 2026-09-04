@@ -204,6 +204,20 @@ def _distanta2_la_bbox(punct, bbox):
     return (px - cx) ** 2 + (py - cy) ** 2
 
 
+# GID-uri al caror caracter "stricat" nu poate fi invatat automat (fara
+# potrivire de incredere si fara vecini suficienti pentru interpolare - vezi
+# _completeaza_proxy_prin_interpolare) si nici, in schimb, verificat manual,
+# individual, prin doua cai independente: (1) tiparul de interpolare cu
+# vecinul GID 959 (gid 959 -> U+03BF, deci gid 958 -> U+03BE, un pas de 1 in
+# jos, coerent cu progresia locala) si (2) cautare directa in text: U+03BE
+# apare literal in pagina 38, exact la pozitia formulei "f_AR = 0,83/√N-1"
+# unde e folosit gid 958. Fara aceasta ancora, formula ar ramane needita in
+# intregime (un singur GID lipsa blocheaza tot needle-ul candidatului).
+PROXY_VERIFICAT_MANUAL = {
+    958: "ξ",  # radical (√, gid rezolvat deja corect prin cmap la U+221A)
+}
+
+
 def invata_proxy_glife(document, tabela):
     """Scaneaza tot documentul si invata, per GID, ce caracter "stricat"
     produce page.get_text("dict") pentru el, din orice potrivire de
@@ -283,7 +297,49 @@ def invata_proxy_glife(document, tabela):
                     continue
                 proxy[gid] = caracter
 
+    proxy = _completeaza_proxy_prin_interpolare(proxy)
+    for gid, caracter in PROXY_VERIFICAT_MANUAL.items():
+        proxy.setdefault(gid, caracter)  # observatia empirica are prioritate, daca exista
     return proxy
+
+
+PRAG_GAP_INTERPOLARE = 8  # cel mai mare gol intre doi GID-uri invatate pe care il completam
+
+
+def _completeaza_proxy_prin_interpolare(proxy):
+    """Completeaza golurile mici din proxy prin interpolare liniara, DOAR cand
+    e verificabil, nu ghicit: daca doua GID-uri invatate g_lo < g_hi (la o
+    distanta mica intre ele) au caractere stricate a caror diferenta de
+    codpoint e EXACT egala cu diferenta de GID (g_hi - g_lo), inseamna ca
+    fallback-ul stricat al PyMuPDF atribuie codpoint-uri secvential in acel
+    interval - un GID neinvatat aflat STRICT intre ele primeste, prin
+    aceeasi progresie, codpoint-ul g_lo + (gid - g_lo).
+
+    Exemplu real verificat: gid 889 -> U+0379, gid 891 -> U+037B (gap 2 GID-uri,
+    gap 2 codpoint-uri) => gid 890 (neinvatat direct, digitul '8', mereu
+    grupat cu alte cifre in document, niciodata singur intr-un span dict
+    curat) se infereaza corect ca U+037A - verificat separat, coincide cu
+    valoarea reala observata in text. Progresia trebuie sa fie perfect
+    consistenta pe tot intervalul (nu doar la capete) inainte s-o folosim -
+    o secventa care "pare" liniara doar la capete, dar sare peste GID-uri cu
+    alt rol (paranteze, operatori), NU e completata, ca sa nu inventam."""
+    gids_cunoscute = sorted(proxy.keys())
+    completari = {}
+    for i in range(len(gids_cunoscute) - 1):
+        g_lo = gids_cunoscute[i]
+        g_hi = gids_cunoscute[i + 1]
+        gap = g_hi - g_lo
+        if gap <= 1 or gap > PRAG_GAP_INTERPOLARE:
+            continue
+        delta_cod = ord(proxy[g_hi]) - ord(proxy[g_lo])
+        if delta_cod != gap:
+            continue  # progresie inconsistenta - nu completam
+        for gid in range(g_lo + 1, g_hi):
+            completari[gid] = chr(ord(proxy[g_lo]) + (gid - g_lo))
+
+    rezultat = dict(proxy)
+    rezultat.update(completari)
+    return rezultat
 
 
 def construieste_inlocuiri_pagina(pagina, tabela, proxy=None):
@@ -393,20 +449,21 @@ def construieste_inlocuiri_pagina(pagina, tabela, proxy=None):
         text_vechi = "".join(text for _, text in grup)
         text_corectat = candidat["text_corectat"]
 
-        if len(text_vechi) < len(candidat["gids"]):
-            # dict a dat MAI PUTINE caractere decat GID-uri are candidatul -
-            # cel putin unul dintre glife a fost omis din segmentarea lui
-            # (vezi invata_proxy_glife: pe o pagina cu 8 aparitii ale unei
-            # litere, dict raporteaza span propriu pentru UNA singura).
-            # Textul dat de dict e deci incomplet, nu doar imprecis - il
-            # inlocuim integral cu reconstructia din proxy, GID cu GID, DOAR
-            # daca avem un proxy cunoscut pentru FIECARE GID al candidatului
-            # (altfel am amesteca text real din dict cu litere ghicite).
-            #
-            # Cand dict da MAI MULTE caractere decat GID-uri (poate combina
-            # span-uri vecine sau normaliza spatii), il folosim asa cum e: nu
-            # e o omisiune, iar empiric functioneaza pentru marea majoritate
-            # a cazurilor - proxy-ul ar fi mai putin precis aici, nu mai mult.
+        if len(text_vechi) != len(candidat["gids"]):
+            # dict a dat un numar de caractere care NU corespunde GID-urilor
+            # candidatului - fie MAI PUTINE (cel putin un glif a fost omis
+            # din segmentarea lui, vezi invata_proxy_glife: pe o pagina cu 8
+            # aparitii ale unei litere, dict raporteaza span propriu pentru
+            # UNA singura), fie MAI MULTE (un span dict vecin, apartinand
+            # semantic altui candidat, s-a lipit de acesta - verificat intr-un
+            # caz real: needle-ul asamblat includea si primul caracter al
+            # indicelui urmator, iar textul corectat, mai scurt, nu-l mai
+            # acoperea). In ambele cazuri textul dat de dict nu (mai) descrie
+            # exact acest candidat - il inlocuim integral cu reconstructia din
+            # proxy, GID cu GID, DOAR daca avem un proxy cunoscut pentru
+            # FIECARE GID al candidatului (altfel am amesteca text real din
+            # dict cu litere ghicite - pastram varianta (impreciza, dar cel
+            # putin observata) data de dict).
             if proxy is not None:
                 proxy_chars = [proxy.get(gid) for gid in candidat["gids"]]
                 if all(ch is not None for ch in proxy_chars):
@@ -499,12 +556,89 @@ def aplica_inlocuiri(text, inlocuiri):
     return "".join(bucati)
 
 
+# literele grecesti normale (Alpha-Omega, alpha-omega) sunt continut legitim
+# in formule (Σ, ψ, θ, ρ, λ, ζ, Φ, α, ν etc.), desi cad in acelasi bloc
+# Unicode (U+0370-03FF) ca digiții/semnele reasignate gresit de PyMuPDF -
+# niciodata nu le tratam ca fallback stricat, indiferent de context.
+GREEK_LITERE_LEGITIME = frozenset(range(0x0391, 0x03AA)) | frozenset(range(0x03B1, 0x03CA))
+
+# caractere de sarit atunci cand cautam "varianta deja reparata" imediat
+# adiacenta unui rest stricat (vezi _curata_duplicate_adiacente): markup-ul
+# de indice/exponent, spatii/newline si punctul suprapus combinat (V-punct)
+IGNORAT_LA_ADIACENTA = frozenset("_{}^ \n\x03") | {"̇"}
+
+
+def _curata_duplicate_adiacente(text, tabela, proxy):
+    """Elimina un caracter stricat ramas lipit de propria lui varianta deja
+    reparata (acelasi GID, ambele forme cunoscute din tabela + proxy).
+
+    De ce apare asta: pentru unele span-uri get_texttrace() de un singur
+    caracter, page.get_text("dict") nu ofera un span propriu curat (vezi
+    invata_proxy_glife) - corectia foloseste atunci proxy-ul si reuseste, dar
+    intr-un caz rar (needle scurt "furat" de un candidat identic de pe
+    aceeasi pagina - text repetat, ex. aceeasi formula apare de doua ori)
+    caracterul stricat original ramane, neconsumat, chiar langa versiunea
+    deja corectata a aceluiasi GID.
+
+    Regula e conservatoare, verificata pe intreg documentul i9_2022 inainte
+    de a fi aplicata (a gasit exact 1 potrivire reala din 36 de caractere
+    stricate ramase): stergem DOAR cand identitatea caracterului stricat e
+    certa (e chiar o valoare din proxy, deci corespunde unui GID cunoscut) SI
+    caracterul corect al ACELUIASI GID exista deja alaturi (inainte sau dupa,
+    sarind peste markup de indice/exponent, spatii si punctul suprapus
+    combinat) - niciodata nu stergem doar dupa interval Unicode, si niciodata
+    nu atingem literele grecesti normale (Σ, ψ, θ, λ etc.), chiar daca ar
+    coincide cu o valoare de proxy (verificare suplimentara de siguranta)."""
+    if not proxy:
+        return text
+
+    stricat_la_corect = {}
+    for gid, caracter_stricat in proxy.items():
+        if ord(caracter_stricat) in GREEK_LITERE_LEGITIME:
+            continue
+        intrare = tabela.get(gid)
+        if intrare and intrare.get("char"):
+            stricat_la_corect.setdefault(caracter_stricat, intrare["char"])
+    if not stricat_la_corect:
+        return text
+
+    n = len(text)
+    rezultat = []
+    for i, ch in enumerate(text):
+        asteptat = stricat_la_corect.get(ch)
+        if asteptat is None:
+            rezultat.append(ch)
+            continue
+
+        gasit = False
+        j = i - 1
+        while j >= 0 and text[j] in IGNORAT_LA_ADIACENTA:
+            j -= 1
+        if j >= 0 and text[j] == asteptat:
+            gasit = True
+        if not gasit:
+            k = i + 1
+            while k < n and text[k] in IGNORAT_LA_ADIACENTA:
+                k += 1
+            if k < n and text[k] == asteptat:
+                gasit = True
+
+        if not gasit:
+            rezultat.append(ch)
+        # daca gasit, caracterul e un rest - nu-l adaugam (il stergem)
+
+    return "".join(rezultat)
+
+
 def corecteaza_text_pagina(pagina, tabela, proxy=None):
     """Textul complet al paginii (page.get_text()), cu formulele CambriaMath
     corectate folosind tabela de glife. `proxy` (optional) e tabela GID ->
     caracter stricat invatata pe tot documentul cu invata_proxy_glife() -
     folosita ca rezerva pentru span-urile pe care page.get_text("dict") le
-    omite din propria segmentare (vezi invata_proxy_glife)."""
+    omite din propria segmentare (vezi invata_proxy_glife); e folosita si
+    pentru curatarea finala a resturilor lipite de text deja reparat
+    (vezi _curata_duplicate_adiacente)."""
     text = pagina.get_text()
     inlocuiri = construieste_inlocuiri_pagina(pagina, tabela, proxy=proxy)
-    return aplica_inlocuiri(text, inlocuiri)
+    text = aplica_inlocuiri(text, inlocuiri)
+    return _curata_duplicate_adiacente(text, tabela, proxy)

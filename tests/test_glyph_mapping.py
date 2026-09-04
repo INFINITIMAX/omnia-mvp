@@ -1,7 +1,11 @@
 """Teste pentru glyph_mapping.py — corectarea formulelor CambriaMath fara /ToUnicode.
 
-Nu depinde de fitz/PDF-uri reale: construim obiecte minimale care imita doar
-API-ul folosit din pagina.get_texttrace() / pagina.get_text().
+Majoritatea testelor nu depind de fitz/PDF-uri reale: construim obiecte
+minimale care imita doar API-ul folosit din pagina.get_texttrace() /
+pagina.get_text(). Exceptie: testele din sectiunea "esantion real" de la
+final, care ruleaza pe documente_noi/i9_2022/source.pdf daca fisierul exista
+in acest worktree (documente_noi e gitignored, deci nu e mereu prezent) -
+sarite explicit, nu esuate, cand lipseste.
 """
 
 import json
@@ -332,7 +336,10 @@ def test_invata_proxy_glife_din_potriviri_certe():
         dict_spans=[("CambriaMath", bbox, "ǡ")],
     )
     proxy = glyph_mapping.invata_proxy_glife([pagina], TABELA_TEST)
-    assert proxy == {100: "ǡ"}
+    # PROXY_VERIFICAT_MANUAL e mereu adaugat (ancore verificate separat,
+    # independent de continutul paginii) - verificam doar ce s-a invatat aici
+    assert proxy[100] == "ǡ"
+    assert len(proxy) == 1 + len(glyph_mapping.PROXY_VERIFICAT_MANUAL)
 
 
 def test_invata_proxy_glife_scoate_gid_contradictoriu():
@@ -385,3 +392,112 @@ def test_construieste_inlocuiri_fara_proxy_nu_ghiceste_span_omis():
     pagina = PaginaFalsa(text_pagina="text ǡ final", spans=[span], dict_spans=[])
     inlocuiri = glyph_mapping.construieste_inlocuiri_pagina(pagina, TABELA_TEST)
     assert inlocuiri == []
+
+
+# --- teste pentru _curata_duplicate_adiacente() ---
+
+PROXY_DEDUP_TEST = {100: "ǡ", 101: "ǯ"}  # 100 -> 'V' (vezi TABELA_TEST), 101 -> 'c'
+
+
+def test_curata_duplicate_adiacente_sterge_restul_lipit_de_text_reparat():
+    """Regresie reala (art. 14.9/i9_2022, pag. 122): un needle scurt "furat"
+    de un candidat identic de pe aceeasi pagina lasa caracterul stricat
+    original neconsumat, chiar langa versiunea deja reparata a ACELUIASI
+    GID - se sterge, nu e continut."""
+    text = "text V ǡ_{c} final"  # 'ǡ' stricat, lipit inainte de "V" deja reparat... simulam invers, dupa
+    # simulam cazul real: "V" (reparat) urmat de restul "ǡ" (stricat, acelasi gid 100)
+    text = "text Vǡ_{c} final"
+    rezultat = glyph_mapping._curata_duplicate_adiacente(text, TABELA_TEST, PROXY_DEDUP_TEST)
+    assert rezultat == "text V_{c} final"
+
+
+def test_curata_duplicate_adiacente_gaseste_dincolo_de_markup_si_punct_suprapus():
+    """Regula sare peste markup-ul de indice/exponent, spatii si punctul
+    suprapus combinat (notatia V-punct) cand cauta varianta reparata."""
+    text = "text ǡ̇_{c} final"  # 'ǡ'(stricat,gid100) + punct suprapus + subscript reparat separat, fara "V" adiacent direct
+    # aici NU exista "V" adiacent (nici macar dupa markup) - nu trebuie sters
+    rezultat = glyph_mapping._curata_duplicate_adiacente(text, TABELA_TEST, PROXY_DEDUP_TEST)
+    assert rezultat == text  # neschimbat: nicio potrivire certa alaturata
+
+
+def test_curata_duplicate_adiacente_nu_atinge_text_fara_potrivire():
+    """Un caracter stricat FARA varianta reparata alaturata (formula esuata
+    complet, ex. o fractie 2D) ramane neatins - nu stergem orbeste dupa
+    interval Unicode, doar cand identitatea e certa si confirmata alaturi."""
+    text = "text ǡ izolat final"
+    rezultat = glyph_mapping._curata_duplicate_adiacente(text, TABELA_TEST, PROXY_DEDUP_TEST)
+    assert rezultat == text
+
+
+def test_curata_duplicate_adiacente_nu_atinge_litere_grecesti_legitime():
+    """Chiar daca o valoare de proxy ar coincide cu o litera greaca normala
+    (Σ, ψ, θ etc.), regula nu trebuie sa o trateze ca fallback stricat -
+    litera greaca e continut real, nu un rest de corectat."""
+    proxy_cu_greaca = {102: "λ"}  # ipotetic: gid 102 ar "produce" litera greaca λ
+    tabela = dict(TABELA_TEST)
+    tabela[102] = {"char": "l", "method": "cmap"}
+    text = "text λl final"
+    rezultat = glyph_mapping._curata_duplicate_adiacente(text, tabela, proxy_cu_greaca)
+    assert rezultat == text  # 'λ' nu e atins, indiferent de proxy
+
+
+def test_corecteaza_text_pagina_fara_proxy_nu_pica():
+    """corecteaza_text_pagina() cu proxy=None (comportamentul implicit)
+    trebuie sa functioneze in continuare, fara curatare de duplicate."""
+    bbox = (10.0, 10.0, 20.0, 20.0)
+    span = SpanFals("CambriaMath", 12.0, bbox, [(65533, 100, (10.0, 18.0), bbox)])
+    pagina = PaginaFalsa(
+        text_pagina="inainte ǡ după",
+        spans=[span],
+        dict_spans=[("CambriaMath", bbox, "ǡ")],
+    )
+    rezultat = glyph_mapping.corecteaza_text_pagina(pagina, TABELA_TEST)
+    assert rezultat == "inainte V după"
+
+
+# --- test pe esantion real din i9_2022 (sarit daca documente_noi lipseste) ---
+
+_CALE_I9_2022 = glyph_mapping.ROOT / "documente_noi" / "i9_2022" / "source.pdf"
+
+
+@pytest.mark.skipif(not _CALE_I9_2022.exists(), reason="documente_noi/i9_2022 nu e prezent in acest worktree")
+def test_esantion_real_i9_2022_nu_are_duplicate_adiacente():
+    """Pe intregul document real, dupa corectie, niciun caracter din
+    intervalele de fallback stricat nu mai sta lipit (imediat, sarind peste
+    markup/spatii/punct suprapus) de propria lui varianta deja reparata."""
+    import fitz
+
+    tabela = glyph_mapping.incarca_tabela()
+    document = fitz.open(str(_CALE_I9_2022))
+    try:
+        proxy = glyph_mapping.invata_proxy_glife(document, tabela)
+        stricat_la_corect = {}
+        for gid, caracter_stricat in proxy.items():
+            if ord(caracter_stricat) in glyph_mapping.GREEK_LITERE_LEGITIME:
+                continue
+            intrare = tabela.get(gid)
+            if intrare and intrare.get("char"):
+                stricat_la_corect.setdefault(caracter_stricat, intrare["char"])
+
+        gasite = []
+        for pagina in document:
+            text = glyph_mapping.corecteaza_text_pagina(pagina, tabela, proxy=proxy)
+            n = len(text)
+            for i, ch in enumerate(text):
+                asteptat = stricat_la_corect.get(ch)
+                if asteptat is None:
+                    continue
+                j = i - 1
+                while j >= 0 and text[j] in glyph_mapping.IGNORAT_LA_ADIACENTA:
+                    j -= 1
+                adiacent_inainte = j >= 0 and text[j] == asteptat
+                k = i + 1
+                while k < n and text[k] in glyph_mapping.IGNORAT_LA_ADIACENTA:
+                    k += 1
+                adiacent_dupa = k < n and text[k] == asteptat
+                if adiacent_inainte or adiacent_dupa:
+                    gasite.append((pagina.number, i, text[max(0, i - 10):i + 10]))
+    finally:
+        document.close()
+
+    assert gasite == []
