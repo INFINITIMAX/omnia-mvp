@@ -427,6 +427,54 @@ def pagina_confidentialitate() -> FileResponse:
         raise HTTPException(status_code=503, detail="Serviciul este temporar indisponibil.") from error
 
 
+class DocumentPublic(BaseModel):
+    cod_oficial: str
+    titlu_oficial: str
+    an: int
+
+
+class DocumenteResponse(BaseModel):
+    documente: list[DocumentPublic]
+
+
+_SQL_DOCUMENTE_APROBATE = (
+    "SELECT cod_oficial, titlu_oficial, an FROM public.documente WHERE status = %s ORDER BY cod_oficial"
+)
+
+
+def _documente_aprobate(connection: object) -> list[DocumentPublic]:
+    """Citește doar metadata publică (cod oficial, titlu, an) a documentelor aprobate —
+    fără document_id, source_key sau alt identificator intern (vezi CitationResponse mai jos,
+    același principiu: doar ce e sigur pentru un vizitator anonim)."""
+    cursor = connection.cursor()
+    try:
+        cursor.execute(_SQL_DOCUMENTE_APROBATE, ("approved",))
+        rows = cursor.fetchall()
+    finally:
+        cursor.close()
+    return [
+        DocumentPublic(cod_oficial=str(cod), titlu_oficial=str(titlu), an=int(an))
+        for cod, titlu, an in rows
+    ]
+
+
+@app.get("/documents", response_model=DocumenteResponse)
+def documente() -> DocumenteResponse:
+    """Catalogul public al documentelor aprobate — fără cookie, quota sau rate limit,
+    la fel ca /termeni și /confidentialitate: e o listă statică ieftină, nu declanșează
+    niciun apel plătit și nu justifică fricțiunea controalelor anonime."""
+    connection: object | None = None
+    try:
+        dependencies: RuntimeDependencies = app.state.runtime_dependencies
+        connection = dependencies.connection_factory()
+        return DocumenteResponse(documente=_documente_aprobate(connection))
+    except (ServiceDependencyError, psycopg2.Error) as error:
+        raise HTTPException(status_code=503, detail="Serviciul este temporar indisponibil.") from error
+    finally:
+        if connection is not None:
+            connection.close()
+
+
 class IntrebareRequest(BaseModel):
     intrebare: Annotated[str, Field(min_length=1, max_length=MAX_QUESTION_CHARS)]
 
