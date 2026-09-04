@@ -7,6 +7,8 @@ import re
 from dataclasses import dataclass
 from typing import Literal, Mapping, Protocol, Sequence
 
+from diacritice import normalizeaza_diacritice
+
 MAX_QUESTION_CHARS = 1000
 SEMANTIC_TOP_K = 5
 SEMANTIC_MIN_SCORE = 0.50
@@ -325,6 +327,12 @@ class RetrievalService:
             raise ValueError("întrebarea trebuie să fie text nevid")
         if len(question) > MAX_QUESTION_CHARS:
             raise ValueError("întrebarea depășește limita permisă")
+
+        # simetric cu normalizarea aplicata la ingestie (vezi diacritice.py):
+        # fara asta, un utilizator a carui tastatura/sistem produce sedila
+        # (ţ/ş) nu s-ar mai potrivi cu textul documentelor, deja normalizat
+        # la virgula (ț/ș) - am muta problema, nu am rezolva-o.
+        question = normalizeaza_diacritice(question)
 
         reference = self._parser.parse(question)
         if reference.requires_clarification:

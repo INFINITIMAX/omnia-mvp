@@ -10,6 +10,7 @@ from pathlib import Path
 
 import fitz  # PyMuPDF
 
+from diacritice import normalizeaza_diacritice
 from glyph_mapping import corecteaza_text_pagina, incarca_tabela, invata_proxy_glife
 
 ROOT_PROIECT = Path(__file__).resolve().parent
@@ -44,6 +45,10 @@ def extrage_text(cale_pdf):
     glyph_mapping.py si font_maps/README.md) sunt corectate folosind tabela de
     glife inainte de a fi adaugate la textul final. Pentru orice alt font,
     comportamentul e neschimbat fata de page.get_text().
+
+    Diacriticele romanesti gresite (sedila in loc de virgula - vezi
+    diacritice.py) sunt corectate la final, pe tot textul, ca sa ajunga in
+    fragmente si in embeddings deja normalizate.
     """
     tabela_glife = incarca_tabela()
     with fitz.open(cale_pdf) as document:
@@ -52,7 +57,7 @@ def extrage_text(cale_pdf):
         text = "".join(
             corecteaza_text_pagina(pagina, tabela_glife, proxy=proxy_glife) + "\n" for pagina in document
         )
-    return text, pagini
+    return normalizeaza_diacritice(text), pagini
 
 
 def main():
