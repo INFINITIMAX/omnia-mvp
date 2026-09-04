@@ -422,3 +422,45 @@ def test_semantic_sub_prag_este_not_found_si_erorile_dependentei_se_propagă():
 
     with pytest.raises(RuntimeError, match="indisponibil"):
         service(RepositoryFake([], []), EmbedderDefect()).retrieve("întrebare semantică")
+
+
+# --- normalizare simetrică a diacriticelor (sedila -> virgulă) în întrebare ---
+
+
+class EmbedderCareRetineIntrebarea:
+    """Reține exact șirul primit, ca să verificăm ce a ajuns la embedder."""
+
+    def __init__(self, result=(0.1, 0.2)):
+        self.result = result
+        self.intrebari_primite = []
+
+    def embed_query(self, question):
+        self.intrebari_primite.append(question)
+        return self.result
+
+
+def test_intrebarea_cu_sedila_ajunge_normalizata_la_embedder():
+    repository = RepositoryFake([], [evidence(score=0.99)])
+    embedder = EmbedderCareRetineIntrebarea()
+
+    service(repository, embedder).retrieve("ce ştie normativul despre reţea şi acţiune")
+
+    assert embedder.intrebari_primite == ["ce știe normativul despre rețea și acțiune"]
+
+
+def test_intrebarea_cu_sedila_gaseste_articolul_exact_ca_varianta_cu_virgula():
+    """Un articol marcat explicit (numeric) nu e afectat de diacritice, dar
+    verificăm că normalizarea nu strică deloc calea exactă: aceeași
+    întrebare, scrisă cu sedilă sau cu virgulă, produce exact același
+    rezultat (aceeași cerere către find_exact)."""
+    repository_sedila = RepositoryFake([evidence()], [])
+    repository_virgula = RepositoryFake([evidence()], [])
+
+    intrebare_sedila = "ce spune articolul 4.4.7.2 despre reţea şi Ţara"
+    intrebare_virgula = "ce spune articolul 4.4.7.2 despre rețea și Țara"
+
+    rezultat_sedila = service(repository_sedila).retrieve(intrebare_sedila)
+    rezultat_virgula = service(repository_virgula).retrieve(intrebare_virgula)
+
+    assert rezultat_sedila.status == rezultat_virgula.status == "found"
+    assert repository_sedila.exact_calls == repository_virgula.exact_calls == 1
