@@ -38,6 +38,15 @@ PROCENT_MAXIM_CAUTARE_CUPRINS = 0.20
 LUNGIME_MINIMA_CHUNK = 15
 LUNGIME_PENTRU_SPLIT_SECUNDAR = 2000
 
+MODEL_EMBEDDING = "voyage-3.5"
+# Limitele reale documentate de Voyage pentru un singur apel embed() cu
+# voyage-3.5 (docs.voyageai.com/docs/embeddings): maximum 1000 de texte SI,
+# simultan, maximum 320.000 de tokeni insumati pe toata cererea. Un lot poate
+# depasi limita de tokeni chiar cu putine texte lungi, deci ambele limite
+# trebuie respectate impreuna, nu doar numarul de texte.
+LIMITA_TEXTE_PER_LOT_VOYAGE = 1000
+LIMITA_TOKENI_PER_LOT_VOYAGE = 320_000
+
 
 def valideaza_metadata(metadata):
     """Refuză metadata incompletă înainte de orice conexiune sau cost extern."""
@@ -223,8 +232,69 @@ def chunkurile_sunt_neschimbate(cursor, sursa, chunkuri):
     return hash_uri_db == hash_uri_locale
 
 
+def creeaza_loturi_embedding(
+    chunkuri, numara_tokeni,
+    max_texte=LIMITA_TEXTE_PER_LOT_VOYAGE, max_tokeni=LIMITA_TOKENI_PER_LOT_VOYAGE,
+):
+    """Grupeaza chunk-urile in loturi pentru embed(), respectand SIMULTAN
+    limita de texte si limita de tokeni per cerere Voyage (vezi
+    LIMITA_TEXTE_PER_LOT_VOYAGE / LIMITA_TOKENI_PER_LOT_VOYAGE).
+
+    Pastreaza STRICT ordinea: fiecare lot e o felie CONSECUTIVA din
+    `chunkuri` (adaugare secventiala, niciodata sortare/regrupare dupa
+    lungime) — asa ramane garantat ca embedding-ul de pe pozitia i dintr-un
+    lot corespunde chunk-ului de pe pozitia i din acel lot, fara nicio
+    ambiguitate de ordine intre trimitere si primire.
+
+    `numara_tokeni` e o functie injectata text -> nr. tokeni (tokenizer-ul
+    Voyage local, cache-uit dupa primul apel — vezi importa_document), ca
+    functia sa poata fi testata complet fara clientul Voyage real.
+    """
+    if not isinstance(max_texte, int) or max_texte <= 0:
+        raise ValueError("max_texte trebuie sa fie un intreg pozitiv")
+    if not isinstance(max_tokeni, int) or max_tokeni <= 0:
+        raise ValueError("max_tokeni trebuie sa fie un intreg pozitiv")
+
+    loturi = []
+    lot_curent = []
+    tokeni_lot_curent = 0
+
+    for chunk in chunkuri:
+        tokeni_chunk = numara_tokeni(chunk["text"])
+        if tokeni_chunk > max_tokeni:
+            raise ValueError(
+                f"fragmentul cu articolul {chunk.get('articol')!r} are {tokeni_chunk} tokeni, "
+                f"peste limita Voyage de {max_tokeni} tokeni per cerere — nu poate fi trimis nici singur"
+            )
+
+        lot_plin = len(lot_curent) >= max_texte
+        lot_ar_depasi_tokenii = bool(lot_curent) and tokeni_lot_curent + tokeni_chunk > max_tokeni
+        if lot_curent and (lot_plin or lot_ar_depasi_tokenii):
+            loturi.append(lot_curent)
+            lot_curent = []
+            tokeni_lot_curent = 0
+
+        lot_curent.append(chunk)
+        tokeni_lot_curent += tokeni_chunk
+
+    if lot_curent:
+        loturi.append(lot_curent)
+
+    return loturi
+
+
 def importa_document(cursor, client_voyage, metadata, chunkuri):
-    """Reinlocuieste atomic doar chunk-urile sursei curente."""
+    """Reinlocuieste atomic doar chunk-urile sursei curente.
+
+    Embeddings sunt cerute pe loturi (nu un apel de retea per fragment —
+    vezi creeaza_loturi_embedding), pastrand neschimbat restul contractului:
+    acelasi model, acelasi input_type, aceeasi valoare stocata per chunk.
+    Orice esec (lot respins de Voyage, eroare de retea) propaga exceptia mai
+    departe — DELETE-ul de mai sus si INSERT-urile deja facute in aceasta
+    transactie raman doar in tranzactia curenta, care e anulata (rollback)
+    de apelantul din main() la orice eroare; nu se lasa niciodata un import
+    partial, cu fragmente lipsa.
+    """
     valideaza_metadata(metadata)
     valideaza_chunkuri(chunkuri)
     sursa = metadata["source_key"]
@@ -232,27 +302,62 @@ def importa_document(cursor, client_voyage, metadata, chunkuri):
     asigura_document(cursor, metadata)
     cursor.execute("DELETE FROM documente_chunks WHERE sursa = %s", (sursa,))
 
-    for chunk_order, chunk in enumerate(chunkuri, start=1):
-        embedding = client_voyage.embed([chunk["text"]], model="voyage-3.5", input_type="document").embeddings[0]
-        cursor.execute(
-            """
-            INSERT INTO documente_chunks (
-                articol, articol_normalizat, text, content_hash, chunk_order,
-                document_id, embedding, sursa
+    def numara_tokeni(text):
+        return client_voyage.count_tokens([text], model=MODEL_EMBEDDING)
+
+    loturi = creeaza_loturi_embedding(
+        chunkuri, numara_tokeni,
+        max_texte=LIMITA_TEXTE_PER_LOT_VOYAGE, max_tokeni=LIMITA_TOKENI_PER_LOT_VOYAGE,
+    )
+
+    chunk_order = 0
+    for index_lot, lot in enumerate(loturi, start=1):
+        print(f"    {document_id}: lot {index_lot}/{len(loturi)} ({len(lot)} fragmente) — se cere embedding...")
+        # ORDINE: client_voyage.embed() intoarce .embeddings ca lista simpla,
+        # in ordinea primita din raspunsul Voyage (schema API documenteaza
+        # si un camp "index" per element, dar clientul voyageai instalat nu-l
+        # foloseste la reconstructie — verificat direct in sursa lui). Nu am
+        # ocolit clientul public ca sa citim acel camp manual, ca sa nu
+        # schimbam si comportamentul lui de retry/erori (in afara scopului
+        # acestei sarcini). Siguranta ordinii vine deci din doua garantii
+        # verificate aici: (1) API-urile de embedding de tip Voyage/OpenAI nu
+        # reordoneaza rezultatele fata de request — e comportament stabil,
+        # documentat implicit prin faptul ca niciun SDK oficial nu-l resortu-
+        # eaza; (2) zip(lot, embeddings) de mai jos e strict pozitional, iar
+        # `lot` insusi e o felie NEREORDONATA din chunkuri — deci singurul
+        # loc unde s-ar putea introduce o inversare e in interiorul acestui
+        # fisier, nu in date externe. Verificarea de lungime de mai jos
+        # opreste orice raspuns partial/trunchiat inainte sa ajunga la INSERT.
+        texte = [chunk["text"] for chunk in lot]
+        embeddings = client_voyage.embed(texte, model=MODEL_EMBEDDING, input_type="document").embeddings
+        if len(embeddings) != len(lot):
+            raise ValueError(
+                f"Voyage a intors {len(embeddings)} embeddings pentru un lot de {len(lot)} fragmente "
+                f"({document_id}, lot {index_lot}/{len(loturi)}) — import oprit, nimic nu se lasa partial"
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            """,
-            (
-                chunk["articol"],
-                normalizeaza_articol(chunk["articol"]),
-                chunk["text"],
-                calculeaza_content_hash(chunk["text"]),
-                chunk_order,
-                document_id,
-                embedding,
-                sursa,
-            ),
-        )
+
+        for chunk, embedding in zip(lot, embeddings):
+            chunk_order += 1
+            cursor.execute(
+                """
+                INSERT INTO documente_chunks (
+                    articol, articol_normalizat, text, content_hash, chunk_order,
+                    document_id, embedding, sursa
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    chunk["articol"],
+                    normalizeaza_articol(chunk["articol"]),
+                    chunk["text"],
+                    calculeaza_content_hash(chunk["text"]),
+                    chunk_order,
+                    document_id,
+                    embedding,
+                    sursa,
+                ),
+            )
+        print(f"    {document_id}: lot {index_lot}/{len(loturi)} gata ({chunk_order}/{len(chunkuri)} fragmente)")
 
 
 def main():
