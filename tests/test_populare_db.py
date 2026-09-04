@@ -115,6 +115,9 @@ def test_importul_face_upsert_inainte_de_delete_si_populeaza_metadata_noilor_col
             return ("document-test",)
 
     class ClientVoyageFals:
+        def count_tokens(self, texte, model=None):
+            return sum(len(text.split()) for text in texte)
+
         def embed(self, *_args, **_kwargs):
             return types.SimpleNamespace(embeddings=[[0.1, 0.2]])
 
@@ -426,3 +429,181 @@ def test_dry_run_nu_apeleaza_voyage_sau_supabase(modul_ingestie, monkeypatch, tm
     modul_ingestie.main()
 
     assert "DRY RUN: 1 chunk-uri validate" in capsys.readouterr().out
+
+
+# --- gruparea embeddings-urilor in loturi (creeaza_loturi_embedding) ---
+
+
+def _numara_tokeni_dupa_cuvinte(texte_asteptate=None):
+    """Tokenizer fals, complet local: numara cuvintele (nu apeleaza Voyage).
+
+    Daca `texte_asteptate` e dat, verifica ca fiecare text primit e cel
+    asteptat pe pozitia curenta — util ca sa detectam o eventuala amestecare
+    de texte in interiorul creeaza_loturi_embedding insusi.
+    """
+    apeluri = []
+
+    def numara(text):
+        apeluri.append(text)
+        return len(text.split())
+
+    numara.apeluri = apeluri
+    return numara
+
+
+def _chunk(articol, text):
+    return {"articol": articol, "text": text}
+
+
+def test_loturile_respecta_limita_de_texte(modul_ingestie):
+    chunkuri = [_chunk(str(i), "cuvant") for i in range(5)]
+    numara = _numara_tokeni_dupa_cuvinte()
+
+    loturi = modul_ingestie.creeaza_loturi_embedding(chunkuri, numara, max_texte=2, max_tokeni=1000)
+
+    assert [len(lot) for lot in loturi] == [2, 2, 1]
+    assert [chunk["articol"] for lot in loturi for chunk in lot] == [str(i) for i in range(5)]
+
+
+def test_loturile_respecta_limita_de_tokeni_chiar_cu_putine_texte(modul_ingestie):
+    """Cateva texte lungi trebuie sa desparta lotul chiar daca numarul de
+    texte e mult sub limita — limita de tokeni conteaza independent."""
+    chunkuri = [
+        _chunk("1", "unu doi trei patru cinci"),  # 5 tokeni
+        _chunk("2", "sase sapte opt noua zece"),  # 5 tokeni
+        _chunk("3", "unsprezece"),  # 1 token
+    ]
+    numara = _numara_tokeni_dupa_cuvinte()
+
+    loturi = modul_ingestie.creeaza_loturi_embedding(chunkuri, numara, max_texte=1000, max_tokeni=9)
+
+    # primele doua (5+5=10 > 9) nu incap impreuna, al treilea se alatura celui de-al doilea lot
+    assert [len(lot) for lot in loturi] == [1, 2]
+    assert [chunk["articol"] for lot in loturi for chunk in lot] == ["1", "2", "3"]
+
+
+def test_loturile_pastreaza_ordinea_stricta_indiferent_de_lungime(modul_ingestie):
+    """Nu se sorteaza dupa lungime pentru impachetare optima — doar felii
+    consecutive, ca sa nu existe nicio sansa de inversare intre trimitere
+    si asocierea embedding-ului cu fragmentul corect."""
+    chunkuri = [
+        _chunk("lung", "cuvant " * 8),
+        _chunk("scurt", "cuvant"),
+        _chunk("mediu", "cuvant cuvant cuvant"),
+    ]
+    numara = _numara_tokeni_dupa_cuvinte()
+
+    loturi = modul_ingestie.creeaza_loturi_embedding(chunkuri, numara, max_texte=1000, max_tokeni=1000)
+
+    assert len(loturi) == 1
+    assert [chunk["articol"] for chunk in loturi[0]] == ["lung", "scurt", "mediu"]
+
+
+def test_un_singur_fragment_normal_produce_un_singur_lot(modul_ingestie):
+    chunkuri = [_chunk("1.1.", "text scurt")]
+    numara = _numara_tokeni_dupa_cuvinte()
+
+    loturi = modul_ingestie.creeaza_loturi_embedding(chunkuri, numara, max_texte=1000, max_tokeni=320_000)
+
+    assert len(loturi) == 1
+    assert loturi[0] == chunkuri
+
+
+def test_un_fragment_care_singur_depaseste_limita_de_tokeni_esueaza_fara_a_forma_lot(modul_ingestie):
+    chunkuri = [_chunk("1.1.", "fragment normal"), _chunk("1.2.", "fragment enorm")]
+
+    def numara(text):
+        return 500 if "enorm" in text else 5
+
+    with pytest.raises(ValueError, match="peste limita Voyage"):
+        modul_ingestie.creeaza_loturi_embedding(chunkuri, numara, max_texte=1000, max_tokeni=100)
+
+
+@pytest.mark.parametrize("max_texte, max_tokeni", [(0, 1000), (-1, 1000), (1000, 0), (1000, -5)])
+def test_limitele_lotului_trebuie_sa_fie_pozitive(modul_ingestie, max_texte, max_tokeni):
+    with pytest.raises(ValueError):
+        modul_ingestie.creeaza_loturi_embedding([_chunk("1", "x")], lambda _t: 1, max_texte=max_texte, max_tokeni=max_tokeni)
+
+
+# --- importa_document: ordinea embeddings-urilor si esecul unui lot ---
+
+
+class ClientVoyageLoturi:
+    """Client Voyage fals: embeddings distincte si verificabile per text
+    ("embedding pentru <text>"), pentru a detecta orice amestecare de
+    ordine intre lot si fragmentele originale. Nu apeleaza reteaua."""
+
+    def __init__(self, marime_lot_maxima=1000, esueaza_la_lotul=None):
+        self.marime_lot_maxima = marime_lot_maxima
+        self.esueaza_la_lotul = esueaza_la_lotul
+        self.apeluri_embed = []
+
+    def count_tokens(self, texte, model=None):
+        return len(texte[0].split())
+
+    def embed(self, texte, model=None, input_type=None):
+        self.apeluri_embed.append(list(texte))
+        if self.esueaza_la_lotul is not None and len(self.apeluri_embed) == self.esueaza_la_lotul:
+            raise RuntimeError("Voyage indisponibil pentru acest lot")
+        return types.SimpleNamespace(embeddings=[[hash((text, "embedding"))] for text in texte])
+
+
+class CursorInregistreaza:
+    def __init__(self, hash_uri_db=()):
+        self.inserturi = []
+        self._hash_uri_db = hash_uri_db
+
+    def execute(self, instructiune, parametri):
+        if "SELECT document_id, source_key" in instructiune:
+            self._ultimul = []
+        elif "INSERT INTO documente_chunks" in instructiune:
+            self.inserturi.append(parametri)
+
+    def fetchall(self):
+        return []
+
+    def fetchone(self):
+        return ("document-test",)
+
+
+def test_importa_document_pastreaza_ordinea_embeddings_pe_mai_multe_loturi(modul_ingestie, monkeypatch):
+    """Fortam 2 fragmente per lot (monkeypatch pe limita de texte) si
+    verificam ca fiecare rand inserat are exact embedding-ul propriului text,
+    nu al vecinului — chiar peste granita dintre loturi."""
+    monkeypatch.setattr(modul_ingestie, "LIMITA_TEXTE_PER_LOT_VOYAGE", 2)
+
+    chunkuri = [_chunk(f"{i}.1.", f"text unic numarul {i}") for i in range(5)]
+    client = ClientVoyageLoturi()
+    cursor = CursorInregistreaza()
+
+    modul_ingestie.importa_document(cursor, client, metadata_valida(), chunkuri)
+
+    assert len(client.apeluri_embed) == 3  # 2 + 2 + 1
+    assert [len(lot) for lot in client.apeluri_embed] == [2, 2, 1]
+
+    assert len(cursor.inserturi) == 5
+    for index, chunk in enumerate(chunkuri):
+        parametri = cursor.inserturi[index]
+        text_inserat = parametri[2]
+        embedding_inserat = parametri[6]
+        assert text_inserat == chunk["text"]
+        assert embedding_inserat == [hash((chunk["text"], "embedding"))]
+        assert parametri[4] == index + 1  # chunk_order global, continuu peste loturi
+
+
+def test_importa_document_lot_care_esueaza_propaga_eroarea_fara_import_partial(modul_ingestie, monkeypatch):
+    """Al doilea lot pica: excepția trebuie să iasă din importa_document (ca
+    apelantul din main() sa poata face rollback), fara sa se fi facut vreun
+    INSERT pentru fragmentele lotului esuat sau ale celor de dupa el."""
+    monkeypatch.setattr(modul_ingestie, "LIMITA_TEXTE_PER_LOT_VOYAGE", 2)
+
+    chunkuri = [_chunk(f"{i}.1.", f"text unic numarul {i}") for i in range(5)]
+    client = ClientVoyageLoturi(esueaza_la_lotul=2)
+    cursor = CursorInregistreaza()
+
+    with pytest.raises(RuntimeError, match="indisponibil"):
+        modul_ingestie.importa_document(cursor, client, metadata_valida(), chunkuri)
+
+    # doar primul lot (2 fragmente) a apucat sa insereze inainte de esec
+    assert len(cursor.inserturi) == 2
+    assert [parametri[2] for parametri in cursor.inserturi] == [chunkuri[0]["text"], chunkuri[1]["text"]]
