@@ -185,10 +185,36 @@ Fiecare răspuns (inclusiv erorile și fișierele din `/assets/*`) primește:
 | `GET /termeni` | Pagina juridică Termeni și condiții; fișier lipsă înseamnă `503` generic. |
 | `GET /confidentialitate` | Politica de confidențialitate; fișier lipsă înseamnă `503` generic. |
 | `GET /assets/*` | Fișiere statice read-only servite strict din `static/assets/` (fonturi self-hostate, favicon). |
+| `GET /documents` | Catalogul public al documentelor `approved` — doar `cod_oficial`, `titlu_oficial`, `an`. Fără cookie/quota/rate limit, la fel ca `/termeni`. |
 | `POST /intreaba` | Endpoint-ul de întrebare; aplică quota anonimă și rate limiting. |
 
 Directorul `static/` **nu** este montat integral; nu există niciun endpoint care poate servi
 alte fișiere din repo, iar `/assets/*` refuză traversarea de cale.
+
+## 5.1 Curățarea periodică a bucket-urilor de rate limit expirate
+
+`cleanup_rate_limit_buckets.py` șterge fizic rândurile din `public.rate_limit_buckets` cu
+`expires_at` în trecut. Logica de ștergere (`PostgresAccessControlRepository.
+cleanup_expired_rate_limit_buckets`) exista deja și era testată; scriptul e piesa care
+lipsea — nu face parte din procesul web (`Procfile`), trebuie rulat periodic separat:
+
+```powershell
+python cleanup_rate_limit_buckets.py --dry-run   # numără, fără DELETE
+python cleanup_rate_limit_buckets.py             # șterge și face commit
+```
+
+**Cum se programează pe Railway** (nefăcut încă — necesită aprobare separată, e o
+schimbare de infrastructură, nu doar cod):
+
+1. În proiectul Railway, adaugă un serviciu nou din același repo (`New Service` →
+   `GitHub Repo`, același repo ca `normativai`).
+2. Setează comanda de pornire a serviciului nou la `python cleanup_rate_limit_buckets.py`
+   (înlocuiește comanda din `Procfile`, care se aplică doar serviciului web).
+3. În Settings → **Cron Schedule**, setează o expresie cron (ex. `0 * * * *` — o dată pe
+   oră; retenția e de 24h, deci frecvența nu e critică).
+4. Copiază exact aceleași variabile `DB_HOST`/`DB_NAME`/`DB_USER`/`DB_PASSWORD`/`DB_PORT`
+   de la serviciul `normativai` — serviciul de cleanup nu are nevoie de `VOYAGE_API_KEY`,
+   `ANTHROPIC_API_KEY` sau de variabilele `ANONYMOUS_*`.
 
 ## 6. Ce NU se pune în variabile de mediu
 
@@ -200,12 +226,12 @@ alte fișiere din repo, iar `/assets/*` refuză traversarea de cale.
 
 ## 7. Restanțe cunoscute înainte de lansare publică
 
-- Ștergerea fizică a bucket-urilor IP expirate (24 de ore) nu are încă scheduler; expirarea
-  este doar logică. Același lucru e valabil, la o scară mult mai mică, pentru rândurile din
-  `public.paid_call_budget` (unul pe zi calendaristică).
-- `GET /documents` nu există; UI-ul nu trebuie să afișeze contoare de documente.
+- Ștergerea fizică a bucket-urilor IP expirate (24 de ore): logica există și e testată
+  (`cleanup_rate_limit_buckets.py`, §5.1), dar programarea periodică pe Railway (Cron
+  Schedule) nu a fost creată încă — rulează doar manual până atunci. Același lucru e
+  valabil, la o scară mult mai mică, pentru rândurile din `public.paid_call_budget` (unul
+  pe zi calendaristică) — nicio ștergere programată acolo, dar volumul e neglijabil.
 - Afirmațiile din paginile juridice (regiunea Supabase, infrastructura de hosting, adresa de
-  contact) trebuie verificate înainte de publicare.
-- Migrația `20260903120000_paid_call_daily_budget.sql` (§3.5) nu a fost aplicată încă pe
-  Supabase; fără ea, `POST /intreaba` răspunde `503` generic la orice întrebare care ar
-  costa (tabela lipsă e o eroare `psycopg2.Error`, tratată deja fail-closed).
+  contact) trebuie verificate periodic dacă infrastructura se schimbă.
+- Review de securitate independent final — nu a fost efectuat încă înainte de expunerea
+  publică completă (dincolo de cei 4 testeri controlați).
