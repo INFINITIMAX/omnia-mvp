@@ -21,8 +21,12 @@ ROOT_PROIECT = Path(__file__).resolve().parent
 FOLDER_DOCUMENTE = ROOT_PROIECT / "documente_noi"
 
 # Regex-ul actual pentru structura articolelor din normativele deja validate.
+# „?" opțional gestionează actele modificatoare, unde numărul articolului din
+# normativul modificat stă imediat după ghilimeaua de deschidere a citatului
+# (ex: „1.2. Domeniul de aplicare...”), nu la început de rând ca în normativele
+# de bază. Ghilimeaua nu intră în grupul capturat, deci nu strică normalizarea.
 PATTERN_ARTICOL = re.compile(
-    r"\n\s*(\d+\.\d+\.\s*\([A-Za-z]\)\.\s*(?:[IVXLl]\.|\d+\.)?(?:\d+\.)?|ANEXA\s+\d+\.\d+\.|\d+\.\d+\.(?:\d+\.){0,4})"
+    r"\n\s*„?\s*(\d+\.\d+\.\s*\([A-Za-z]\)\.\s*(?:[IVXLl]\.|\d+\.)?(?:\d+\.)?|ANEXA\s+\d+\.\d+\.|\d+\.\d+\.(?:\d+\.){0,4})"
 )
 PATTERN_LINIE_CUPRINS = re.compile(r"\.{2,}\s*\d{1,4}\s*(?=\n|$)")
 PATTERN_SUBPUNCT = re.compile(r"\n\s*\((\d+)\)\s+")

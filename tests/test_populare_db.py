@@ -291,6 +291,112 @@ def test_creeaza_chunkuri_pastreaza_doar_varianta_mai_lunga_a_articolului(modul_
     ]
 
 
+def test_creeaza_chunkuri_recunoaste_articolul_citat_din_act_modificator(modul_ingestie):
+    """Actele modificatoare pun numărul articolului după ghilimeaua de deschidere a citatului."""
+    continut = (
+        "1. Articolul 1.2 se modifică și va avea următorul cuprins:\n"
+        "„1.2. Domeniul de aplicare al normativului este cel privind:\n"
+        "a) sistemele de instalații de încălzire din clădiri noi.”"
+    )
+
+    chunkuri = modul_ingestie.creeaza_chunkuri(continut)
+
+    assert chunkuri == [
+        {
+            "articol": "1.2.",
+            "text": (
+                "Domeniul de aplicare al normativului este cel privind:\n"
+                "a) sistemele de instalații de încălzire din clădiri noi.”"
+            ),
+        }
+    ]
+
+
+def test_creeaza_chunkuri_articole_citate_multiple_devin_chunkuri_separate(modul_ingestie):
+    continut = (
+        "1. Articolul 1.2 se modifică și va avea următorul cuprins:\n"
+        "„1.2. Text pentru primul articol modificat.”\n"
+        "2. Articolul 1.3 se modifică și va avea următorul cuprins:\n"
+        "„1.3. Text pentru al doilea articol modificat.”\n"
+        "3. Articolul 10.14 se modifică și va avea următorul cuprins:\n"
+        "„10.14. Text pentru al treilea articol modificat.”"
+    )
+
+    chunkuri = modul_ingestie.creeaza_chunkuri(continut)
+
+    assert [chunk["articol"] for chunk in chunkuri] == ["1.2.", "1.3.", "10.14."]
+    assert chunkuri[2]["text"] == "Text pentru al treilea articol modificat.”"
+
+
+def test_creeaza_chunkuri_articol_nequotat_ramane_neschimbat(modul_ingestie):
+    """Ghilimeaua opțională nu trebuie să schimbe comportamentul pe normativele fără citate."""
+    continut = "1.1.\nTextul articolului valid, fără ghilimele."
+
+    assert modul_ingestie.creeaza_chunkuri(continut) == [
+        {"articol": "1.1.", "text": "Textul articolului valid, fără ghilimele."}
+    ]
+
+
+NUMAR_CHUNKURI_ASTEPTAT_PER_DOCUMENT = {
+    "i5_2022": 701,
+    "i7_2011": 1444,
+    "i9_2022": 650,
+    "np004_03": 81,
+    "np010_2022": 408,
+    "np057_02": 286,
+    "p118_1_2025": 1401,
+    "spitale_2022": 578,
+}
+
+
+@pytest.mark.skipif(
+    not (ROOT_PROIECT / "documente_noi").exists(),
+    reason="documente_noi nu e prezent în acest worktree (folder gitignored)",
+)
+@pytest.mark.parametrize("nume_document, numar_asteptat", sorted(NUMAR_CHUNKURI_ASTEPTAT_PER_DOCUMENT.items()))
+def test_chunking_documentelor_deja_validate_ramane_neschimbat(modul_ingestie, nume_document, numar_asteptat):
+    """Invariantă critică: fragmentarea documentelor existente nu are voie să se schimbe.
+
+    Altfel se schimbă content_hash-urile și Lucian ar trebui să reimporte toată baza.
+    """
+    cale_text = ROOT_PROIECT / "documente_noi" / nume_document / "extracted.txt"
+    continut = cale_text.read_text(encoding="utf-8")
+
+    chunkuri = modul_ingestie.creeaza_chunkuri(continut)
+
+    assert len(chunkuri) == numar_asteptat
+
+
+@pytest.mark.skipif(
+    not (ROOT_PROIECT / "documente_noi" / "i13_2015_modificari").exists(),
+    reason="documente_noi/i13_2015_modificari nu e prezent în acest worktree",
+)
+def test_chunking_actului_modificator_i13_recunoaste_articolele_citate(modul_ingestie):
+    """i13_2015_modificari are 160 de articole modificate; înainte de fix producea doar 14 chunk-uri."""
+    cale_text = ROOT_PROIECT / "documente_noi" / "i13_2015_modificari" / "extracted.txt"
+    continut = cale_text.read_text(encoding="utf-8")
+
+    chunkuri = modul_ingestie.creeaza_chunkuri(continut)
+    articole = {chunk["articol"] for chunk in chunkuri}
+
+    assert 150 <= len(chunkuri) <= 170
+    assert {"1.2.", "1.3.", "1.5.", "2.1.", "5.38."}.issubset(articole)
+
+
+@pytest.mark.skipif(
+    not (ROOT_PROIECT / "documente_noi" / "p118_2_2013_modificari").exists(),
+    reason="documente_noi/p118_2_2013_modificari nu e prezent în acest worktree",
+)
+def test_chunking_actului_modificator_p118_2_creste_fata_de_fragmentarea_veche(modul_ingestie):
+    """p118_2_2013_modificari producea doar 22 de chunk-uri înainte de fix; trebuie să crească."""
+    cale_text = ROOT_PROIECT / "documente_noi" / "p118_2_2013_modificari" / "extracted.txt"
+    continut = cale_text.read_text(encoding="utf-8")
+
+    chunkuri = modul_ingestie.creeaza_chunkuri(continut)
+
+    assert len(chunkuri) > 22
+
+
 def test_dry_run_nu_apeleaza_voyage_sau_supabase(modul_ingestie, monkeypatch, tmp_path, capsys):
     folder_document = tmp_path / "document_test"
     folder_document.mkdir()
