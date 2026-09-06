@@ -4,7 +4,7 @@ Aplicație publică de întrebări-răspunsuri pe normative tehnice românești 
 instalații), cu **răspunsuri bazate exclusiv pe dovezi citate** — niciun răspuns nu pleacă
 fără cel puțin un fragment real, din documente aprobate explicit.
 
-Live: https://normativai-production.up.railway.app
+Live: https://normativai.ro (domeniu propriu; URL-ul Railway inițial, https://normativai-production.up.railway.app, rămâne activ)
 
 ## Cum funcționează
 
