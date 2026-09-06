@@ -45,7 +45,7 @@
   <li><strong>Anthropic</strong> (generarea răspunsului) — procesator din SUA; procesarea se supune politicii lor de confidențialitate.</li>
   <li><strong>Voyage AI</strong> (căutare semantică, doar pentru întrebări fără articol exact indicat) — procesator din SUA.</li>
 </ul>
-<p>Baza de date (documentele normative, contoarele de quota) este găzduită prin <strong>Supabase</strong>, în regiunea West EU (Ireland). Aplicația rulează pe infrastructura <strong>Railway</strong>.</p>
+<p>Baza de date (documentele normative, contoarele de quota) este găzduită prin <strong>Supabase</strong>, în regiunea West EU (Ireland). Aplicația rulează pe infrastructura <strong>Railway</strong>, care emite și certificatul de securitate al conexiunii. Domeniul <strong>normativai.ro</strong> folosește <strong>Cloudflare</strong> exclusiv pentru administrarea înregistrărilor DNS (adresa la care se ajunge, nu conținutul traficului) — conexiunea criptată se face direct cu Railway, nu trece prin rețeaua Cloudflare.</p>
 <p>Niciun terț nu primește identificatori tehnici interni, nume de fișiere sursă sau conținutul brut al documentelor normative — doar textul întrebării și, la generare, fragmentele relevante deja aprobate.</p>
 
 <h2>5. Cât timp păstrăm datele</h2>
