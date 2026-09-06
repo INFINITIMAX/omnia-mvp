@@ -633,7 +633,17 @@
 
   /* ---------- Mobil: nav lateral colapsat, coloana articolelor stivuita ---------- */
   @media (max-width: 900px) {
-    .shell { grid-template-columns: minmax(0, 1fr); }
+    /* grid-template-rows: auto pentru rail (bara de sus, inaltime naturala),
+       apoi minmax(0, 1fr) pentru main — restul exact al ecranului. Fara asta,
+       .main (height: 100dvh mai jos) s-ar aduna PESTE inaltimea rail-ului,
+       facand pagina mai inalta decat ecranul si obligand la scroll doar ca sa
+       ajungi la composer, care altfel ar iesi complet din partea vizibila. */
+    .shell {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: auto minmax(0, 1fr);
+      height: 100vh;
+      height: 100dvh;
+    }
 
     .rail {
       position: sticky;
@@ -670,8 +680,18 @@
     .rail-user { display: none; }
     .rail-legal { border-top: 0; padding: 0; gap: var(--s3); }
 
-    .main { height: auto; }
-    .scroll { padding: var(--s5) var(--s4) var(--s4); gap: var(--s6); overflow-y: visible; }
+    /* height: 100% (main se intinde exact cat randul de 1fr din .shell, vezi mai
+       sus), nu height: auto ca inainte: fara asta, .scroll nu-si mai facea
+       propriul scroll intern (overflow-y: visible mai jos, ca sa nu apara un
+       scroll imbricat pe langa cel al paginii) — cand continutul era scurt
+       (ecranul de bun-venit), composer-ul, pozitionat sticky la fundul
+       ferestrei, se suprapunea peste ultimul chip de sugestii, pentru ca
+       pozitia lui naturala in flux era mai jos decat inaltimea reala a
+       ecranului. Cu .main la inaltimea exacta a randului de grid si .scroll cu
+       propriul scroll intern (flex: 1; overflow-y: auto, mostenit din regula
+       de baza), composer-ul nu mai are nevoie de sticky: sta fix la capatul
+       coloanei flex, fara sa se suprapuna niciodata peste continut. */
+    .main { height: 100%; }
     .topbar { padding: var(--s3) var(--s4); }
     .doc { padding: var(--s5) var(--s4); }
     /* Sub 900px masura devine prea ingusta pentru justificare: fara silabisire
@@ -685,8 +705,6 @@
     .citation-list li { grid-template-columns: minmax(0, 1fr); gap: var(--s2); }
 
     .composer-wrap {
-      position: sticky;
-      bottom: 0;
       padding: var(--s3) var(--s4) var(--s4);
       background: var(--ink-900);
       border-top: 1px solid var(--rule);

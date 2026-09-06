@@ -309,7 +309,7 @@ app.mount(
 # altfel pagina se rupe silențios sub CSP.
 _CSP_SCRIPT_HASHES = ("'sha256-CXFpaA1nAnPr79Hagbe2CN1fPe84kD599ycNcoeIyFU='",)  # static/index.html <script>
 _CSP_STYLE_HASHES = (
-    "'sha256-bHtnvDsC3xABfNsXxutlE3/ITdo8w17Imbd8JtxsKhY='",  # static/index.html <style>
+    "'sha256-dfnnV1ZV1nbrift6WtGU2XVQX0ahuMXiVhWB2qwuVPI='",  # static/index.html <style>
     "'sha256-kUyxp8kcWn+qR+O4JbENkEzXFLSQLF+bM6N26VjKs0c='",  # static/termeni.html <style>
     "'sha256-303Ph9pYTBdqEAWSTPYw5296I5SBQDxpsmFJ3UO3iMo='",  # static/confidentialitate.html <style>
     "'sha256-iRTSbo/Ydn205oSWi3GzwimCP8819GmmNR28mXK/M70='",  # static/termeni.html style="margin-top: 40px;"
