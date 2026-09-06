@@ -70,9 +70,21 @@ python -m pip install -r requirements.txt
 python -m pytest -q
 ```
 
-413 teste, complet locale/mockuite — nu citesc `.env`, nu apelează Anthropic, Voyage sau
+419 teste, complet locale/mockuite — nu citesc `.env`, nu apelează Anthropic, Voyage sau
 Supabase. Câteva zeci depind de `documente_noi/` (gitignored, date locale) și se sar automat
 (`skip`) dacă nu există local.
+
+## CI
+
+La fiecare push/PR către `main`, GitHub Actions rulează automat (`.github/workflows/tests.yml`):
+
+- toate testele (`python -m pytest -q`);
+- `pip-audit` peste `requirements.txt`, ca să prindă vulnerabilități (CVE) cunoscute în
+  dependențele fixate.
+
+Dependabot (`.github/dependabot.yml`) verifică săptămânal dacă există actualizări pentru
+dependențele Python. Totul rulează pe infrastructura gratuită GitHub Actions — fără costuri
+și fără niciun secret configurat.
 
 ## Verificarea ingestion-ului fără cost
 

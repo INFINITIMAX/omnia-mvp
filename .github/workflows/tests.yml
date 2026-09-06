@@ -1,0 +1,44 @@
+name: Teste și securitate dependențe
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  tests:
+    name: Teste (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalează Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalează dependențele
+        run: pip install -r requirements.txt
+
+      - name: Rulează testele
+        run: python -m pytest -q
+
+  dependency-audit:
+    name: Scanare CVE dependențe (pip-audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalează Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalează dependențele + pip-audit
+        run: |
+          pip install -r requirements.txt
+          pip install pip-audit
+
+      - name: Scanează requirements.txt pentru vulnerabilități cunoscute
+        run: pip-audit -r requirements.txt
