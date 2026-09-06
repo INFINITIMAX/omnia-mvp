@@ -16,7 +16,7 @@ Omnia devine o aplicație publică pentru normative tehnice românești: răspun
 - `/health` (fără interogare DB, sigur pentru healthcheck Railway), rute juridice `/termeni` și `/confidentialitate` publice și corecte (contact GDPR real, regiune Supabase corectă: West EU/Ireland);
 - `/docs`, `/redoc`, `/openapi.json` dezactivate în producție (evită expunerea publică a `POST /intreaba` și a costului asociat);
 - 262 de teste locale trec pe `main`;
-- **aplicația e live**: `https://normativai-production.up.railway.app`, deploy manual (Railway nu are auto-deploy din Git — serviciul nu are niciun repo legat la Source; publicarea se face exclusiv cu `railway up` din `D:\Omnia-MVP`);
+- **aplicația e live**: `https://normativai.ro` (domeniu propriu, cumpărat de Lucian de la Hosterion, DNS administrat prin Cloudflare; certificat Railway valid, verificat 05-09-2026), și în continuare la `https://normativai-production.up.railway.app`; deploy manual (Railway nu are auto-deploy din Git — serviciul nu are niciun repo legat la Source; publicarea se face exclusiv cu `railway up` din `D:\Omnia-MVP`);
 - limite de cost setate: Anthropic $20, Voyage $10 (praguri furnizor, neverificate programatic de acest asistent).
 
 ### Există, dar nu este încă livrat
