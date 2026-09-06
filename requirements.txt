@@ -1,7 +1,7 @@
 # Dependențe deja utilizate de aplicație și de testele locale.
 anthropic==0.116.0
 fastapi==0.141.1
-numpy==2.5.1
+numpy==2.5.2
 pdfplumber==0.11.10
 psycopg2-binary==2.9.12
 pydantic==2.13.4
