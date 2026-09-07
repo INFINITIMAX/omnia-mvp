@@ -16,6 +16,12 @@ _EXECUTION_REQUEST = re.compile(
     r"dimensioneaza|dimensionati|dimensionez|dimensionam|"
     r"stabileste|stabiliti|stabilesc|stabilim)\b"
 )
+# Cererea nominală este explicită numai când un verb de solicitare și un substantiv de
+# acțiune apar la cel mult șase cuvinte distanță; „formula de calcul” nu se potrivește.
+_NOMINAL_ACTION_REQUEST = re.compile(
+    r"\b(?:solicit|doresc|vreau|cer)\b(?:\s+\w+){0,6}\s+"
+    r"\b(?:calcularea|estimarea|dimensionarea|stabilirea)\b"
+)
 _METHOD_REQUEST = re.compile(r"\b(cum|metod\w*|formula|formul\w*|prevede|conform)\b")
 # „cum se calculează” cere explicarea metodei (diateză reflexivă), nu executarea ei.
 _METHOD_EXECUTION_FORM = re.compile(
@@ -72,7 +78,10 @@ def is_engineering_calculation_request(question: str) -> bool:
     without_method_forms = _METHOD_EXECUTION_FORM.sub("", normalized)
     # Acțiunea explicită rămasă are prioritate peste toate excepțiile: „Calculează
     # debitul minim” cere tot un calcul de proiect, nu valoarea normativă a debitului minim.
-    if _EXECUTION_REQUEST.search(without_method_forms):
+    if (
+        _EXECUTION_REQUEST.search(without_method_forms)
+        or _NOMINAL_ACTION_REQUEST.search(without_method_forms)
+    ):
         return True
     if (
         _PRESCRIBED_VALUE.search(normalized)
