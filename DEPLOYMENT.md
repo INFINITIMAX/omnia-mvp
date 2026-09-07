@@ -185,11 +185,17 @@ Fiecare răspuns (inclusiv erorile și fișierele din `/assets/*`) primește:
 | `GET /termeni` | Pagina juridică Termeni și condiții; fișier lipsă înseamnă `503` generic. |
 | `GET /confidentialitate` | Politica de confidențialitate; fișier lipsă înseamnă `503` generic. |
 | `GET /assets/*` | Fișiere statice read-only servite strict din `static/assets/` (fonturi self-hostate, favicon). |
-| `GET /documents` | Catalogul public al documentelor `approved` — doar `cod_oficial`, `titlu_oficial`, `an`. Fără cookie/quota/rate limit, la fel ca `/termeni`. |
 | `POST /intreaba` | Endpoint-ul de întrebare; aplică quota anonimă și rate limiting. |
 
 Directorul `static/` **nu** este montat integral; nu există niciun endpoint care poate servi
 alte fișiere din repo, iar `/assets/*` refuză traversarea de cale.
+
+**Nu există rută care expune catalogul documentelor.** Decizie de produs: acoperirea
+documentară nu se publică — lista completă a normativelor indexate arată exact ce acoperă și
+ce nu acoperă produsul. O rută `GET /documents` a existat scurt (commit `9bd65d5`) și a fost
+eliminată; testul `test_ruta_documents_nu_exista_si_nu_poate_fi_reintrodusa_tacut` verifică
+activ că nu reapare, nici sub altă cale. Utilizatorul vede un document doar prin citările
+răspunsului la care acel document a contribuit efectiv.
 
 ## 5.1 Curățarea periodică a bucket-urilor de rate limit expirate
 

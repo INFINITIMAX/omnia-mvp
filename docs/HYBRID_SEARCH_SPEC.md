@@ -184,7 +184,7 @@ Forma publică a unei citări:
 
 ### Alte reguli API
 
-- `GET /documents` returnează numai metadata oficială pentru documente cu status aprobat;
+- **nu există `GET /documents` și nu se reintroduce**: catalogul documentelor indexate nu se expune public (decizie de produs, 07-09-2026 — acoperirea documentară e informație sensibilă competitiv). Metadata oficială a unui document ajunge la utilizator doar prin citările răspunsului la care acel document a contribuit;
 - erorile Supabase/Voyage/Anthropic nu sunt transformate în `not_found`;
 - indisponibilitatea unei dependențe produce un răspuns sigur, de exemplu HTTP `503`, fără detalii interne;
 - cererile invalide sau prea lungi sunt respinse înainte de apeluri plătite;

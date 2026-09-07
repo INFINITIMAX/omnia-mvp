@@ -1,5 +1,26 @@
 # TASKS — Omnia
 
+## Predare — eliminarea `GET /documents` (07-09-2026)
+
+- [x] **Endpointul `GET /documents` a fost eliminat complet** din `main.py`, împreună cu
+      modelele de răspuns (`DocumentPublic`, `DocumenteResponse`), interogarea SQL și funcția
+      ajutătoare — fără cod mort rămas.
+- [x] **Motivul e de produs, nu tehnic.** Catalogul complet al normativelor indexate (cod,
+      titlu, an, număr) arată exact ce acoperă și ce nu acoperă produsul — informație sensibilă
+      competitiv. Aceeași decizie a lui Lucian scosese deja lista documentelor din nav-ul UI la
+      03-09-2026, înlocuind-o cu istoricul conversațiilor.
+- [x] **De ce a fost implementat totuși:** endpointul (commit `9bd65d5`, 05-09-2026) urma
+      backlog-ul din `PLAN.md`, cerut din fazele 4 și 6, care preceda decizia de produs. Backlogul
+      contrazicea decizia ulterioară; contradicția a fost prinsă de Planner la 07-09-2026.
+- [x] Test anti-regresie adăugat: `test_ruta_documents_nu_exista_si_nu_poate_fi_reintrodusa_tacut`
+      verifică 404 pe `/documents` și `/documente` **și** că nicio rută înregistrată nu conține
+      „document" în cale — o reintroducere sub altă cale sau altă metodă nu poate trece tăcut.
+      Verificat că testul chiar pică dacă ruta e readăugată.
+- [x] Documentație actualizată cu motivul explicit, ca să nu fie reimplementat din backlog:
+      `PLAN.md` (secțiune „Anulat definitiv" + fazele 4 și 6), `DEPLOYMENT.md` (tabelul de rute),
+      `docs/PROJECT_OVERVIEW.md`, `docs/HYBRID_SEARCH_SPEC.md`.
+- [x] Confirmat în cod că UI-ul nu apela endpointul nicăieri (`static/*.html` — zero referințe).
+
 ## Predare — Deploy live 03-09-2026
 
 - [x] Merge API (trusted proxy fail-closed, `/health`, rute statice) + UI negru-auriu în `main`, 262 teste treceau pe combinație.
@@ -21,7 +42,7 @@
 **Rămâne deschis, ordonat după impact:**
 1. Antete de securitate — lipsesc toate (CSP, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, HSTS, `Permissions-Policy`). Risc: clickjacking prin iframe, MIME sniffing.
 2. Kill switch global de cost — limitele Anthropic $20 / Voyage $10 sunt doar alerte, nu opresc nimic automat.
-3. `GET /documents` cu contract aprobat — blochează contorul de documente din nav.
+3. ~~`GET /documents` cu contract aprobat — blochează contorul de documente din nav.~~ **ANULAT (07-09-2026):** catalogul documentelor nu se expune public (decizie de produs — vezi predarea din capul fișierului). Nici endpointul, nici contorul din nav nu se implementează.
 4. Scheduler pentru ștergerea fizică a bucket-urilor IP expirate în max 24h (acum expiră doar logic).
 5. Chips-urile de sugestie: două întreabă lucruri neacoperite de cele 6 documente aprobate, deci produc refuzuri garantate. Decizie de conținut.
 6. Metrul vizual de quotă (bara 7/10 din mockup) — acum e doar text.
@@ -268,8 +289,9 @@ spațiere, razele și lista de pattern-uri interzise. Nu inventa valori care nu 
 - [x] Validare locală: `python -m pytest -q` → **215 passed** (211 anterioare + 4 noi),
       `node --check` pe JS-ul extras trece, `git diff --check` fără erori.
 - [x] **Gate vizual final al lui Lucian** — dat la 03-09-2026 pentru designul negru-auriu și, separat, pentru randarea Markdown.
-- [ ] Contorul de documente din nav rămâne neimplementat: `GET /documents` nu există, deci
-      cifrele din mockup ar fi date inventate. În nav apar doar codurile documentelor.
+- [x] Contorul de documente din nav **nu se va implementa**: `GET /documents` a fost eliminat
+      definitiv la 07-09-2026, fiindcă lista publică a normativelor e informație sensibilă
+      competitiv. Nu e o restanță, e o decizie de produs închisă.
 - [ ] Metrul de quotă din mockup (bara 7/10) nu este implementat: ar cere logică nouă de stare,
       iar acest task este strict de prezentare. Contorul textual rămâne singura sursă.
 - [ ] Chips-urile de sugestie au rămas cele din MVP. Două dintre ele („stările limită”,
@@ -282,7 +304,7 @@ spațiere, razele și lista de pattern-uri interzise. Nu inventa valori care nu 
 2. Faza 3A: retrieval core descris mai sus. **Finalizată în branch-ul `feat/retrieval-core`; fără API public.**
 3. Faza 3B1: Generation Core și citări oficiale validate. **Finalizată; fără FastAPI.**
 4. Faza 3B2: contract și integrare API pentru retrieval/generare. **Finalizată mock-first.**
-5. Faza 4: cost control: quota anonimă (10 întrebări/browser) și rate limiting (5/minut, 30/oră per IP). **Faza 4A + 4B (controalele anonime) și `POST /intreaba` sunt finalizate și integrate** în FastAPI și în UI MVP. **Faza 4 în ansamblu rămâne parțială**: PLAN.md cere și endpoint-urile `/health` și `/documents`, ambele încă absente și restante — nu sunt „decizii deschise" cu privire la dacă vor exista. `/health` este restant obligatoriu, necesar înainte de deployment (Faza 7). `/documents` este restant pentru completarea Faza 6; contractul lui public exact (rută, formă răspuns) și metadata expusă necesită explicație și aprobare explicită înainte de implementare. Rămân deschise și: gate producție `ANONYMOUS_COOKIE_SECURE=true`, suport trusted proxy (în prezent se folosește exclusiv `request.client.host`, fără `X-Forwarded-For`) și ștergerea fizică a ferestrelor IP expirate în maximum 24 ore (fără scheduler/job dedicat).
+5. Faza 4: cost control: quota anonimă (10 întrebări/browser) și rate limiting (5/minut, 30/oră per IP). **Faza 4A + 4B (controalele anonime) și `POST /intreaba` sunt finalizate și integrate** în FastAPI și în UI MVP. `/health` este implementat. **`/documents` a fost eliminat definitiv la 07-09-2026** — catalogul documentelor nu se expune public (decizie de produs, vezi predarea din capul fișierului); nu mai e restanță și nu se reimplementează. Rămân deschise și: gate producție `ANONYMOUS_COOKIE_SECURE=true`, suport trusted proxy (în prezent se folosește exclusiv `request.client.host`, fără `X-Forwarded-For`) și ștergerea fizică a ferestrelor IP expirate în maximum 24 ore (fără scheduler/job dedicat).
 6. Faza 5: testare agresivă. **Suita locală mockuită este finalizată (209 teste, inclusiv 31 teste statice UI și setul formal de evaluare din §10 al `docs/HYBRID_SEARCH_SPEC.md`, implementat local/mockuit în `tests/eval_set_data.py` și `tests/test_eval_set.py`).** Setul de evaluare este un **regression eval sintetic, determinist, local/mockuit pentru un set controlat** — nu o evaluare de calitate reală Voyage/Claude. Rulează prin `RetrievalService` real cu un repository sintetic unic care **nu primește `EvalCase`/tip/expected**: caută exact strict după `document_id`+`articol_normalizat` într-un corpus comun (`CORPUS`, cu identitate document/articol și decoy-uri pe teme fără legătură), iar la semantic clasifică tot corpusul prin similaritate cosinus reală, calculată determinist (bag-of-words, fără `hash()` randomizat) între vectorul întrebării și vectorii conținutului, cu scor și `top_k` — fără hardcodare caz→dovadă. `SEMANTIC_CASES` are 12 cazuri — 12 cazuri fac pragul de acceptare ≥90% neechivalent cu o cerință de 100% (11/12 = 91,7%) —, fiecare o parafrază sintetică controlată a articolului-țintă (alt vocabular, altă structură de frază) — nu formularea propoziției din `CORPUS`; un test dedicat (`test_intrebarile_semantice_sunt_parafraze_sintetice_controlate_nu_copii_ale_corpusului`) verifică literal, prin cel mai lung șir de cuvinte consecutive identice, că nicio întrebare nu reproduce fragmentul-țintă. Embedderul sintetic recunoaște parafrazele printr-un vocabular conceptual sintetic de sinonime/variante morfologice (`_SYNONYM_GROUPS` în `test_eval_set.py`) — un vocabular conceptual sintetic, definit manual, comun corpusului și întrebărilor, nu o mapare caz→dovada așteptată. Metricile verifică identitatea document+articol așteptată (nu doar statusul `found`), iar un caz de control negativ (`NEGATIVE_SEMANTIC_CASES`, fără nicio suprapunere de vocabular cu corpusul) confirmă că o întrebare semantică fără semnal relevant primește scor 0.0 și e refuzată, nu potrivită automat. Rezultatul măsurat din date: exact lookup 100%, refuz articole inventate 100%, semantic 100% (12/12, prag de acceptare ≥90%) — tot local, fără apeluri reale/plătite și fără validare pe trafic public. Testul HTTP anti-leak (`test_raspunsul_public_nu_contine_niciodata_identificatori_tehnici`) acoperă statusurile retrieval sub 200; verificarea e factorizată în helper-ul comun `_assert_no_technical_identifiers`, aplicat și direct în testele reprezentative pentru 422, 403, 429 și 503 (fără duplicarea setup-ului, fără slăbirea aserțiunilor de body exact) — acoperire reală pe toate codurile publice, nu doar afirmată. Rămân restante: testarea vizuală/manuală în browser real, evaluarea reală de calitate Voyage/Claude (pe date reale) și smoke test-urile plătite.
 7. Faza 6: UI real. **Sublivrare funcțională finalizată:** UI MVP conectat exclusiv la `POST /intreaba` și la controalele anonime. **Faza 6 în ansamblu rămâne parțială/nefinalizată:** lipsește `GET /documents` (lista documentelor și contorul cerute de PLAN.md pentru această fază — vezi Faza 4 pentru statutul contractului), redesign-ul vizual și testarea manuală în browser real rămân deferate.
 8. Faza 7: review și deployment. Există un review punctual, explicit documentat, pentru migrarea metadata (remedierile Reviewer și review-ul final `APPROVE`, vezi predarea de mai sus, liniile 22 și 25) — nu se afirmă că alte componente/faze au fost revizuite similar. **Rămân pendinte:** review-ul independent final pre-deployment, deployment-ul public și smoke tests pe URL public.
