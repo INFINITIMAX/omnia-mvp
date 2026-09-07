@@ -13,14 +13,26 @@ _EXECUTION_VERBS = re.compile(r"\b(calcul\w*|estim\w*|dimension\w*)\b")
 # utilizatorul menționează și un normativ („calculează conform I5”).
 _EXECUTION_REQUEST = re.compile(
     r"\b(calculeaza|calculati|calculez|calculam|estimeaza|estimati|estimez|estimam|"
-    r"dimensioneaza|dimensionati|dimensionez|dimensionam)\b"
+    r"dimensioneaza|dimensionati|dimensionez|dimensionam|stabileste)\b"
 )
 _METHOD_REQUEST = re.compile(r"\b(cum|metod\w*|formula|formul\w*|prevede|conform)\b")
 # „cum se calculează” cere explicarea metodei (diateză reflexivă), nu executarea ei.
 _METHOD_EXECUTION_FORM = re.compile(
     r"\bcum\s+se\s+(?:calculeaza|estimeaza|dimensioneaza)\b"
 )
-_POWER_NEED = re.compile(r"\b(cati|cata|cat)\s+kw\b.*\b(imi|ne)\s+trebuie\b")
+# Cererile despre localizarea explicației într-un document sunt documentare, chiar dacă
+# folosesc substantivul „calcul”; un imperativ explicit este verificat înaintea lor.
+_DOCUMENTARY_REQUEST = re.compile(
+    r"\bin\s+ce\b.{0,40}\barticol\w*\b|"
+    r"\bunde\b.{0,60}\b(?:articol\w*|descrie|explica)\w*\b|"
+    r"\barticol\w*\b.{0,60}\b(?:descrie|explica)\w*\b"
+)
+_POWER_NEED = re.compile(
+    r"\b(?:cati|cata|cat)\s+kw\b.*\b(?:(?:imi|ne)\s+trebuie|(?:am|avem)\s+nevoie)\b"
+)
+_CAPACITY_REQUEST = re.compile(
+    r"\bcapacitat\w*\b.*\b(?:frigorific\w*|racir\w*|necesar\w*|instalat\w*)\b"
+)
 _COOLING_LOAD = re.compile(r"\b(sarcina|necesar\w*)\b.*\b(racire|termic\w*)\b")
 _PROJECT_INPUT = re.compile(
     r"\b(\d+(?:[.,]\d+)?\s*(?:kw|w|mp|m2|m³|m3|°c|c)|hala|cladire|spatiu|inaltime|"
@@ -49,14 +61,24 @@ def is_engineering_calculation_request(question: str) -> bool:
     verb de execuție, necesarul de putere, ori sarcina termică cerută cu date de proiect.
     """
     normalized = normalize_scope_text(question)
-    if not normalized or _PRESCRIBED_VALUE.search(normalized):
+    if not normalized:
+        return False
+    # Scoatem numai occurrence-ul reflexiv metodologic înainte de a căuta imperative.
+    # Astfel „cum se calculează” nu se confundă cu un ordin, dar un al doilea
+    # „calculează” din aceeași întrebare rămâne vizibil și are prioritate.
+    without_method_forms = _METHOD_EXECUTION_FORM.sub("", normalized)
+    # Acțiunea explicită rămasă are prioritate peste toate excepțiile: „Calculează
+    # debitul minim” cere tot un calcul de proiect, nu valoarea normativă a debitului minim.
+    if _EXECUTION_REQUEST.search(without_method_forms):
+        return True
+    if _PRESCRIBED_VALUE.search(normalized) or _DOCUMENTARY_REQUEST.search(normalized):
         return False
     if _METHOD_EXECUTION_FORM.search(normalized):
         return False
     if _METHOD_REQUEST.search(normalized):
-        return bool(_EXECUTION_REQUEST.search(normalized))
+        return False
     if _EXECUTION_VERBS.search(normalized):
         return True
-    if _POWER_NEED.search(normalized):
+    if _POWER_NEED.search(normalized) or _CAPACITY_REQUEST.search(normalized):
         return True
     return bool(_COOLING_LOAD.search(normalized) and _PROJECT_INPUT.search(normalized))

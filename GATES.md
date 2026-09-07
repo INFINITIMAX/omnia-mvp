@@ -4,9 +4,10 @@
 
 1. `POST /intreaba` detectează local, determinist și conservator cererile de execuție a unui calcul, estimări sau dimensionări și răspunde HTTP 200 cu statusul, mesajul și citările aprobate.
 2. Pentru acest refuz, rate limit-ul rămâne contabilizat, quota este restituită verificat fail-closed, iar catalogul, retrieval-ul, Voyage și Anthropic nu sunt apelate.
-3. Întrebările despre metodă, formule, praguri, valori prescrise și debit minim nu sunt clasificate drept execuție de calcul.
-4. UI-ul afișează răspunsul normal, îl păstrează în istoricul vizibil și nu îl trimite în `context_conversatie` ulterior.
-5. Promptul interzice categoric executarea calculelor, estimărilor și dimensionărilor; CSP-ul permite scriptul inline actualizat.
+3. Întrebările despre metodă, formule, praguri, valori prescrise, debit minim și localizarea explicației într-un articol nu sunt clasificate drept execuție de calcul; excepțiile nu pot ocoli un imperativ explicit.
+4. Matricea include cererile mixte (metodă + imperativ), puterea în kW, capacitatea frigorifică și capacitatea de răcire instalată, toate refuzate local.
+5. UI-ul afișează răspunsul normal, îl păstrează în istoricul vizibil și nu îl trimite în `context_conversatie` ulterior.
+6. Promptul interzice categoric executarea calculelor, estimărilor și dimensionărilor; CSP-ul permite scriptul inline actualizat.
 
 ## Comenzi pentru Planner (PowerShell; nu sunt executate de Coder)
 
