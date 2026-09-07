@@ -21,6 +21,7 @@ from scope_core import is_engineering_calculation_request, normalize_scope_text
         "Stabiliți debitul minim necesar pentru ventilarea halei de 4.000 mp.",
         "Stabiliți capacitatea prevăzută de normativ pentru hala mea.",
         "Solicit calcularea capacității prevăzute de normativ pentru hala de 4.000 mp.",
+        "Solicit, vă rog, calcularea capacității prevăzute de normativ pentru hala de 4.000 mp.",
     ],
 )
 def test_cererile_de_executie_sunt_in_afara_scopeului(question):
@@ -49,6 +50,7 @@ def test_calculul_cerut_conform_normativului_este_diferit_de_metoda_intrebata():
         "Unde descrie normativul calculul sarcinii termice?",
         "Care este capacitatea frigorifică minimă prevăzută de normativ?",
         "Solicit formula de calcul prevăzută de normativ.",
+        "Solicit articolul care descrie calcularea capacității prevăzute de normativ.",
     ],
 )
 def test_intrebarile_normative_sau_metodologice_nu_sunt_blocate(question):

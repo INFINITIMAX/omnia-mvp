@@ -16,10 +16,12 @@ _EXECUTION_REQUEST = re.compile(
     r"dimensioneaza|dimensionati|dimensionez|dimensionam|"
     r"stabileste|stabiliti|stabilesc|stabilim)\b"
 )
-# Cererea nominală este explicită numai când un verb de solicitare și un substantiv de
-# acțiune apar la cel mult șase cuvinte distanță; „formula de calcul” nu se potrivește.
+# Cererea nominală este explicită numai când verbul este urmat direct de substantivul
+# de acțiune, eventual prin „vă rog”/„te rog” și separatorii uzuali. Astfel o cerere
+# de articol care descrie calcularea nu devine implicit cerere de executare.
 _NOMINAL_ACTION_REQUEST = re.compile(
-    r"\b(?:solicit|doresc|vreau|cer)\b(?:\s+\w+){0,6}\s+"
+    r"\b(?:solicit|doresc|vreau|cer)\b[\s,;:!?-]*"
+    r"(?:(?:va|te)\s+rog[\s,;:!?-]*)?"
     r"\b(?:calcularea|estimarea|dimensionarea|stabilirea)\b"
 )
 _METHOD_REQUEST = re.compile(r"\b(cum|metod\w*|formula|formul\w*|prevede|conform)\b")
