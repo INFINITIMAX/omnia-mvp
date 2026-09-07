@@ -14,12 +14,13 @@ Omnia este numele intern al proiectului/repository-ului; brandul public al aplic
 6. Nu expune sau tipări secrete, tokenuri, parole sau conținut din `.env`.
 7. Nu comite documente normative, PDF-uri, texte extrase sau chei API. `documente_noi/` rămâne exclus din Git.
 8. Nu face `git push`, deploy, migrare Supabase sau apeluri API plătite fără aprobarea explicită a lui Lucian.
-9. Nu slăbi, șterge sau restrânge teste doar pentru a le face să treacă.
-10. Actualizează `TASKS.md` la predarea unui task și `PLAN.md` numai când se schimbă o decizie de produs/tehnică aprobată.
-11. Nu introduce implicit comportamente de produs privind eligibilitatea documentelor, statusuri, acces, costuri, quota, fallback-uri sau date publice. Prezintă impactul în limbaj simplu și cere aprobarea explicită a lui Lucian înainte de implementare.
-12. Un finding de Reviewer care schimbă comportamentul de produs devine propunere pentru Lucian, nu remediere automată.
-13. Înainte de merge, raportează separat: comportamente noi, valori implicite, efecte DB, filtre ascunse, costuri/API și funcționalități încă neconectate.
-14. Înregistrează deciziile aprobate în `docs/DECISIONS.md` și menține `docs/PROJECT_OVERVIEW.md` sincronizat cu starea reală.
+9. Pe branch-ul de lucru, creează checkpoint prin commit + push la maximum 25 de minute; nu lucra direct pe `main` și nu folosi force, merge sau deploy.
+10. Nu slăbi, șterge sau restrânge teste doar pentru a le face să treacă.
+11. Actualizează `TASKS.md` la predarea unui task și `PLAN.md` numai când se schimbă o decizie de produs/tehnică aprobată.
+12. Nu introduce implicit comportamente de produs privind eligibilitatea documentelor, statusuri, acces, costuri, quota, fallback-uri sau date publice. Prezintă impactul în limbaj simplu și cere aprobarea explicită a lui Lucian înainte de implementare.
+13. Un finding de Reviewer care schimbă comportamentul de produs devine propunere pentru Lucian, nu remediere automată.
+14. Înainte de merge, raportează separat: comportamente noi, valori implicite, efecte DB, filtre ascunse, costuri/API și funcționalități încă neconectate.
+15. Înregistrează deciziile aprobate în `docs/DECISIONS.md` și menține `docs/PROJECT_OVERVIEW.md` sincronizat cu starea reală.
 
 ## Roluri
 

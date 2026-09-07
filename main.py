@@ -39,6 +39,7 @@ from generation_core import (
     PublicCitation,
     UngroundedReferenceError,
 )
+from scope_core import is_engineering_calculation_request
 load_dotenv()
 
 from retrieval_core import (
@@ -324,7 +325,7 @@ app.mount(
 # niciuna dintre pagini nu încarcă altceva decât fonturile self-hostate din /assets și
 # fetch('/intreaba') same-origin). O modificare a acelor blocuri inline cere hash-uri noi aici,
 # altfel pagina se rupe silențios sub CSP.
-_CSP_SCRIPT_HASHES = ("'sha256-9r08m193WoixMFeNS92dCm4hgR1OETvqmgmMmCLMrUM='",)  # static/index.html <script>
+_CSP_SCRIPT_HASHES = ("'sha256-yC4GqvuErJ6rHG+9oI5kZ8XsIqe+GaFr4bPxtmGCv9c='",)  # static/index.html <script>
 _CSP_STYLE_HASHES = (
     "'sha256-dfnnV1ZV1nbrift6WtGU2XVQX0ahuMXiVhWB2qwuVPI='",  # static/index.html <style>
     "'sha256-kUyxp8kcWn+qR+O4JbENkEzXFLSQLF+bM6N26VjKs0c='",  # static/termeni.html <style>
@@ -517,11 +518,12 @@ class CitationResponse(BaseModel):
 
 class IntreabaResponse(BaseModel):
     status: Literal[
-        "answered", "not_found", "ambiguous_article", "ambiguous_reference", "unsupported_answer"
+        "answered", "not_found", "ambiguous_article", "ambiguous_reference", "unsupported_answer",
+        "out_of_scope",
     ]
     raspuns: str
     citari: list[CitationResponse]
-    intrebari_ramase: Annotated[int, Field(ge=0, le=9)]
+    intrebari_ramase: Annotated[int, Field(ge=0, le=10)]
 
 
 _NOT_FOUND = "Nu am găsit această informație în documentele aprobate."
@@ -534,6 +536,10 @@ _AMBIGUOUS_REFERENCE = "Întrebarea conține referințe ambigue; te rog precizea
 _UNSUPPORTED_ANSWER = (
     "Nu pot răspunde la această întrebare doar pe baza documentelor aprobate. "
     "Încearcă o întrebare mai punctuală sau indică articolul care te interesează."
+)
+_OUT_OF_SCOPE = (
+    "NormativAI nu efectuează calcule sau dimensionări de proiect. "
+    "Pot indica prevederile și datele cerute de normative."
 )
 
 
@@ -675,6 +681,23 @@ def intreaba(
                 runtime_config,
             )
         intrebari_ramase = ANONYMOUS_QUOTA_LIMIT - questions_used
+
+        # Refuzul de calcul este decis local după rezervarea atomică numai ca să putem
+        # raporta exact quota. Rollback-ul trebuie să reușească înainte de răspuns:
+        # altfel am afirma fals că tentativa nu a consumat o întrebare.
+        if is_engineering_calculation_request(cerere.intrebare):
+            if not _rollback_succeeds(connection):
+                raise HTTPException(status_code=503, detail="Serviciul este temporar indisponibil.")
+            quota_transaction_active = False
+            answer = IntreabaResponse(
+                status="out_of_scope",
+                raspuns=_OUT_OF_SCOPE,
+                citari=[],
+                intrebari_ramase=intrebari_ramase + 1,
+            )
+            if token is not None:
+                _set_anonymous_cookie(response, token, runtime_config)
+            return answer
 
         budget_guard = _PaidCallBudgetGuard(
             dependencies.budget_connection_factory, now=now, daily_limit=dependencies.daily_paid_call_limit_factory()

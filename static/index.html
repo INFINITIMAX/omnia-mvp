@@ -897,11 +897,13 @@
       }));
     }
 
-    function addHistoryEntry(intrebare, raspuns, citari) {
+    function addHistoryEntry(intrebare, raspuns, citari, includeInContext = true) {
       historyEntries = [{ intrebare, raspuns, citari: Array.isArray(citari) ? citari : [] }, ...historyEntries].slice(0, HISTORY_LIMIT);
       saveHistory(historyEntries);
       renderHistoryList();
-      rememberConversationTurn(intrebare, citari);
+      // Refuzul de calcul rămâne vizibil în istoric, dar nu devine preferință pentru
+      // retrieval-ul următoarei întrebări: nu are citări și nu descrie un subiect normativ.
+      if (includeInContext) rememberConversationTurn(intrebare, citari);
     }
 
     function replayHistoryEntry(index) {
@@ -1290,7 +1292,7 @@
         }
         quotaStatus.textContent = `Întrebări rămase: ${data.intrebari_ramase}/browser`;
         setMessage(pendingBody, data.raspuns, data.citari);
-        addHistoryEntry(intrebare, data.raspuns, data.citari);
+        addHistoryEntry(intrebare, data.raspuns, data.citari, data.status !== 'out_of_scope');
       } catch (_) {
         setMessage(pendingBody, GENERIC_ERROR);
       } finally {

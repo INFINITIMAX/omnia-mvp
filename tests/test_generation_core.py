@@ -332,7 +332,8 @@ def test_promptul_contine_regulile_de_ancorare_si_de_concizie():
 
     assert "Folosește exclusiv informația din dovezi" in generator.prompt
     assert "referințe normative care nu apar în textul dovezilor" in generator.prompt
-    assert "Nu efectua dimensionări sau calcule inginerești" in generator.prompt
+    assert "Nu executa niciodată calcule, estimări sau dimensionări de proiect" in generator.prompt
+    assert "poți numai reda metoda, formulele și datele existente în dovezi" in generator.prompt
     assert "spune explicit ce lipsește" in generator.prompt
     assert "Fii concis" in generator.prompt
     # Cerințele vechi de citare rămân neatinse.
