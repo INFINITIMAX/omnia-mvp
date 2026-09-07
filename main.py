@@ -32,7 +32,13 @@ from access_control import (
     issue_anonymous_cookie,
     verify_anonymous_cookie,
 )
-from generation_core import GenerationService, GenerationValidationError, PublicCitation
+from generation_core import (
+    GeneratedText,
+    GenerationService,
+    GenerationValidationError,
+    PublicCitation,
+    UngroundedReferenceError,
+)
 load_dotenv()
 
 from retrieval_core import (
@@ -66,9 +72,13 @@ class QueryEmbedder(Protocol):
 
 
 class TextGenerator(Protocol):
-    """Contract injectabil pentru textul generat din promptul validat."""
+    """Contract injectabil pentru textul generat din promptul validat.
 
-    def generate(self, prompt: str, *, max_tokens: int) -> str: ...
+    Poate întoarce `str` (contractul inițial) sau `GeneratedText`, când furnizorul știe
+    dacă răspunsul a fost tăiat de plafonul de tokeni.
+    """
+
+    def generate(self, prompt: str, *, max_tokens: int) -> str | GeneratedText: ...
 
 
 class VoyageQueryEmbedder:
@@ -109,7 +119,7 @@ class AnthropicTextGenerator:
     def __init__(self, client: object | None = None) -> None:
         self._client = client
 
-    def generate(self, prompt: str, *, max_tokens: int) -> str:
+    def generate(self, prompt: str, *, max_tokens: int) -> GeneratedText:
         try:
             if self._client is None:
                 self._client = Anthropic(api_key=_required_environment("ANTHROPIC_API_KEY"))
@@ -123,7 +133,7 @@ class AnthropicTextGenerator:
         return self._validated_text(response)
 
     @staticmethod
-    def _validated_text(response: object) -> str:
+    def _validated_text(response: object) -> GeneratedText:
         content = getattr(response, "content", None)
         if not isinstance(content, Sequence) or isinstance(content, (str, bytes)) or not content:
             raise ProviderUnavailableError("răspuns Anthropic invalid")
@@ -136,7 +146,10 @@ class AnthropicTextGenerator:
         ]
         if not texts:
             raise ProviderUnavailableError("răspuns Anthropic invalid")
-        return "\n".join(texts)
+        # `stop_reason == "max_tokens"` e singurul caz în care Anthropic a tăiat răspunsul
+        # la plafon; orice altă valoare (sau lipsa câmpului) înseamnă răspuns netrunchiat.
+        truncated = getattr(response, "stop_reason", None) == "max_tokens"
+        return GeneratedText("\n".join(texts), truncated=truncated)
 
 
 class _PaidCallBudgetGuard:
@@ -187,7 +200,7 @@ class BudgetGatedTextGenerator:
         self._inner = inner
         self._guard = guard
 
-    def generate(self, prompt: str, *, max_tokens: int) -> str:
+    def generate(self, prompt: str, *, max_tokens: int) -> str | GeneratedText:
         self._guard.reserve()
         return self._inner.generate(prompt, max_tokens=max_tokens)
 
@@ -461,7 +474,9 @@ class CitationResponse(BaseModel):
 
 
 class IntreabaResponse(BaseModel):
-    status: Literal["answered", "not_found", "ambiguous_article", "ambiguous_reference"]
+    status: Literal[
+        "answered", "not_found", "ambiguous_article", "ambiguous_reference", "unsupported_answer"
+    ]
     raspuns: str
     citari: list[CitationResponse]
     intrebari_ramase: Annotated[int, Field(ge=0, le=9)]
@@ -470,6 +485,14 @@ class IntreabaResponse(BaseModel):
 _NOT_FOUND = "Nu am găsit această informație în documentele aprobate."
 _AMBIGUOUS_ARTICLE = "Am găsit versiuni neconcordante ale articolului solicitat."
 _AMBIGUOUS_REFERENCE = "Întrebarea conține referințe ambigue; te rog precizează documentul sau articolul."
+# Refuz deliberat, nu incident tehnic: răspunsul generat s-a sprijinit pe surse care nu se
+# regăsesc în dovezile aprobate, iar reformularea nu l-a ancorat nici a doua oară. Mesajul
+# spune exact atât — fără referința inventată, fără mecanismul de verificare, fără nimic
+# care să sugereze o defecțiune trecătoare care s-ar rezolva reîncercând aceeași întrebare.
+_UNSUPPORTED_ANSWER = (
+    "Nu pot răspunde la această întrebare doar pe baza documentelor aprobate. "
+    "Încearcă o întrebare mai punctuală sau indică articolul care te interesează."
+)
 
 
 _FORWARDED_FOR_HEADER = "X-Forwarded-For"
@@ -636,15 +659,29 @@ def intreaba(
             )
         else:
             generator = BudgetGatedTextGenerator(dependencies.text_generator_factory(), budget_guard)
-            generated = GenerationService(generator).generate(
-                cerere.intrebare, result.evidence
-            )
-            answer = IntreabaResponse(
-                status="answered",
-                raspuns=generated.raspuns,
-                citari=[CitationResponse.from_public(item) for item in generated.citari],
-                intrebari_ramase=intrebari_ramase,
-            )
+            try:
+                generated = GenerationService(generator).generate(
+                    cerere.intrebare, result.evidence
+                )
+            except UngroundedReferenceError:
+                # Refuz, nu eroare de infrastructură: tratat ca orice alt status public
+                # (comite tranzacția, întoarce 200 cu mesaj propriu), spre deosebire de
+                # restul erorilor de generare, care rămân 503 generic. Altfel utilizatorul
+                # ar vedea „Serviciul este temporar indisponibil" și ar reîncerca aceeași
+                # întrebare, cheltuind bani pe un răspuns care oricum va fi refuzat.
+                answer = IntreabaResponse(
+                    status="unsupported_answer",
+                    raspuns=_UNSUPPORTED_ANSWER,
+                    citari=[],
+                    intrebari_ramase=intrebari_ramase,
+                )
+            else:
+                answer = IntreabaResponse(
+                    status="answered",
+                    raspuns=generated.raspuns,
+                    citari=[CitationResponse.from_public(item) for item in generated.citari],
+                    intrebari_ramase=intrebari_ramase,
+                )
         connection.commit()
         quota_transaction_active = False
         if token is not None:

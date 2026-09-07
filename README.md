@@ -15,7 +15,7 @@ Live: https://normativai.ro (domeniu propriu; URL-ul Railway inițial, https://n
 3. Altfel, întrebarea primește un singur embedding Voyage (`voyage-3.5`) și e comparată
    prin pgvector cu fragmentele aprobate (top-5, prag de similaritate 0.50).
 4. Dovezile găsite (deduplicate, limitate la ~12.000 caractere) sunt trimise lui Claude
-   (`claude-sonnet-4-6`, max 800 tokeni) **doar dacă există cel puțin o dovadă** — fără
+   (`claude-sonnet-4-6`, max 1200 tokeni) **doar dacă există cel puțin o dovadă** — fără
    dovezi, nu se apelează Claude deloc.
 5. Răspunsul e validat: fiecare citare din text trebuie să corespundă unei dovezi
    efectiv trimise; identificatorii tehnici (ID intern, nume de fișier) nu ajung niciodată

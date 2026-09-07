@@ -18,6 +18,7 @@ import voyageai
 
 import main
 from access_control import RateLimitResult
+from generation_core import TRUNCATION_NOTICE, GeneratedText
 
 
 CATALOG_ROWS = [("doc-1", "NP 010-2022", "4.4.7.2")]
@@ -116,7 +117,7 @@ class EmbedderFake:
 
 @dataclass
 class GeneratorFake:
-    answer: str = "Răspuns [C1]."
+    answer: str | GeneratedText = "Răspuns [C1]."
     calls: int = 0
     error: Exception | None = None
     prompt: str | None = None
@@ -190,6 +191,74 @@ def test_exact_answered_are_citare_publica_si_zero_voyage(api):
     assert connection.closed
     assert "source_key" not in generator.prompt
     assert "content_hash" not in generator.prompt
+
+
+def test_raspunsul_trunchiat_ajunge_marcat_la_client_fara_sa_schimbe_contractul(api):
+    """Marcajul de trunchiere intră în câmpul `raspuns`; forma JSON rămâne neschimbată."""
+    connection = ConnectionFake()
+    generator = GeneratorFake(answer=GeneratedText("Răspuns [C1] tăiat la jum", truncated=True))
+
+    response = configure(api, connection, generator=generator).post(
+        "/intreaba", json={"intrebare": "NP 010-2022, art. 4.4.7.2"}
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert set(body) == {"status", "raspuns", "citari", "intrebari_ramase"}
+    assert body["status"] == "answered"
+    assert body["raspuns"].endswith(TRUNCATION_NOTICE)
+    assert body["raspuns"].startswith("Răspuns [C1] tăiat la jum")
+    assert generator.calls == 1
+
+
+def test_referinta_inventata_in_ambele_incercari_devine_refuz_onest_nu_503(api):
+    """Refuzul e deliberat, deci NU se mai deghizează în pană de serviciu: 200 cu statusul
+    public `unsupported_answer` și un mesaj care spune adevărul. Un 503 ar fi trimis
+    utilizatorul să reîncerce aceeași întrebare, cheltuind bani pe un răspuns care oricum
+    va fi refuzat."""
+    connection = ConnectionFake()
+    generator = GeneratorFake(answer="Conform STAS 6648, sarcina se calculează [C1].")
+
+    response = configure(api, connection, generator=generator).post(
+        "/intreaba", json={"intrebare": "NP 010-2022, art. 4.4.7.2"}
+    )
+
+    assert response.status_code == 200
+    corp = response.json()
+    assert corp["status"] == "unsupported_answer"
+    assert corp["raspuns"] == main._UNSUPPORTED_ANSWER
+    assert corp["citari"] == []
+    assert generator.calls == 2
+    assert connection.closed
+    assert connection.commits >= 1, "refuzul e un rezultat normal, nu o eroare cu rollback"
+
+
+def test_refuzul_neancorat_nu_scurge_referinta_inventata_sau_mecanismul(api):
+    """Mesajul de refuz nu spune ce referință a fost inventată, nici că există o verificare
+    de ancorare — sunt detalii interne, inutile utilizatorului și utile unui atacator."""
+    connection = ConnectionFake()
+    generator = GeneratorFake(answer="Conform STAS 6648 și C 107-2005 rezultă [C1].")
+
+    response = configure(api, connection, generator=generator).post(
+        "/intreaba", json={"intrebare": "NP 010-2022, art. 4.4.7.2"}
+    )
+
+    corp = response.text
+    for interzis in ("STAS 6648", "C 107-2005", "Ungrounded", "referin\\u021b\\u0103 neancorat"):
+        assert interzis not in corp
+    _assert_no_technical_identifiers(response)
+
+
+def test_forma_raspunsului_ramane_neschimbata_si_la_refuz(api):
+    """Statusul nou nu adaugă și nu scoate câmpuri din contractul public."""
+    connection = ConnectionFake()
+    generator = GeneratorFake(answer="Conform STAS 6648 [C1].")
+
+    response = configure(api, connection, generator=generator).post(
+        "/intreaba", json={"intrebare": "NP 010-2022, art. 4.4.7.2"}
+    )
+
+    assert set(response.json()) == {"status", "raspuns", "citari", "intrebari_ramase"}
 
 
 def test_semantic_answered_face_exact_un_embedding(api):
@@ -342,7 +411,8 @@ def test_adaptorul_anthropic_extrage_doar_blocurile_text_si_inveleste_eroarea_sd
     class ClientFake:
         messages = MessagesFake()
 
-    assert main.AnthropicTextGenerator(ClientFake()).generate("prompt", max_tokens=800) == "răspuns"
+    generated = main.AnthropicTextGenerator(ClientFake()).generate("prompt", max_tokens=1200)
+    assert generated == GeneratedText("răspuns", truncated=False)
 
     class MessagesDefect:
         def create(self, **_kwargs):
@@ -352,7 +422,27 @@ def test_adaptorul_anthropic_extrage_doar_blocurile_text_si_inveleste_eroarea_sd
         messages = MessagesDefect()
 
     with pytest.raises(main.ProviderUnavailableError):
-        main.AnthropicTextGenerator(ClientDefect()).generate("prompt", max_tokens=800)
+        main.AnthropicTextGenerator(ClientDefect()).generate("prompt", max_tokens=1200)
+
+
+@pytest.mark.parametrize(
+    "stop_reason, truncated",
+    [("max_tokens", True), ("end_turn", False), (None, False), ("stop_sequence", False)],
+)
+def test_adaptorul_anthropic_propaga_semnalul_de_trunchiere(stop_reason, truncated):
+    """Numai `stop_reason == "max_tokens"` înseamnă răspuns tăiat de plafon; restul, nu."""
+
+    class MessagesFake:
+        def create(self, **_kwargs):
+            return SimpleNamespace(
+                content=[SimpleNamespace(type="text", text="răspuns")], stop_reason=stop_reason
+            )
+
+    class ClientFake:
+        messages = MessagesFake()
+
+    generated = main.AnthropicTextGenerator(ClientFake()).generate("prompt", max_tokens=1200)
+    assert generated == GeneratedText("răspuns", truncated=truncated)
 
 
 def test_configurarea_lipsa_este_503_generic(api):
