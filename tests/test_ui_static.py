@@ -909,3 +909,27 @@ def test_javascript_extras_este_sintactic_valid():
         encoding="utf-8",
     )
     assert result.returncode == 0, result.stderr
+
+
+# ---------- Marcajul de trunchiere e randabil de rendererul nostru ----------
+
+def test_marcajul_de_trunchiere_foloseste_doar_sintaxa_pe_care_rendererul_o_suporta():
+    """Rendererul Markdown din index.html e deliberat minimal — construit exclusiv cu
+    createElement/textContent, fără innerHTML, fiindcă randează text venit de la LLM și din
+    documente. Suportă bold (`**...**`), nu italic.
+
+    Marcajul de trunchiere adăugat de backend trebuie să folosească doar sintaxă suportată,
+    altfel utilizatorul vede caracterele brute în pagină. Testul leagă cele două fișiere,
+    ca o schimbare într-unul să nu treacă tăcut pe lângă celălalt: fie se schimbă marcajul,
+    fie se extinde rendererul — dar niciodată doar unul dintre ele.
+    """
+    from generation_core import TRUNCATION_NOTICE
+
+    assert "**" in TRUNCATION_NOTICE, "marcajul trebuie să folosească bold, singurul suportat"
+    assert re.search(r"\*\*\(\.\+\?\)\*\*|\\*\\*\(\.\+\?\)\\*\\*", SCRIPT) or "boldPattern" in SCRIPT, (
+        "rendererul nu mai declară un tipar de bold — marcajul de trunchiere ar rămâne nerandat"
+    )
+    fara_bold = TRUNCATION_NOTICE.replace("**", "")
+    assert not re.search(r"(?<![A-Za-z0-9])_[^_]+_(?![A-Za-z0-9])", fara_bold), (
+        "marcajul folosește italic `_..._`, pe care rendererul nu îl cunoaște"
+    )

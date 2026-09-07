@@ -63,7 +63,7 @@
 - Testele standard nu apelează servicii plătite.
 - Voyage va fi apelat numai pentru întrebări semantice acceptate; adaptorul este lazy și injectabil.
 - Claude va fi apelat numai dacă există dovezi suficiente; adaptorul este lazy și injectabil.
-- Limitele implicite implementate în cod sunt: top-K 5, prag 0.50, context 12.000 caractere și răspuns maximum 800 tokenuri.
+- Limitele implicite implementate în cod sunt: top-K 5, prag 0.50, context 12.000 caractere și răspuns maximum 1200 tokenuri.
 
 ## Următorul obiectiv
 
