@@ -809,6 +809,16 @@
     // și fără istoric dacă localStorage nu răspunde.
     const HISTORY_KEY = 'omnia_istoric_conversatii_v1';
     const HISTORY_LIMIT = 20;
+    // Context conversațional trimis serverului ca PREFERINȚĂ de căutare: fără el, o
+    // întrebare de continuare ("dar când am un obstacol?") se caută izolat și poate
+    // nimeri în alt normativ. Trimitem strict întrebările anterioare și codurile
+    // documentelor citate atunci — niciodată textul răspunsurilor generate.
+    // Limitele de mai jos trebuie să rămână identice cu cele din retrieval_core.py,
+    // altfel serverul respinge cererea cu 422.
+    const MAX_CONTEXT_TURNS = 3;
+    const MAX_CONTEXT_DOCUMENT_CODES = 4;
+    const MAX_DOCUMENT_CODE_CHARS = 64;
+    let conversationTurns = [];
     let requestActive = false;
     let permanentlyLocked = false;
     let temporarilyLocked = false;
@@ -858,10 +868,40 @@
       clearHistoryBtn.hidden = false;
     }
 
+    // Codurile oficiale citate într-un răspuns, fără duplicate și fără valori pe care
+    // serverul le-ar respinge oricum (gol sau prea lung).
+    function documentCodesFromCitations(citari) {
+      const coduri = [];
+      if (!Array.isArray(citari)) return coduri;
+      for (const citare of citari) {
+        if (coduri.length >= MAX_CONTEXT_DOCUMENT_CODES) break;
+        const cod = citare && typeof citare.cod_document === 'string' ? citare.cod_document.trim() : '';
+        if (!cod || cod.length > MAX_DOCUMENT_CODE_CHARS) continue;
+        if (!coduri.includes(cod)) coduri.push(cod);
+      }
+      return coduri;
+    }
+
+    // Contextul ține doar de conversația vizibilă acum, nu de tot istoricul din localStorage.
+    function rememberConversationTurn(intrebare, citari) {
+      if (typeof intrebare !== 'string' || !intrebare.trim()) return;
+      conversationTurns = conversationTurns
+        .concat([{ intrebare, coduri_documente: documentCodesFromCitations(citari) }])
+        .slice(-MAX_CONTEXT_TURNS);
+    }
+
+    function conversationContext() {
+      return conversationTurns.map((tur) => ({
+        intrebare: tur.intrebare,
+        coduri_documente: tur.coduri_documente.slice(),
+      }));
+    }
+
     function addHistoryEntry(intrebare, raspuns, citari) {
       historyEntries = [{ intrebare, raspuns, citari: Array.isArray(citari) ? citari : [] }, ...historyEntries].slice(0, HISTORY_LIMIT);
       saveHistory(historyEntries);
       renderHistoryList();
+      rememberConversationTurn(intrebare, citari);
     }
 
     function replayHistoryEntry(index) {
@@ -870,10 +910,14 @@
       addMessage('user', entry.intrebare);
       const body = addMessage('assistant', '');
       setMessage(body, entry.raspuns, entry.citari);
+      // Conversația reafișată devine contextul curent: o continuare pusă imediat după
+      // se referă la ea, nu la ce era pe ecran înainte.
+      rememberConversationTurn(entry.intrebare, entry.citari);
     }
 
     function clearHistory() {
       historyEntries = [];
+      conversationTurns = [];
       saveHistory(historyEntries);
       renderHistoryList();
     }
@@ -1204,7 +1248,7 @@
         const response = await fetch('/intreaba', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ intrebare })
+          body: JSON.stringify({ intrebare, context_conversatie: conversationContext() })
         });
 
         if (response.status === 403) {

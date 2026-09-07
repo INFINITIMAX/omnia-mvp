@@ -14,6 +14,13 @@ SEMANTIC_TOP_K = 5
 SEMANTIC_MIN_SCORE = 0.50
 MAX_CONTEXT_CHARS = 12000
 
+# Contextul conversațional trimis de client: limite mici și fixe, pentru că e intrare
+# controlată de utilizator. Trei tururi acoperă o continuare firească ("dar atunci când...")
+# fără să umfle textul trimis la embedding sau lista de documente preferate.
+MAX_CONTEXT_TURNS = 3
+MAX_CONTEXT_DOCUMENT_CODES = 4
+MAX_DOCUMENT_CODE_CHARS = 64
+
 _ARTICLE_NORMALIZED = re.compile(r"^[a-z0-9().-]+$")
 _ARTICLE_PART = r"(?:[0-9a-z]+|\(\s*[0-9a-z]+\s*\))"
 _ARTICLE_MARKER = re.compile(
@@ -42,6 +49,19 @@ class ParsedReference:
     article_normalized: str | None
     has_explicit_article: bool
     requires_clarification: bool = False
+
+
+@dataclass(frozen=True)
+class ConversationTurn:
+    """Un tur anterior al conversației, așa cum îl trimite clientul.
+
+    Conține DOAR întrebarea pusă atunci și codurile oficiale ale documentelor citate
+    în răspunsul de atunci. Textul răspunsului generat nu face parte din contract:
+    nu reintroducem în lanțul de căutare text produs de model.
+    """
+
+    intrebare: str
+    coduri_documente: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -86,6 +106,18 @@ class ArticleParser:
             for document_id, aliases in document_aliases.items()
             for alias in aliases
         )
+        # Același catalog de aliasuri, indexat pe forma normalizată, ca un cod oficial
+        # primit din contextul conversației să fie rezolvat fără regex și fără o a doua
+        # sursă de adevăr (vezi documents_for_official_code).
+        documents_by_alias: dict[str, set[str]] = {}
+        for document_id, aliases in document_aliases.items():
+            for alias in aliases:
+                documents_by_alias.setdefault(
+                    self.normalize_document_alias(alias), set()
+                ).add(document_id)
+        self._documents_by_alias = {
+            alias: frozenset(documents) for alias, documents in documents_by_alias.items()
+        }
         self._known_articles = {
             document_id: frozenset(self.normalize_article(article) for article in articles)
             for document_id, articles in (known_articles or {}).items()
@@ -150,6 +182,21 @@ class ArticleParser:
         if candidates:
             return ParsedReference(document_id, candidates[0], False)
         return ParsedReference(document_id, None, False)
+
+    def documents_for_official_code(self, code: str) -> frozenset[str]:
+        """Rezolvă un cod oficial primit din context la `document_id`-uri aprobate.
+
+        Folosește exact aliasurile catalogului aprobat, deci un cod necunoscut, gol
+        sau de alt tip întoarce pur și simplu mulțimea goală: contextul poate doar să
+        prefere între documente deja aprobate, niciodată să adauge altele.
+        """
+        if not isinstance(code, str):
+            return frozenset()
+        try:
+            normalized = self.normalize_document_alias(code)
+        except ValueError:
+            return frozenset()
+        return self._documents_by_alias.get(normalized, frozenset())
 
     def _find_documents(self, question: str) -> frozenset[str]:
         return frozenset(
@@ -251,22 +298,58 @@ class PostgresRetrievalRepository:
         finally:
             cursor.close()
 
-    def find_semantic(self, embedding: Sequence[float], top_k: int) -> list[Evidence]:
-        self._require_positive_integer(top_k, "top_k")
-        vector = self._vector_literal(embedding)
-        sql = "SELECT " + self._SELECT_FIELDS + """
+    def _semantic_sql(self, extra_condition: str = "") -> str:
+        """Aceeași interogare semantică pentru ambele variante; `extra_condition` poate
+        doar să ADAUGE o restricție după filtrul `document.status = 'approved'`, care
+        rămâne mereu primul și nu poate fi ocolit."""
+        return "SELECT " + self._SELECT_FIELDS + """
             , 1 - (chunk.embedding <=> %s::vector) AS score
         """ + self._FROM_DOCUMENTS + """
-            WHERE document.status = 'approved' AND chunk.embedding IS NOT NULL
+            WHERE document.status = 'approved' AND chunk.embedding IS NOT NULL""" + extra_condition + """
             ORDER BY chunk.embedding <=> %s::vector
             LIMIT %s
         """
+
+    def find_semantic(self, embedding: Sequence[float], top_k: int) -> list[Evidence]:
+        self._require_positive_integer(top_k, "top_k")
+        vector = self._vector_literal(embedding)
         cursor = self._connection.cursor()
         try:
-            cursor.execute(sql, (vector, vector, top_k))
+            cursor.execute(self._semantic_sql(), (vector, vector, top_k))
             return [self._evidence_from_row(row, score=row[8]) for row in cursor.fetchall()]
         finally:
             cursor.close()
+
+    def find_semantic_in_documents(
+        self, embedding: Sequence[float], top_k: int, document_ids: Sequence[str]
+    ) -> list[Evidence]:
+        """Aceeași căutare semantică, restrânsă la documentele preferate din context.
+
+        Lista de documente ajunge în SQL ca un singur parametru DB-API (`= ANY(%s)`),
+        niciodată interpolată în text, iar filtrul `status = 'approved'` rămâne intact:
+        preferința poate doar să restrângă rezultatele căutării globale.
+        """
+        self._require_positive_integer(top_k, "top_k")
+        documents = self._validated_document_ids(document_ids)
+        vector = self._vector_literal(embedding)
+        cursor = self._connection.cursor()
+        try:
+            cursor.execute(
+                self._semantic_sql(" AND chunk.document_id = ANY(%s)"),
+                (vector, documents, vector, top_k),
+            )
+            return [self._evidence_from_row(row, score=row[8]) for row in cursor.fetchall()]
+        finally:
+            cursor.close()
+
+    @staticmethod
+    def _validated_document_ids(document_ids: Sequence[str]) -> list[str]:
+        if isinstance(document_ids, (str, bytes)) or not isinstance(document_ids, Sequence):
+            raise ValueError("document_ids trebuie să fie o secvență de identificatori")
+        values = list(document_ids)
+        if not values or any(type(value) is not str or not value for value in values):
+            raise ValueError("document_ids trebuie să conțină numai identificatori text nevizi")
+        return values
 
     @staticmethod
     def _require_positive_integer(value: object, name: str) -> int:
@@ -322,11 +405,20 @@ class RetrievalService:
             max_context_chars, "max_context_chars"
         )
 
-    def retrieve(self, question: str) -> RetrievalResult:
+    def retrieve(
+        self, question: str, context: Sequence[ConversationTurn] = ()
+    ) -> RetrievalResult:
+        """Recuperează dovezile pentru întrebarea curentă, opțional cu contextul conversației.
+
+        Contextul e PREFERINȚĂ, nu restricție: dacă documentele citate anterior nu dau
+        nimic peste prag, se reia căutarea globală normală. Un context absent înseamnă
+        exact comportamentul de dinaintea acestei funcționalități.
+        """
         if not isinstance(question, str) or not question.strip():
             raise ValueError("întrebarea trebuie să fie text nevid")
         if len(question) > MAX_QUESTION_CHARS:
             raise ValueError("întrebarea depășește limita permisă")
+        turns = self._validated_context(context)
 
         # simetric cu normalizarea aplicata la ingestie (vezi diacritice.py):
         # fara asta, un utilizator a carui tastatura/sistem produce sedila
@@ -344,12 +436,77 @@ class RetrievalService:
             evidence = self._limit_context(self._deduplicate(exact, preserve_documents=True))
             return RetrievalResult("found", evidence) if evidence else RetrievalResult("not_found", ())
 
-        semantic = self._repository.find_semantic(self._embedder.embed_query(question), self._semantic_top_k)
-        accepted = [item for item in semantic if item.score is not None and item.score >= self._semantic_min_score]
+        # O referință explicită de document în întrebarea curentă câștigă întotdeauna:
+        # contextul e ignorat, ca utilizatorul să poată schimba deliberat subiectul.
+        preferred = () if reference.document_id is not None else self._preferred_document_ids(turns)
+        # Un SINGUR apel de embedding, indiferent dacă urmează una sau două interogări SQL:
+        # același vector e refolosit și pentru preferință, și pentru căutarea globală.
+        embedding = self._embedder.embed_query(self._embedding_text(question, turns))
+        accepted: tuple[Evidence, ...] = ()
+        if preferred:
+            accepted = self._accepted(
+                self._repository.find_semantic_in_documents(embedding, self._semantic_top_k, preferred)
+            )
+        if not accepted:
+            accepted = self._accepted(self._repository.find_semantic(embedding, self._semantic_top_k))
         if self._has_ambiguous_article(accepted):
             return RetrievalResult("ambiguous_article", ())
         evidence = self._limit_context(self._deduplicate(accepted))
         return RetrievalResult("found", evidence) if evidence else RetrievalResult("not_found", ())
+
+    @staticmethod
+    def _validated_context(context: Sequence[ConversationTurn]) -> tuple[ConversationTurn, ...]:
+        """Acceptă numai tururi tipate și păstrează cel mult ultimele MAX_CONTEXT_TURNS.
+
+        Codurile invalide (tip greșit, goale, prea lungi) sunt eliminate în siguranță:
+        un client care trimite gunoi pierde preferința, nu primește o eroare.
+        """
+        if isinstance(context, (str, bytes)) or not isinstance(context, Sequence):
+            raise ValueError("contextul conversației trebuie să fie o secvență de tururi")
+        turns: list[ConversationTurn] = []
+        for turn in tuple(context)[-MAX_CONTEXT_TURNS:]:
+            if not isinstance(turn, ConversationTurn):
+                raise ValueError("contextul conversației acceptă numai tururi tipate")
+            if not isinstance(turn.intrebare, str) or not turn.intrebare.strip():
+                raise ValueError("întrebarea din context trebuie să fie text nevid")
+            if len(turn.intrebare) > MAX_QUESTION_CHARS:
+                raise ValueError("întrebarea din context depășește limita permisă")
+            coduri = turn.coduri_documente
+            if isinstance(coduri, (str, bytes)) or not isinstance(coduri, Sequence):
+                raise ValueError("codurile din context trebuie să fie o secvență")
+            turns.append(
+                ConversationTurn(
+                    normalizeaza_diacritice(turn.intrebare),
+                    tuple(
+                        cod
+                        for cod in tuple(coduri)[:MAX_CONTEXT_DOCUMENT_CODES]
+                        if isinstance(cod, str) and 0 < len(cod) <= MAX_DOCUMENT_CODE_CHARS
+                    ),
+                )
+            )
+        return tuple(turns)
+
+    def _preferred_document_ids(self, turns: Sequence[ConversationTurn]) -> tuple[str, ...]:
+        """Traduce codurile citate anterior în `document_id`-uri aprobate, fără duplicate."""
+        preferred: dict[str, None] = {}
+        for turn in turns:
+            for cod in turn.coduri_documente:
+                for document_id in sorted(self._parser.documents_for_official_code(cod)):
+                    preferred.setdefault(document_id, None)
+        return tuple(preferred)
+
+    @staticmethod
+    def _embedding_text(question: str, turns: Sequence[ConversationTurn]) -> str:
+        """Un singur text pentru un singur apel de embedding: întrebările anterioare dau
+        subiectul ("sprinklere"), iar întrebarea curentă rămâne ultima și cea mai specifică
+        ("când am un obstacol?"). Fără context, textul e identic cu întrebarea de azi."""
+        return "\n".join([turn.intrebare for turn in turns] + [question])
+
+    def _accepted(self, semantic: Sequence[Evidence]) -> tuple[Evidence, ...]:
+        return tuple(
+            item for item in semantic
+            if item.score is not None and item.score >= self._semantic_min_score
+        )
 
     @staticmethod
     def _has_ambiguous_article(evidence: Sequence[Evidence]) -> bool:
