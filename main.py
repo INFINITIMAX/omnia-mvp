@@ -427,52 +427,14 @@ def pagina_confidentialitate() -> FileResponse:
         raise HTTPException(status_code=503, detail="Serviciul este temporar indisponibil.") from error
 
 
-class DocumentPublic(BaseModel):
-    cod_oficial: str
-    titlu_oficial: str
-    an: int
-
-
-class DocumenteResponse(BaseModel):
-    documente: list[DocumentPublic]
-
-
-_SQL_DOCUMENTE_APROBATE = (
-    "SELECT cod_oficial, titlu_oficial, an FROM public.documente WHERE status = %s ORDER BY cod_oficial"
-)
-
-
-def _documente_aprobate(connection: object) -> list[DocumentPublic]:
-    """Citește doar metadata publică (cod oficial, titlu, an) a documentelor aprobate —
-    fără document_id, source_key sau alt identificator intern (vezi CitationResponse mai jos,
-    același principiu: doar ce e sigur pentru un vizitator anonim)."""
-    cursor = connection.cursor()
-    try:
-        cursor.execute(_SQL_DOCUMENTE_APROBATE, ("approved",))
-        rows = cursor.fetchall()
-    finally:
-        cursor.close()
-    return [
-        DocumentPublic(cod_oficial=str(cod), titlu_oficial=str(titlu), an=int(an))
-        for cod, titlu, an in rows
-    ]
-
-
-@app.get("/documents", response_model=DocumenteResponse)
-def documente() -> DocumenteResponse:
-    """Catalogul public al documentelor aprobate — fără cookie, quota sau rate limit,
-    la fel ca /termeni și /confidentialitate: e o listă statică ieftină, nu declanșează
-    niciun apel plătit și nu justifică fricțiunea controalelor anonime."""
-    connection: object | None = None
-    try:
-        dependencies: RuntimeDependencies = app.state.runtime_dependencies
-        connection = dependencies.connection_factory()
-        return DocumenteResponse(documente=_documente_aprobate(connection))
-    except (ServiceDependencyError, psycopg2.Error) as error:
-        raise HTTPException(status_code=503, detail="Serviciul este temporar indisponibil.") from error
-    finally:
-        if connection is not None:
-            connection.close()
+# Nu există și nu trebuie reintrodusă nicio rută care expune catalogul documentelor
+# (cod oficial, titlu, an, număr de documente). Decizie de produs a lui Lucian: acoperirea
+# documentară a produsului nu se publică — lista completă arată exact ce acoperă și ce nu
+# acoperă NormativAI. Din același motiv, lista documentelor a fost scoasă și din nav-ul UI
+# la 03-09-2026 și înlocuită cu istoricul conversațiilor. Documentele rămân vizibile
+# utilizatorului doar punctual, prin citările răspunsului la care chiar au contribuit.
+# Un test dedicat (test_ruta_documents_nu_exista_si_nu_poate_fi_reintrodusa_tacut) verifică
+# activ că nicio rută de acest fel nu reapare.
 
 
 class IntrebareRequest(BaseModel):

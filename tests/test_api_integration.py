@@ -21,7 +21,6 @@ from access_control import RateLimitResult
 
 
 CATALOG_ROWS = [("doc-1", "NP 010-2022", "4.4.7.2")]
-DOCUMENTS_ROWS = [("NP 010-2022", "Instalații sanitare — normativ", 2022)]
 EXACT_ROW = (1, "doc-1", "NP 010-2022", "Titlu oficial", "4.4.7.2", "4.4.7.2", "fragment public", "hash-a")
 SEMANTIC_ROW = EXACT_ROW + (0.9,)
 NOW = datetime(2026, 9, 1, 12, 34, 56, tzinfo=UTC)
@@ -49,8 +48,6 @@ class CursorFake:
             self.rows = [("minute", self.connection.minute_count), ("hour", self.connection.hour_count)]
         elif "SELECT document.document_id" in sql:
             self.rows = self.connection.catalog_rows
-        elif "SELECT cod_oficial, titlu_oficial, an FROM public.documente" in sql:
-            self.rows = self.connection.documents_rows
         elif "AS score" in sql:
             self.rows = self.connection.semantic_rows
         elif "pg_advisory_xact_lock" not in sql and "rate_limit_buckets" not in sql:
@@ -69,12 +66,10 @@ class CursorFake:
 class ConnectionFake:
     def __init__(
         self, *, catalog_rows=CATALOG_ROWS, exact_rows=(EXACT_ROW,), semantic_rows=(SEMANTIC_ROW,),
-        documents_rows=DOCUMENTS_ROWS,
         minute_count=1, hour_count=1, quota_results=((1,),), budget_results=((1,),) * 10,
         error=None, rollback_error=None,
     ):
         self.catalog_rows = catalog_rows
-        self.documents_rows = documents_rows
         self.exact_rows = exact_rows
         self.semantic_rows = semantic_rows
         self.minute_count = minute_count
@@ -917,71 +912,32 @@ def test_paginile_juridice_sunt_servite_public(api, path):
     assert "set-cookie" not in response.headers
 
 
-def test_documents_returneaza_doar_metadata_publica_fara_cookie_sau_costuri(api):
-    connection = ConnectionFake(
-        documents_rows=[("NP 010-2022", "Instalații sanitare", 2022), ("I9-2022", "Instalații electrice", 2022)]
+@pytest.mark.parametrize("path", ["/documents", "/documente"])
+def test_ruta_documents_nu_exista_si_nu_poate_fi_reintrodusa_tacut(api, path):
+    """Catalogul documentelor NU se expune public — decizie de produs a lui Lucian:
+    lista completă arată exact ce acoperă și ce nu acoperă produsul, informație
+    sensibilă competitiv. Din același motiv lista a fost scoasă din nav-ul UI la
+    03-09-2026. O rută `GET /documents` a existat scurt (commit 9bd65d5, urmând
+    backlog-ul din PLAN.md, care preceda decizia) și a fost eliminată.
+
+    Testul nu verifică doar 404-ul: verifică și că nicio rută înregistrată în
+    aplicație nu poartă un asemenea nume, ca o reintroducere sub altă cale sau
+    altă metodă (`POST`, `/api/documents`, `/documente`) să nu treacă tăcut —
+    același principiu ca testul anti-`innerHTML` și ca cel de drift al
+    hash-urilor CSP: nu doar scoatem ceva, ci facem imposibilă revenirea lui
+    neobservată."""
+    connection = ConnectionFake()
+
+    response = configure(api, connection).get(path)
+
+    assert response.status_code == 404
+    assert connection.calls == []
+
+    cai_inregistrate = {getattr(ruta, "path", "") for ruta in main.app.routes}
+    assert not any("document" in cale.lower() for cale in cai_inregistrate), (
+        "o rută care expune catalogul documentelor a fost reintrodusă: "
+        f"{sorted(cale for cale in cai_inregistrate if 'document' in cale.lower())}"
     )
-    embedder = EmbedderFake()
-    generator = GeneratorFake()
-
-    response = configure(api, connection, embedder, generator).get("/documents")
-
-    assert response.status_code == 200
-    assert response.json() == {
-        "documente": [
-            {"cod_oficial": "NP 010-2022", "titlu_oficial": "Instalații sanitare", "an": 2022},
-            {"cod_oficial": "I9-2022", "titlu_oficial": "Instalații electrice", "an": 2022},
-        ]
-    }
-    assert "set-cookie" not in response.headers
-    assert embedder.calls == generator.calls == 0
-    assert connection.commits == connection.rollbacks == 0
-    assert connection.closed
-    (sql, parametri), = connection.calls
-    assert parametri == ("approved",)
-
-
-def test_documents_gol_e_lista_goala_nu_eroare(api):
-    connection = ConnectionFake(documents_rows=[])
-
-    response = configure(api, connection).get("/documents")
-
-    assert response.status_code == 200
-    assert response.json() == {"documente": []}
-
-
-def test_documents_nu_expune_niciun_identificator_intern(api):
-    """Contract minim aprobat: doar cod_oficial + titlu_oficial + an — fără document_id,
-    source_key sau status, chiar dacă driverul DB ar întoarce coloane suplimentare."""
-    connection = ConnectionFake(documents_rows=[("NP 010-2022", "Titlu", 2022)])
-
-    response = configure(api, connection).get("/documents")
-
-    corp = response.json()["documente"][0]
-    assert set(corp.keys()) == {"cod_oficial", "titlu_oficial", "an"}
-
-
-def test_documents_eroare_db_este_503_generic_si_conexiunea_se_inchide(api):
-    connection = ConnectionFake(error=psycopg2.OperationalError("db jos"))
-
-    response = configure(api, connection).get("/documents")
-
-    assert response.status_code == 503
-    assert response.json() == {"detail": "Serviciul este temporar indisponibil."}
-    assert connection.closed
-
-
-def test_documents_configuratie_lipsa_este_503_generic(api):
-    main.app.state.runtime_dependencies = main.RuntimeDependencies(
-        connection_factory=lambda: (_ for _ in ()).throw(main.DependencyConfigurationError()),
-        embedder_factory=lambda: EmbedderFake(),
-        text_generator_factory=lambda: GeneratorFake(),
-    )
-
-    response = api.get("/documents")
-
-    assert response.status_code == 503
-    assert response.json() == {"detail": "Serviciul este temporar indisponibil."}
 
 
 @pytest.fixture

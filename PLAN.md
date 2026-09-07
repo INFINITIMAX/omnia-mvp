@@ -22,8 +22,17 @@ Omnia devine o aplicație publică pentru normative tehnice românești: răspun
 ### Există, dar nu este încă livrat
 
 - prototipul UI „Technical Paper” (`feat/technical-paper-ui`) a fost șters definitiv (worktree + prototip) la 03-09-2026 după respingerea vizuală — nu mai există în lucru, doar în istoricul git dacă e nevoie de recuperare;
-- `/documents` cu contract aprobat — nu a fost implementat încă;
 - lotul 4 de documente (P118/2) — neatins intenționat, ca să nu coincidă cu testarea externă.
+
+### Anulat definitiv: `/documents` și lista publică de documente
+
+`GET /documents` a fost implementat (commit `9bd65d5`) urmând backlog-ul de mai jos, apoi
+**eliminat** (07-09-2026). Motivul e de produs, nu tehnic: catalogul complet al normativelor
+indexate arată exact ce acoperă și ce nu acoperă produsul — informație sensibilă competitiv.
+Din același motiv, lista documentelor fusese deja scoasă din nav-ul UI la 03-09-2026 și
+înlocuită cu istoricul conversațiilor. Cerințele din Faza 4 și Faza 6 de mai jos, care mai
+menționează `/documents` sau contorul de documente, sunt **depășite de această decizie** și
+nu trebuie reimplementate. Un test dedicat împiedică reintroducerea tăcută a rutei.
 
 ### Ordinea recomandată la reluare
 
@@ -74,7 +83,7 @@ Omnia devine o aplicație publică pentru normative tehnice românești: răspun
 - Separare retrieval de generare Anthropic.
 - Fără apel Claude când lipsesc dovezile.
 - Limite pentru întrebare, chunk-uri, context și output.
-- Endpoint-uri `/health`, `/documents`, `/intreaba`.
+- Endpoint-uri `/health` și `/intreaba`. (`/documents` a fost anulat definitiv — vezi secțiunea „Anulat definitiv" de mai sus.)
 - Erori/timeouts clare, logging fără secrete sau text normativ integral.
 - Testele plătite sunt opt-in.
 - Tier anonim: maximum 10 întrebări în total per browser, urmărite server-side printr-un identificator semnat; resetarea cookie-ului/alt browser rămâne o limitare acceptată a MVP-ului.
@@ -94,7 +103,7 @@ Omnia devine o aplicație publică pentru normative tehnice românești: răspun
 
 ## Faza 6 — UI real
 
-- Lista documentelor și contorul vin din `/documents`.
+- ~~Lista documentelor și contorul vin din `/documents`.~~ **Anulat** (07-09-2026): catalogul documentelor nu se expune public; nav-ul arată istoricul conversațiilor, nu lista normativelor.
 - Coduri/titluri oficiale și citări clare.
 - Eliminarea datelor demonstrative false.
 - Loading, erori și refuz explicit.
@@ -102,7 +111,7 @@ Omnia devine o aplicație publică pentru normative tehnice românești: răspun
 - Redesign-ul pornește cu două capturi/prototipuri comparabile, nu direct cu implementare completă.
 - Acceptarea tehnică și acceptarea vizuală sunt gates separate; testele verzi nu pot înlocui aprobarea vizuală a lui Lucian.
 
-**Gata când:** varianta vizuală este aprobată explicit pe desktop și mobil, comportamentele 200/403/429/422/503 sunt reverificate, iar `/documents` are contract public aprobat și implementat.
+**Gata când:** varianta vizuală este aprobată explicit pe desktop și mobil, iar comportamentele 200/403/429/422/503 sunt reverificate. (Condiția privind `/documents` a fost eliminată odată cu anularea endpointului.)
 
 ## Faza 7 — Review și deployment
 
