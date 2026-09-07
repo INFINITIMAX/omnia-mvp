@@ -1415,3 +1415,161 @@ def test_plafonul_zilnic_invalid_este_eroare_generica(monkeypatch, raw):
 
     with pytest.raises(main.DependencyConfigurationError):
         main._daily_paid_call_limit()
+
+
+# ---------- Contextul conversației, la nivel de API ----------
+
+# Un tur anterior plauzibil: întrebarea de atunci plus codul documentului citat atunci.
+# Codul e cel din CATALOG_ROWS, deci se rezolvă la `doc-1`.
+TUR_ANTERIOR = {"intrebare": "Unde găsesc detalii despre obstacolele de la sprinklere?",
+                "coduri_documente": ["NP 010-2022"]}
+INTREBARE_ELIPTICA = "Ok dar spune-mi exact când am un obstacol?"
+
+
+def _sql_semantice(connection):
+    """Interogările semantice trimise, în ordine: (restrânsă?, parametri)."""
+    return [
+        ("chunk.document_id = ANY(%s)" in sql, parametri)
+        for sql, parametri in connection.calls
+        if "AS score" in sql
+    ]
+
+
+def test_cererea_fara_context_se_comporta_exact_ca_inainte(api):
+    """Compatibilitate înapoi: câmpul e opțional, iar absența lui înseamnă o singură
+    căutare semantică globală, exact ca înainte de această funcționalitate."""
+    connection = ConnectionFake()
+
+    response = configure(api, connection).post(
+        "/intreaba", json={"intrebare": "Care este regula sintetică?"}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "answered"
+    assert _sql_semantice(connection) == [(False, ANY)]
+
+
+def test_intrebarea_eliptica_cu_context_cauta_intai_in_documentele_din_context(api):
+    """Cazul real: „când am un obstacol?" pusă după o discuție despre sprinklere trebuie
+    interpretată în acel context, nu izolat."""
+    connection = ConnectionFake()
+
+    response = configure(api, connection).post(
+        "/intreaba",
+        json={"intrebare": INTREBARE_ELIPTICA, "context_conversatie": [TUR_ANTERIOR]},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "answered"
+    semantice = _sql_semantice(connection)
+    assert semantice[0][0] is True, "prima căutare trebuie restrânsă la documentele din context"
+    assert semantice[0][1][-1] == ["doc-1"], "codul din context trebuie rezolvat la document_id"
+
+
+def test_preferinta_fara_rezultate_cade_pe_cautarea_globala_si_raspunde(api):
+    """Decizia de produs: preferință, nu restricție. Dacă documentele din context nu dau
+    nimic, întrebarea primește totuși un răspuns din căutarea globală — nu un refuz."""
+    connection = ConnectionFake(semantic_scoped_rows=[])
+    embedder = EmbedderFake()
+
+    response = configure(api, connection, embedder).post(
+        "/intreaba",
+        json={"intrebare": INTREBARE_ELIPTICA, "context_conversatie": [TUR_ANTERIOR]},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "answered"
+    restranse = [restransa for restransa, _ in _sql_semantice(connection)]
+    assert restranse == [True, False], "trebuie încercată întâi preferința, apoi globalul"
+    assert embedder.calls == 1, "căderea pe global nu are voie să coste un al doilea embedding"
+
+
+def test_contextul_nu_ajunge_niciodata_la_generator(api):
+    """Întrebările anterioare merg DOAR la embedder, ca să dezambiguizeze căutarea.
+    Promptul către Anthropic conține numai întrebarea curentă și dovezile, deci contextul
+    nu crește volumul de tokeni plătiți la generare."""
+    connection = ConnectionFake()
+    generator = GeneratorFake()
+
+    configure(api, connection, generator=generator).post(
+        "/intreaba",
+        json={"intrebare": INTREBARE_ELIPTICA, "context_conversatie": [TUR_ANTERIOR]},
+    )
+
+    assert generator.prompt is not None
+    assert TUR_ANTERIOR["intrebare"] not in generator.prompt
+    assert INTREBARE_ELIPTICA in generator.prompt
+
+
+@pytest.mark.parametrize(
+    "context",
+    [
+        [{"intrebare": ""}],
+        [{"intrebare": "x" * (main.MAX_QUESTION_CHARS + 1)}],
+        [{"intrebare": "ok", "camp_nerecunoscut": 1}],
+        [{"intrebare": "ok", "coduri_documente": "NP 010-2022"}],
+        [{"coduri_documente": ["NP 010-2022"]}],
+        [{"intrebare": "ok"}] * (main.MAX_CONTEXT_TURNS + 1),
+        "nu-e-o-lista",
+    ],
+)
+def test_contextul_invalid_este_422_inainte_de_orice_apel_platit(api, context):
+    """Contextul e intrare controlată de utilizator: e validat strict, înainte de DB,
+    embedder sau generator."""
+    connection = ConnectionFake()
+    embedder = EmbedderFake()
+    generator = GeneratorFake()
+
+    response = configure(api, connection, embedder, generator).post(
+        "/intreaba", json={"intrebare": "Care este regula sintetică?", "context_conversatie": context}
+    )
+
+    assert response.status_code == 422
+    assert connection.calls == []
+    assert embedder.calls == generator.calls == 0
+    _assert_no_technical_identifiers(response)
+
+
+# ---------- Interacțiunea dintre contextul conversației și ancorarea în dovezi ----------
+
+def test_citarea_documentului_adus_prin_context_este_acceptata_ca_ancorata(api):
+    """Contextul aduce dovezi dintr-un anumit document; codul acelui document devine astfel
+    o referință ACOPERITĂ. Detecția referințelor inventate nu trebuie să se bată cap în cap
+    cu preferința de context: fără această verificare, orice răspuns care numește documentul
+    din context ar declanșa o reîncercare plătită degeaba."""
+    connection = ConnectionFake()
+    generator = GeneratorFake(answer="Conform NP 010-2022, obstacolul este definit astfel [C1].")
+
+    response = configure(api, connection, generator=generator).post(
+        "/intreaba",
+        json={"intrebare": INTREBARE_ELIPTICA, "context_conversatie": [TUR_ANTERIOR]},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "answered"
+    assert generator.calls == 1, "nu trebuie declanșată nicio reîncercare"
+
+
+def test_citarea_unui_document_din_context_dar_absent_din_dovezi_ramane_neancorata(api):
+    """Cazul invers, deliberat: contextul numește P 118/2-2013, dar căderea pe căutarea
+    globală a adus dovezi din alt document. Un răspuns care citează totuși P 118/2-2013 NU
+    e acoperit — ancorarea se face față de dovezile chiar trimise modelului, nu față de ce
+    a spus clientul în context. Altfel contextul ar deveni o portiță prin care clientul
+    poate legitima orice referință."""
+    connection = ConnectionFake(semantic_scoped_rows=[])
+    generator = GeneratorFake(answer="Conform P 118/2-2013, obstacolul este definit astfel [C1].")
+
+    response = configure(api, connection, generator=generator).post(
+        "/intreaba",
+        json={
+            "intrebare": INTREBARE_ELIPTICA,
+            "context_conversatie": [
+                {"intrebare": TUR_ANTERIOR["intrebare"], "coduri_documente": ["P 118/2-2013"]}
+            ],
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "unsupported_answer"
+    assert generator.calls == 2, "o singură reîncercare, apoi refuz"
+    assert "P 118/2-2013" not in response.text
