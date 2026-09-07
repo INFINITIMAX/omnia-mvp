@@ -1415,3 +1415,56 @@ def test_plafonul_zilnic_invalid_este_eroare_generica(monkeypatch, raw):
 
     with pytest.raises(main.DependencyConfigurationError):
         main._daily_paid_call_limit()
+
+
+# --- Refuz local pentru calcule de proiectare ---
+
+
+def test_calculul_de_proiect_este_refuzat_fara_retrieval_provider_sau_quota(api):
+    connection = ConnectionFake()
+    embedder = EmbedderFake()
+    generator = GeneratorFake()
+    budget_connection = ConnectionFake()
+
+    response = configure(
+        api, connection, embedder, generator, budget_connection=budget_connection
+    ).post(
+        "/intreaba",
+        json={
+            "intrebare": (
+                "Pentru o hală de 200 kW, 4000 mp, 7 m, 28°C, în Buzău, "
+                "calculează sarcina de răcire necesară."
+            )
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "out_of_scope",
+        "raspuns": (
+            "NormativAI nu efectuează calcule sau dimensionări de proiect. "
+            "Pot indica prevederile și datele cerute de normative."
+        ),
+        "citari": [],
+        "intrebari_ramase": 10,
+    }
+    # Rate limit-ul se comite, însă rezervarea temporară de quota este restituită.
+    assert connection.commits == 1
+    assert connection.rollbacks == 1
+    assert embedder.calls == generator.calls == 0
+    assert budget_connection.calls == []
+    executed_sql = "\n".join(sql for sql, _ in connection.calls)
+    assert "SELECT document.document_id" not in executed_sql
+    assert "documente_chunks" not in executed_sql
+
+
+def test_rollback_esuat_la_refuzul_de_calcul_este_fail_closed_503(api):
+    connection = ConnectionFake(rollback_error=psycopg2.OperationalError("rollback db"))
+
+    response = configure(api, connection).post(
+        "/intreaba", json={"intrebare": "Calculează necesarul de răcire pentru hală."}
+    )
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Serviciul este temporar indisponibil."}
+    assert connection.rollbacks == 1

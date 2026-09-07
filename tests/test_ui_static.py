@@ -40,6 +40,14 @@ def test_fara_ghicire_quota_din_localstorage():
     assert "data.intrebari_ramase" in SCRIPT
 
 
+def test_refuzul_de_calcul_se_randeaza_dar_nu_devine_context_de_retrieval():
+    # Este tot un 200, deci urmează calea normală de setMessage/istoric, însă al patrulea
+    # argument oprește numai rememberConversationTurn pentru statusul aprobat exact.
+    assert "setMessage(pendingBody, data.raspuns, data.citari);" in SCRIPT
+    assert "addHistoryEntry(intrebare, data.raspuns, data.citari, data.status !== 'out_of_scope');" in SCRIPT
+    assert "if (includeInContext) rememberConversationTurn(intrebare, citari);" in SCRIPT
+
+
 # ---------- 403 / 429 / 422 / 503 / rețea ----------
 
 def test_403_blocheaza_permanent_si_seteaza_quota_din_payload():
