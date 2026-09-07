@@ -297,7 +297,11 @@ global.document = {
   getElementById() { return stubEl(); },
   querySelectorAll() { return []; },
 };
-global.window = { setTimeout: () => {}, addEventListener: () => {} };
+global.window = {
+  setTimeout: () => {},
+  addEventListener: () => {},
+  matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }),
+};
 
 const fs = require('fs');
 const html = fs.readFileSync(process.argv[2], 'utf-8');
@@ -456,7 +460,11 @@ global.document = {
   getElementById() { return stubEl(); },
   querySelectorAll() { return []; },
 };
-global.window = { setTimeout: () => {}, addEventListener: () => {} };
+global.window = {
+  setTimeout: () => {},
+  addEventListener: () => {},
+  matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }),
+};
 
 const fs = require('fs');
 const html = fs.readFileSync(process.argv[2], 'utf-8');
@@ -626,6 +634,7 @@ global.document = {
 const windowHandlers = {};
 global.window = {
   setTimeout: () => {},
+  matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }),
   localStorage: { getItem() { return null; }, setItem() {}, removeItem() {} },
   addEventListener(evt, fn) { (windowHandlers[evt] = windowHandlers[evt] || []).push(fn); },
   removeEventListener() {},
@@ -749,6 +758,7 @@ const store = {};
 global.window = {
   setTimeout: () => {},
   addEventListener: () => {},
+  matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }),
   localStorage: {
     getItem(k) {
       if (mode === 'throw_all') throw new Error('SecurityError');

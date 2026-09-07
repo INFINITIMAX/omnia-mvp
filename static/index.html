@@ -281,6 +281,13 @@
   .rail-legal a { font-size: 12.5px; color: var(--paper-dim); text-decoration: none; }
   .rail-legal a:hover { color: var(--gold); text-decoration: underline; }
 
+  /* ---------- Bara mobila de sus + bottom sheet: elemente noi, ascunse implicit;
+     devin vizibile DOAR sub 900px (vezi media query de mai jos). Pe desktop nu exista
+     nicio schimbare vizuala fata de inainte. ---------- */
+  .mobile-topbar { display: none; }
+  .sheet-scrim { display: none; }
+  .sheet-head { display: none; }
+
   /* ---------- Coloana principala ---------- */
   .main { display: flex; flex-direction: column; min-width: 0; height: 100vh; }
 
@@ -631,68 +638,160 @@
     }
   }
 
-  /* ---------- Mobil: nav lateral colapsat, coloana articolelor stivuita ---------- */
+  /* ---------- Mobil (Varianta B, gen Gemini): bara fixa sus cu wordmark + buton
+     rotund care deschide istoricul/setarile ca bottom sheet; continutul de bun venit
+     aliniat la stanga sus; sugestiile intr-un rand orizontal cu scroll-snap.
+     Rail-ul original (istoric + user + legal) devine EL INSUSI panoul care culiseaza
+     de jos in sus — nu se duplica nimic, doar se repozitioneaza acelasi DOM. ---------- */
   @media (max-width: 900px) {
-    /* grid-template-rows: auto pentru rail (bara de sus, inaltime naturala),
-       apoi minmax(0, 1fr) pentru main — restul exact al ecranului. Fara asta,
-       .main (height: 100dvh mai jos) s-ar aduna PESTE inaltimea rail-ului,
-       facand pagina mai inalta decat ecranul si obligand la scroll doar ca sa
-       ajungi la composer, care altfel ar iesi complet din partea vizibila. */
+    /* .rail e position: fixed mai jos, deci iese din fluxul grid-ului — un singur
+       rand e suficient pentru .main, care ocupa acum tot ecranul. */
     .shell {
       grid-template-columns: minmax(0, 1fr);
-      grid-template-rows: auto minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr);
       height: 100vh;
       height: 100dvh;
     }
 
-    .rail {
-      position: sticky;
-      top: 0;
-      z-index: 2;
-      height: auto;
-      flex-direction: row;
-      flex-wrap: wrap;
+    /* Bara fixa de sus, mica: wordmark in stanga, buton cerc (deschide sheet-ul) in dreapta. */
+    .mobile-topbar {
+      display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: var(--s3) var(--s4);
+      gap: var(--s3);
       padding: var(--s3) var(--s4);
-      border-right: 0;
       border-bottom: 1px solid var(--rule);
       background: var(--ink-900);
+      flex: none;
     }
-    .rail-group {
-      order: 3;
-      width: 100%;
-      display: flex;
-      flex-direction: column;
-      gap: var(--s2);
-    }
-    .rail-list {
-      flex-direction: row;
-      flex-wrap: nowrap;
-      overflow-x: auto;
-      padding-bottom: var(--s1);
-    }
-    .rail-list li { flex: none; }
-    .rail-history-btn { max-width: 220px; padding: var(--s2) var(--s3); }
-    .brand-sub { display: none; }
-    .rail-foot { margin-top: 0; flex-direction: row; align-items: center; gap: var(--s4); }
-    .rail-user { display: none; }
-    .rail-legal { border-top: 0; padding: 0; gap: var(--s3); }
+    .mobile-brand { display: flex; align-items: center; gap: var(--s3); min-width: 0; }
+    .mobile-brand .sigil { width: 30px; height: 30px; font-size: 18px; }
+    .mobile-brand-name { font-size: 15px; font-weight: 600; letter-spacing: -.012em; }
 
-    /* height: 100% (main se intinde exact cat randul de 1fr din .shell, vezi mai
-       sus), nu height: auto ca inainte: fara asta, .scroll nu-si mai facea
-       propriul scroll intern (overflow-y: visible mai jos, ca sa nu apara un
-       scroll imbricat pe langa cel al paginii) — cand continutul era scurt
-       (ecranul de bun-venit), composer-ul, pozitionat sticky la fundul
-       ferestrei, se suprapunea peste ultimul chip de sugestii, pentru ca
-       pozitia lui naturala in flux era mai jos decat inaltimea reala a
-       ecranului. Cu .main la inaltimea exacta a randului de grid si .scroll cu
-       propriul scroll intern (flex: 1; overflow-y: auto, mostenit din regula
-       de baza), composer-ul nu mai are nevoie de sticky: sta fix la capatul
-       coloanei flex, fara sa se suprapuna niciodata peste continut. */
+    .sheet-toggle {
+      flex: none;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      border: 1px solid var(--rule-lit);
+      background: var(--ink-800);
+      color: var(--gold);
+      display: grid;
+      place-items: center;
+      padding: 0;
+      cursor: pointer;
+    }
+    .sheet-toggle:hover { border-color: var(--gold); color: var(--gold-hi); }
+    .sheet-toggle:focus-visible { outline: 2px solid var(--gold-hi); outline-offset: 2px; }
+
+    /* Scrim semi-transparent peste restul continutului cat timp sheet-ul e deschis. */
+    .sheet-scrim {
+      display: block;
+      position: fixed;
+      inset: 0;
+      background: rgba(10, 9, 7, .6);
+      z-index: 4;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .sheet-scrim.sheet-open { opacity: 1; pointer-events: auto; }
+    @media (prefers-reduced-motion: no-preference) {
+      .sheet-scrim { transition: opacity .2s ease; }
+    }
+
+    /* .rail insusi devine panoul: fixat jos, ascuns implicit sub marginea ecranului,
+       culiseaza in sus la clasa .sheet-open. Contine acelasi #historyList,
+       #clearHistoryBtn, .rail-user si .rail-legal — nimic nu e duplicat. */
+    .rail {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      top: auto;
+      height: auto;
+      /* dvh, cu vh ca rezerva pentru browserele fara suport: inaltimea reala a
+         zonei vizibile se schimba cand bara de adrese apare/dispare, iar 75vh
+         (masurat pe fereastra mare) ar impinge fundul panoului sub ecran. */
+      max-height: 75vh;
+      max-height: 75dvh;
+      z-index: 5;
+      flex-direction: column;
+      align-items: stretch;
+      gap: var(--s5);
+      padding: var(--s4) var(--s4) var(--s6);
+      border-right: 0;
+      border-top: 1px solid var(--rule-lit);
+      border-radius: var(--s4) var(--s4) 0 0;
+      background: var(--ink-850);
+      box-shadow: 0 -12px 32px rgba(0, 0, 0, .45);
+      transform: translateY(100%);
+      overflow-y: auto;
+      /* visibility, nu doar transform: un panou mutat sub marginea ecranului ramane
+         focusabil cu Tab si citibil de cititorul de ecran. visibility: hidden il
+         scoate si din ordinea de tabulare, si din arborele de accesibilitate, iar
+         regula traieste in media query-ul de mobil — pe desktop rail-ul redevine
+         automat navigatia laterala normala, fara niciun cod care sa comute ceva. */
+      visibility: hidden;
+    }
+    .rail.sheet-open { transform: translateY(0); visibility: visible; }
+    @media (prefers-reduced-motion: no-preference) {
+      /* visibility nu se interpoleaza, se comuta: la INCHIDERE o intarziem cu durata
+         culisarii (panoul ramane vizibil cat coboara, apoi iese din tabulare), la
+         DESCHIDERE o comutam instant (delay 0s), altfel panoul ar fi inca invizibil
+         in tick-ul in care mutam focusul in el si focusul ar cadea pe body. */
+      .rail { transition: transform .22s ease, visibility 0s linear .22s; }
+      .rail.sheet-open { transition: transform .22s ease, visibility 0s linear 0s; }
+    }
+    /* Wordmark-ul e deja afisat in bara fixa de sus; in sheet ramane doar
+       antetul cu titlu + buton de inchidere. */
+    .rail .brand { display: none; }
+
+    .sheet-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: var(--s3);
+      border-bottom: 1px solid var(--rule-lit);
+    }
+    .sheet-head-title {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: .15em;
+      text-transform: uppercase;
+      color: var(--paper-quiet);
+    }
+    .sheet-close {
+      background: transparent;
+      border: 0;
+      color: var(--paper-dim);
+      font-size: 22px;
+      line-height: 1;
+      cursor: pointer;
+      padding: var(--s1) var(--s2);
+    }
+    .sheet-close:hover { color: var(--gold); }
+    .sheet-close:focus-visible { outline: 2px solid var(--gold-hi); outline-offset: 2px; }
+
+    .rail-list { flex-direction: column; }
+    .rail-history-btn { max-width: none; }
+    .rail-foot {
+      margin-top: 0;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: var(--s3);
+      padding-top: var(--s4);
+      border-top: 1px solid var(--rule);
+    }
+    .rail-user { display: flex; padding: 0; }
+    .rail-legal { border-top: 0; padding: 0; gap: var(--s4); }
+
     .main { height: 100%; }
     .topbar { padding: var(--s3) var(--s4); }
+    /* Ritmul de 48px al desktopului (padding + gap) manca prea mult din inaltimea
+       unui telefon mic (375x667): ecranul de bun venit ajungea sa fie taiat de
+       zona de derulare inainte de ultimul chip. La 24px, tot continutul de
+       bun venit incape fara derulare, iar composer-ul ramane la locul lui. */
+    .scroll { padding: var(--s5) var(--s4) var(--s4); gap: var(--s5); }
     .doc { padding: var(--s5) var(--s4); }
     /* Sub 900px masura devine prea ingusta pentru justificare: fara silabisire
        romaneasca in browser, textul justificat ar deschide goluri intre cuvinte. */
@@ -701,8 +800,54 @@
     .doc .msg-table { font-size: 14.5px; min-width: 360px; }
     h3.msg-heading { font-size: 20px; }
     h4.msg-heading { font-size: 17.5px; }
-    .intro p { font-size: 17.5px; }
     .citation-list li { grid-template-columns: minmax(0, 1fr); gap: var(--s2); }
+
+    /* Bloc introductiv: aliniat la stanga, sus (nu centrat), cu o linie aurie
+       subtire sub kicker-ul "Bun venit" ca accent vizual. */
+    .intro { align-items: flex-start; text-align: left; }
+    .intro-kicker {
+      position: relative;
+      display: inline-block;
+      padding-bottom: var(--s2);
+    }
+    .intro-kicker::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      width: 48px;
+      height: 2px;
+      border-radius: 2px;
+      background: linear-gradient(90deg, var(--gold), var(--gold-deep));
+    }
+    .intro p { font-size: 17.5px; }
+
+    /* Sugestii: rand orizontal scrollabil cu scroll-snap, fara scrollbar vizibila,
+       pastile compacte in loc de lista pe mai multe randuri. */
+    .suggestions {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      /* min-height obligatoriu: un container flex care devine si container de
+         derulare (overflow-x: auto) nu-si mai deduce inaltimea automata din
+         copii in Chromium — masurat pe 375px, cutia colapsa la 4px si pastilele
+         se vedeau ca niste linii subtiri. 40px acopera pastila reala:
+         18,2px linia de text + 2x8px padding + 2x1px chenar ≈ 36px. */
+      min-height: 40px;
+      align-items: center;
+      scroll-snap-type: x proximity;
+      margin: 0 calc(-1 * var(--s4));
+      padding: 0 var(--s4) var(--s1);
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+    .suggestions::-webkit-scrollbar { display: none; }
+    .chip {
+      flex: none;
+      white-space: nowrap;
+      border-radius: 999px;
+      padding: var(--s2) var(--s4);
+      scroll-snap-align: start;
+    }
 
     .composer-wrap {
       padding: var(--s3) var(--s4) var(--s4);
@@ -719,7 +864,11 @@
 <body>
 
   <div class="shell">
-    <aside class="rail">
+    <aside class="rail" id="railSheet">
+      <div class="sheet-head">
+        <span class="sheet-head-title">Istoric și setări</span>
+        <button type="button" class="sheet-close" id="sheetCloseBtn" aria-label="Închide panoul">&times;</button>
+      </div>
       <div class="brand">
         <div class="sigil" aria-hidden="true">&sect;</div>
         <div>
@@ -746,7 +895,19 @@
       </div>
     </aside>
 
-    <main class="main">
+    <div class="sheet-scrim" id="sheetScrim"></div>
+
+    <main class="main" id="mainColumn">
+      <div class="mobile-topbar">
+        <div class="mobile-brand">
+          <div class="sigil" aria-hidden="true">&sect;</div>
+          <span class="mobile-brand-name">NormativAI</span>
+        </div>
+        <button type="button" class="sheet-toggle" id="sheetToggleBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="railSheet">
+          <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
+          <span class="sr-only">Deschide istoricul și setările</span>
+        </button>
+      </div>
       <div class="topbar">
         <h1>Asistent AI pentru normative</h1>
         <p>Fiecare răspuns indică documentul și articolul oficial din care provine.</p>
@@ -792,6 +953,79 @@
     function clearKbNav() { document.documentElement.classList.remove(KB_NAV_CLASS); }
     window.addEventListener('mousedown', clearKbNav);
     window.addEventListener('pointerdown', clearKbNav);
+
+    // Bottom sheet mobil (istoric + user + legal) — izolat, nu atinge logica de
+    // intrebari/raspunsuri de mai jos. Pe desktop butoanele sunt ascunse prin CSS
+    // (vezi media query), deci acest bloc nu are niciun efect vizual acolo.
+    const sheetToggleBtn = document.getElementById('sheetToggleBtn');
+    const sheetCloseBtn = document.getElementById('sheetCloseBtn');
+    const sheetScrim = document.getElementById('sheetScrim');
+    const railSheet = document.getElementById('railSheet');
+    const mainColumn = document.getElementById('mainColumn');
+    // Latimea la care panoul redevine navigatie laterala obisnuita — aceeasi
+    // valoare ca in media query-ul de mai sus.
+    const SHEET_BREAKPOINT = window.matchMedia('(max-width: 900px)');
+
+    // role="dialog" + aria-modal se pun DOAR cat timp panoul e deschis: acelasi
+    // element este, pe desktop, navigatia laterala permanenta, iar acolo semantica
+    // de dialog ar fi falsa. Butonul de deschidere e ascuns prin CSS peste 900px,
+    // deci starea de dialog nu poate aparea decat pe mobil.
+    function openSheet() {
+      railSheet.classList.add('sheet-open');
+      sheetScrim.classList.add('sheet-open');
+      sheetToggleBtn.setAttribute('aria-expanded', 'true');
+      railSheet.setAttribute('role', 'dialog');
+      railSheet.setAttribute('aria-modal', 'true');
+      railSheet.setAttribute('aria-label', 'Istoric și setări');
+      railSheet.setAttribute('tabindex', '-1');
+      // Restul paginii devine inert cat timp panoul e deschis: nu se mai poate
+      // tabula "pe sub" el si nu mai e citit de cititorul de ecran, fara sa fie
+      // nevoie de o capcana de focus scrisa manual. Scrimul e in afara .main,
+      // deci ramane clicabil pentru inchidere.
+      if (mainColumn) mainColumn.inert = true;
+      // Focus in panou: functioneaza sincron pentru ca .sheet-open comuta
+      // visibility fara intarziere (vezi tranzitia din CSS).
+      railSheet.focus();
+    }
+    function closeSheet() {
+      const focusEraInPanou = railSheet.contains(document.activeElement);
+      railSheet.classList.remove('sheet-open');
+      sheetScrim.classList.remove('sheet-open');
+      sheetToggleBtn.setAttribute('aria-expanded', 'false');
+      railSheet.removeAttribute('role');
+      railSheet.removeAttribute('aria-modal');
+      railSheet.removeAttribute('aria-label');
+      railSheet.removeAttribute('tabindex');
+      if (mainColumn) mainColumn.inert = false;
+      // Focusul se intoarce de unde a plecat, dar numai daca era inca in panou:
+      // altfel am fura focusul cuiva care intre timp scria in composer.
+      if (focusEraInPanou) sheetToggleBtn.focus();
+    }
+    if (sheetToggleBtn && sheetCloseBtn && sheetScrim && railSheet) {
+      sheetToggleBtn.addEventListener('click', () => {
+        if (railSheet.classList.contains('sheet-open')) closeSheet(); else openSheet();
+      });
+      sheetCloseBtn.addEventListener('click', closeSheet);
+      sheetScrim.addEventListener('click', closeSheet);
+      // Alegerea unei conversatii din istoric inchide panoul, ca sa se vada
+      // conversatia reafisata dedesubt. Listener delegat pe lista: nu atinge
+      // butoanele create in renderHistoryList si nici replayHistoryEntry.
+      document.getElementById('historyList').addEventListener('click', (event) => {
+        if (event.target.closest('.rail-history-btn')) closeSheet();
+      });
+      window.addEventListener('keydown', (event) => {
+        // Garda: fara ea, Escape apasat pe desktop (unde panoul e navigatia
+        // laterala mereu vizibila, niciodata "deschisa") ar muta focusul pe un
+        // buton ascuns prin CSS.
+        if (event.key === 'Escape' && railSheet.classList.contains('sheet-open')) closeSheet();
+      });
+      // Trecerea peste 900px (rotire, fereastra latita) readuce rail-ul la rolul
+      // de navigatie laterala: panoul trebuie inchis, altfel .main ar ramane
+      // inert si semantica de dialog ar persista pe desktop.
+      SHEET_BREAKPOINT.addEventListener('change', (event) => {
+        if (!event.matches && railSheet.classList.contains('sheet-open')) closeSheet();
+      });
+    }
 
     const chatArea = document.getElementById('chatArea');
     const questionForm = document.getElementById('questionForm');
