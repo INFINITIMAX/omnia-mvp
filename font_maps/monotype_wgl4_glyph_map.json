@@ -1,0 +1,179 @@
+{
+  "font_referinta": [
+    "C:/Windows/Fonts/times.ttf",
+    "C:/Windows/Fonts/timesbd.ttf",
+    "C:/Windows/Fonts/timesi.ttf",
+    "C:/Windows/Fonts/arial.ttf"
+  ],
+  "familii": ["TimesNewRoman", "Arial"],
+  "fonturi_upright": [
+    "TimesNewRomanPSMT",
+    "TimesNewRomanPS-BoldMT",
+    "ArialMT",
+    "Arial-BoldMT"
+  ],
+  "descriere": "GID -> caracter real pentru fonturile din familiile Times New Roman si Arial incorporate ca subset Type0/Identity-H FARA dictionar /ToUnicode. Vezi font_maps/README.md, sectiunea 'Glifele Monotype WGL4 (i7_2011)'. Fiecare intrare e rezolvata din cmap-ul fontului de referinta de sistem (aceeasi familie, ordine de glife Monotype WGL4) SI verificata independent in contextul real al documentului.",
+  "entries": {
+    "148": {
+      "char": "\u2264",
+      "unicode": "U+2264",
+      "method": "cmap_font_referinta",
+      "fonts": null,
+      "note": "times.ttf/timesbd.ttf/timesi.ttf/arial.ttf dau toate gid 148 -> U+2264. Context i7_2011: 'T [148] +40oC' langa 'T > +40oC', '50 V<Uo [148] 120 V', 'Intensitatea [148] 500 W/m2' - toate comparatii, coerente cu 'mai mic sau egal'."
+    },
+    "149": {
+      "char": "\u2265",
+      "unicode": "U+2265",
+      "method": "cmap_font_referinta",
+      "fonts": null,
+      "note": "Fonturile de referinta dau gid 149 -> U+2265, imediat dupa 148 -> U+2264. Context i7_2011: 'curent diferential rezidual nominal [149] 300 mA', 'Sb [149] 0,5 SPE'."
+    },
+    "159": {
+      "char": "\u03a9",
+      "unicode": "U+03A9",
+      "method": "cmap_font_referinta",
+      "fonts": null,
+      "note": "Fonturile de referinta dau gid 159 -> U+2126 OHM SIGN, echivalent canonic cu U+03A9 GREEK CAPITAL LETTER OMEGA (NFC il reduce la U+03A9); pastram forma normalizata, ca sa nu existe doua codpoint-uri diferite pentru acelasi simbol in text si in cautare. Context i7_2011: 'R - este suma rezistentei (in [159]) a prizei de pamant'."
+    },
+    "167": {
+      "char": "\u2248",
+      "unicode": "U+2248",
+      "method": "cmap_font_referinta",
+      "fonts": null,
+      "note": "Fonturile de referinta dau gid 167 -> U+2248 ALMOST EQUAL TO. O singura aparitie in i7_2011."
+    },
+    "237": {
+      "char": "\u2212",
+      "unicode": "U+2212",
+      "method": "cmap_font_referinta",
+      "fonts": null,
+      "note": "Fonturile de referinta dau gid 237 -> U+2212 MINUS SIGN. Context i7_2011 (ArialMT): folosit ca marcaj de lista - '[237] SR EN 62305-3 pentru masuri de protectie', '[237] Z1 (in exteriorul cladirii)'."
+    },
+    "238": {
+      "char": "\u00d7",
+      "unicode": "U+00D7",
+      "method": "cmap_font_referinta",
+      "fonts": null,
+      "note": "ANCORA DE VALIDARE. Fonturile de referinta dau gid 238 -> U+00D7. PyMuPDF extrage deja corect acest GID (133 aparitii in i7_2011, toate '×'), deci intrarea nu produce nicio corectie - confirma insa, independent, ca ipoteza 'GID-ul din subsetul Identity-H == GID-ul din fontul de referinta' e valida."
+    },
+    "249": {
+      "char": "\u015e",
+      "unicode": "U+015E",
+      "method": "cmap_font_referinta",
+      "fonts": null,
+      "note": "Fonturile de referinta dau gid 249 -> U+015E LATIN CAPITAL LETTER S WITH CEDILLA. Context i7_2011: 'CAP. 5. ALEGEREA [249]I MONTAREA' (SI), '[249]coli generale licee' (Scoli), '[249]ocuri mecanice' (Socuri), '[249]erardizare' (Serardizare - procedeu de acoperire cu zinc). Sedila e normalizata ulterior la virgula de diacritice.py -> 'S'."
+    },
+    "250": {
+      "char": "\u015f",
+      "unicode": "U+015F",
+      "method": "cmap_font_referinta",
+      "fonts": null,
+      "note": "Fonturile de referinta dau gid 250 -> U+015F LATIN SMALL LETTER S WITH CEDILLA. Context i7_2011: 'executia [250]i exploatarea' (si), 'depa[250]e[250]te' (depaseste), 'cre[250]e' (crese), 'manu[250]ilor' (manusilor), '[250]coli'. Sedila e normalizata ulterior la virgula de diacritice.py -> 's'."
+    },
+    "257": {
+      "char": "\u00b7",
+      "unicode": "U+00B7",
+      "method": "cmap_font_referinta",
+      "fonts": null,
+      "note": "Fonturile de referinta dau gid 257 -> U+00B7 MIDDLE DOT. Context i7_2011: 'specifica 1 K [257] m/W' (K·m/W), 'iS t 3 [257] Sc'."
+    },
+    "258": {
+      "char": "\u0102",
+      "unicode": "U+0102",
+      "method": "cmap_font_referinta",
+      "fonts": null,
+      "note": "ANCORA DE VALIDARE. gid 258 -> U+0102 in fonturile de referinta; PyMuPDF il extrage deja corect (22 aparitii 'A' cu breve in i7_2011), deci nu produce nicio corectie."
+    },
+    "259": {
+      "char": "\u0103",
+      "unicode": "U+0103",
+      "method": "cmap_font_referinta",
+      "fonts": null,
+      "note": "ANCORA DE VALIDARE, cea mai puternica. gid 259 -> U+0103 in fonturile de referinta; PyMuPDF il extrage deja corect in 19314 aparitii in i7_2011 ('Anexa', 'masuri', 'cladire'...). Faptul ca cele mai frecvente GID-uri din tabela coincid deja, litera cu litera, cu ce extrage PyMuPDF, confirma ca ordinea de glife a subsetului incorporat e chiar cea a fontului de referinta."
+    },
+    "287": {
+      "char": "\u0162",
+      "unicode": "U+0162",
+      "method": "cmap_font_referinta",
+      "fonts": null,
+      "note": "Fonturile de referinta dau gid 287 -> U+0162 LATIN CAPITAL LETTER T WITH CEDILLA. Context i7_2011: 'INSTALA[287]IILOR', 'PROTEC[287]II PENTRU ASIGURAREA SECURITA[287]II', 'GENERALITA[287]I', 'FUNC[287]IE DE PREZENTA ARMONICELOR', '[287]inere ridicata'. Sedila e normalizata ulterior la virgula de diacritice.py -> 'T'."
+    },
+    "288": {
+      "char": "\u0163",
+      "unicode": "U+0163",
+      "method": "cmap_font_referinta",
+      "fonts": null,
+      "note": "Fonturile de referinta dau gid 288 -> U+0163 LATIN SMALL LETTER T WITH CEDILLA. Cel mai frecvent GID corupt din i7_2011 (11030 aparitii). Context: 'execu[288]ia' (executia), 'instala[288]iilor', 'men[288]ionate', 'protec[288]ie', 'condi[288]iile', 'distribu[288]ie'. Sedila e normalizata ulterior la virgula de diacritice.py -> 't'."
+    },
+    "301": {
+      "char": "\u03a6",
+      "unicode": "U+03A6",
+      "method": "cmap_font_referinta",
+      "fonts": null,
+      "note": "Fonturile de referinta dau gid 301 -> U+03A6 GREEK CAPITAL LETTER PHI, folosit conventional ca semn de diametru. Context i7_2011 (ArialMT): 'grilajului metalic din tije rotunde [301] 8 mm'."
+    },
+    "397": {
+      "char": "\u2032",
+      "unicode": "U+2032",
+      "method": "cmap_font_referinta",
+      "fonts": null,
+      "note": "Fonturile de referinta dau gid 397 -> U+2032 PRIME. Context i7_2011: 'componentele de risc R[397]B, R[397]C, R[397]V, R[397]W, R[397]Z' - notatia cu prim a componentelor de risc din SR EN 62305."
+    },
+    "507": {
+      "char": "\u0394",
+      "unicode": "U+0394",
+      "method": "cmap_font_referinta",
+      "fonts": null,
+      "note": "Fonturile de referinta dau gid 507 -> U+0394 GREEK CAPITAL LETTER DELTA. Context i7_2011: 'avansul propriu al amorsarii ([507]T)', '[507]T = TPTS - TPDA' - notatia standard pentru diferenta de timp."
+    },
+    "525": {
+      "char": "\u03a9",
+      "unicode": "U+03A9",
+      "method": "cmap_font_referinta",
+      "fonts": null,
+      "note": "Fonturile de referinta dau gid 525 -> U+03A9 GREEK CAPITAL LETTER OMEGA (ohm). Context i7_2011: 'rezistenta prizei de pamant mai mica de 10 [525]', 'trebuie sa fie de cel mult 10 [525]'."
+    },
+    "541": {
+      "char": "\u03bc",
+      "unicode": "U+03BC",
+      "method": "cmap_font_referinta",
+      "fonts": null,
+      "note": "Fonturile de referinta dau gid 541 -> U+03BC GREEK SMALL LETTER MU (micro). Context i7_2011: 'un impuls de 1,2/50 [541]s', 'v (m/[541]s) x DT ([541]s)'."
+    },
+    "545": {
+      "char": "\u03c1",
+      "unicode": "U+03C1",
+      "method": "cmap_font_referinta",
+      "fonts": null,
+      "note": "Fonturile de referinta dau gid 545 -> U+03C1 GREEK SMALL LETTER RHO. Context i7_2011: '[545] este rezistenta la calcul a solului [Ohm m]' - notatia standard pentru rezistivitatea solului."
+    },
+    "1799": {
+      "char": "\u0218",
+      "unicode": "U+0218",
+      "method": "cmap_font_referinta",
+      "fonts": "upright",
+      "note": "times.ttf/timesbd.ttf/arial.ttf dau gid 1799 -> U+0218 LATIN CAPITAL LETTER S WITH COMMA BELOW. Restrictionat la fonturile upright: in timesi.ttf (italic, alt numar de glife) acelasi GID cade pe alt caracter (U+1E62), deci ordinea de glife nu mai e comuna la GID-uri asa de mari."
+    },
+    "1800": {
+      "char": "\u0219",
+      "unicode": "U+0219",
+      "method": "cmap_font_referinta",
+      "fonts": "upright",
+      "note": "times.ttf/timesbd.ttf/arial.ttf dau gid 1800 -> U+0219 LATIN SMALL LETTER S WITH COMMA BELOW. Context i7_2011: '[1800]i modificarile ulterioare' (si), '[1800]antierele temporale sau mobile' (santierele), 'pre[1800]edintelui' (presedintelui). Restrictionat la upright (vezi gid 1799)."
+    },
+    "1801": {
+      "char": "\u021a",
+      "unicode": "U+021A",
+      "method": "cmap_font_referinta",
+      "fonts": "upright",
+      "note": "times.ttf/timesbd.ttf/arial.ttf dau gid 1801 -> U+021A LATIN CAPITAL LETTER T WITH COMMA BELOW. Restrictionat la upright (vezi gid 1799)."
+    },
+    "1802": {
+      "char": "\u021b",
+      "unicode": "U+021B",
+      "method": "cmap_font_referinta",
+      "fonts": "upright",
+      "note": "times.ttf/timesbd.ttf/arial.ttf dau gid 1802 -> U+021B LATIN SMALL LETTER T WITH COMMA BELOW. Context i7_2011: 'calitatea in construc[1802]ii' (constructii), 'cerin[1802]ele minime de securitate' (cerintele), 'autorita[1802]ii na[1802]ionale' (autoritatii nationale), 'pia[1802]a' (piata). Restrictionat la upright (vezi gid 1799)."
+    }
+  }
+}
