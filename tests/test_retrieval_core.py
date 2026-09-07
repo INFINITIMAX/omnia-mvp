@@ -476,7 +476,7 @@ def test_intrebarea_cu_sedila_gaseste_articolul_exact_ca_varianta_cu_virgula():
     assert repository_sedila.exact_calls == repository_virgula.exact_calls == 1
 
 
-# --- context conversațional: preferință pe documentele citate anterior, nu restricție ---
+# --- context conversațional: restricție semantică la documentele citate, fără fallback global ---
 
 
 # Două documente distincte, ca în bug-ul real din producție: continuarea unei întrebări
@@ -499,7 +499,7 @@ def sprinklere_context():
 
 
 def test_fara_context_cautarea_semantica_ramane_globala_si_neschimbata():
-    """Compatibilitate înapoi: o cerere fără context nu atinge deloc calea de preferință."""
+    """Compatibilitate înapoi: o cerere fără context nu atinge deloc restricția semantică."""
     repository = RepositoryFake([], [evidence(score=0.90)])
     embedder = EmbedderCareRetineIntrebarea()
 
@@ -524,7 +524,7 @@ def test_continuarea_fara_referinta_prefera_documentele_din_context():
     assert [item.document_id for item in result.evidence] == ["doc-p118"]
     # Căutarea restrânsă a primit exact documentul citat anterior, cu același top_k.
     assert repository.scoped_calls == [((0.1, 0.2), ("doc-p118",), 5)]
-    # Preferința a răspuns, deci nu s-a mai făcut și căutarea globală.
+    # Restricția semantică a răspuns, deci căutarea globală nu este permisă.
     assert repository.semantic_calls == 0
     assert embedder.calls == 1
 
