@@ -18,6 +18,8 @@ from scope_core import is_engineering_calculation_request, normalize_scope_text
         "Pentru o clădire de 4000 mp, de câți kW am nevoie?",
         "Stabilește capacitatea frigorifică necesară pentru hala mea de 4.000 mp.",
         "Ce capacitate trebuie instalată pentru răcirea acestei clădiri?",
+        "Stabiliți debitul minim necesar pentru ventilarea halei de 4.000 mp.",
+        "Stabiliți capacitatea prevăzută de normativ pentru hala mea.",
     ],
 )
 def test_cererile_de_executie_sunt_in_afara_scopeului(question):
@@ -44,6 +46,7 @@ def test_calculul_cerut_conform_normativului_este_diferit_de_metoda_intrebata():
         "Ce articol din I5 descrie metodologia?",
         "În ce articol este explicat calculul sarcinii termice?",
         "Unde descrie normativul calculul sarcinii termice?",
+        "Care este capacitatea frigorifică minimă prevăzută de normativ?",
     ],
 )
 def test_intrebarile_normative_sau_metodologice_nu_sunt_blocate(question):

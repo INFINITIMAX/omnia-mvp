@@ -1492,6 +1492,40 @@ def test_calculul_debitului_minim_nu_ocoleste_refuzul_sau_quota(api):
     assert "documente_chunks" not in executed_sql
 
 
+def test_stabiliti_debitul_minim_nu_ocoleste_refuzul_sau_quota(api):
+    connection = ConnectionFake()
+    embedder = EmbedderFake()
+    generator = GeneratorFake()
+    budget_connection = ConnectionFake()
+
+    response = configure(
+        api, connection, embedder, generator, budget_connection=budget_connection
+    ).post(
+        "/intreaba",
+        json={
+            "intrebare": "Stabiliți debitul minim necesar pentru ventilarea halei de 4.000 mp."
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "out_of_scope",
+        "raspuns": (
+            "NormativAI nu efectuează calcule sau dimensionări de proiect. "
+            "Pot indica prevederile și datele cerute de normative."
+        ),
+        "citari": [],
+        "intrebari_ramase": 10,
+    }
+    assert connection.commits == 1
+    assert connection.rollbacks == 1
+    assert embedder.calls == generator.calls == 0
+    assert budget_connection.calls == []
+    executed_sql = "\n".join(sql for sql, _ in connection.calls)
+    assert "SELECT document.document_id" not in executed_sql
+    assert "documente_chunks" not in executed_sql
+
+
 def test_rollback_esuat_la_refuzul_de_calcul_este_fail_closed_503(api):
     connection = ConnectionFake(rollback_error=psycopg2.OperationalError("rollback db"))
 

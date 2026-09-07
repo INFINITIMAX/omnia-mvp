@@ -13,7 +13,8 @@ _EXECUTION_VERBS = re.compile(r"\b(calcul\w*|estim\w*|dimension\w*)\b")
 # utilizatorul menționează și un normativ („calculează conform I5”).
 _EXECUTION_REQUEST = re.compile(
     r"\b(calculeaza|calculati|calculez|calculam|estimeaza|estimati|estimez|estimam|"
-    r"dimensioneaza|dimensionati|dimensionez|dimensionam|stabileste)\b"
+    r"dimensioneaza|dimensionati|dimensionez|dimensionam|"
+    r"stabileste|stabiliti|stabilesc|stabilim)\b"
 )
 _METHOD_REQUEST = re.compile(r"\b(cum|metod\w*|formula|formul\w*|prevede|conform)\b")
 # „cum se calculează” cere explicarea metodei (diateză reflexivă), nu executarea ei.
@@ -30,6 +31,8 @@ _DOCUMENTARY_REQUEST = re.compile(
 _POWER_NEED = re.compile(
     r"\b(?:cati|cata|cat)\s+kw\b.*\b(?:(?:imi|ne)\s+trebuie|(?:am|avem)\s+nevoie)\b"
 )
+# Valorile prevăzute de normativ sunt întrebări documentare, nu cereri de proiect.
+_NORMATIVE_PRESCRIPTION = re.compile(r"\bprevaz\w*\b")
 _CAPACITY_REQUEST = re.compile(
     r"\bcapacitat\w*\b.*\b(?:frigorific\w*|racir\w*|necesar\w*|instalat\w*)\b"
 )
@@ -71,7 +74,11 @@ def is_engineering_calculation_request(question: str) -> bool:
     # debitul minim” cere tot un calcul de proiect, nu valoarea normativă a debitului minim.
     if _EXECUTION_REQUEST.search(without_method_forms):
         return True
-    if _PRESCRIBED_VALUE.search(normalized) or _DOCUMENTARY_REQUEST.search(normalized):
+    if (
+        _PRESCRIBED_VALUE.search(normalized)
+        or _NORMATIVE_PRESCRIPTION.search(normalized)
+        or _DOCUMENTARY_REQUEST.search(normalized)
+    ):
         return False
     if _METHOD_EXECUTION_FORM.search(normalized):
         return False
