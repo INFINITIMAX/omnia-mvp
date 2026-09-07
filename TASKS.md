@@ -1,5 +1,17 @@
 # TASKS — Omnia
 
+## Predare — blocarea calculelor și dimensionărilor de proiect (07-09-2026)
+
+- [x] **Decizie de produs:** NormativAI nu este calculator; explică numai metodele, formulele și datele normative existente în dovezi.
+- [x] **Contract public:** HTTP 200, `status: out_of_scope`, mesaj exact „NormativAI nu efectuează calcule sau dimensionări de proiect. Pot indica prevederile și datele cerute de normative.” și `citari=[]`.
+- [x] **Gate server-side local:** rulează înainte de catalog, retrieval, Voyage și Anthropic; tentativa rămâne contabilizată în rate limit, quota anonimă de 10 este restaurată, iar rollback-ul neverificat produce 503 fail-closed.
+- [x] **Classifier determinist:** diferențiază execuția cerută (imperativ, solicitare nominală bounded, necesar de putere/capacitate) de întrebări metodologice, documentare sau despre valori prescrise. Este o barieră lexicală conservatoare, nu analiză semantică exhaustivă.
+- [x] **Apărare în profunzime:** promptul interzice executarea calculelor/estimărilor/dimensionărilor; UI-ul păstrează refuzul vizibil în istoric, dar îl exclude din contextul următoarei căutări.
+- [x] **Validare finală Planner:** target 171 passed; full 522 passed, 11 skipped, 1 warning extern TestClient; hash-ul CSP verificat, `git diff --check` curat și zero U+FFFD verificat anterior.
+- [x] **Review final:** Tester OK; Reviewer OK, fără findings la commit `e622793`.
+- [x] Branch `fix/blocheaza-calcule-proiectare` este împins cu commiturile `37bcd60`, `7172cd6`, `907da33`, `328c300`, `e622793`; fără merge, deploy, DB sau apeluri API plătite.
+- [ ] **Residual:** testul UI este static, nu browser E2E; regexurile nu pot garanta toate parafrazele posibile, iar apărarea prompt rămâne strat secundar.
+
 ## Predare — eliminarea `GET /documents` (07-09-2026)
 
 - [x] **Endpointul `GET /documents` a fost eliminat complet** din `main.py`, împreună cu
