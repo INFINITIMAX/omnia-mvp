@@ -50,7 +50,13 @@ class CursorFake:
         elif "SELECT document.document_id" in sql:
             self.rows = self.connection.catalog_rows
         elif "AS score" in sql:
-            self.rows = self.connection.semantic_rows
+            # Căutarea restrânsă la documentele preferate din context are propriile rânduri
+            # numai dacă testul le cere explicit; altfel se comportă ca cea globală.
+            restransa = "chunk.document_id = ANY(%s)" in sql
+            if restransa and self.connection.semantic_scoped_rows is not None:
+                self.rows = self.connection.semantic_scoped_rows
+            else:
+                self.rows = self.connection.semantic_rows
         elif "pg_advisory_xact_lock" not in sql and "rate_limit_buckets" not in sql:
             self.rows = self.connection.exact_rows
 
@@ -67,12 +73,14 @@ class CursorFake:
 class ConnectionFake:
     def __init__(
         self, *, catalog_rows=CATALOG_ROWS, exact_rows=(EXACT_ROW,), semantic_rows=(SEMANTIC_ROW,),
+        semantic_scoped_rows=None,
         minute_count=1, hour_count=1, quota_results=((1,),), budget_results=((1,),) * 10,
         error=None, rollback_error=None,
     ):
         self.catalog_rows = catalog_rows
         self.exact_rows = exact_rows
         self.semantic_rows = semantic_rows
+        self.semantic_scoped_rows = semantic_scoped_rows
         self.minute_count = minute_count
         self.hour_count = hour_count
         self.quota_results = iter(quota_results)

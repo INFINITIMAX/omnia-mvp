@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 import voyageai
 from voyageai.error import VoyageError
 
@@ -42,7 +42,11 @@ from generation_core import (
 load_dotenv()
 
 from retrieval_core import (
+    MAX_CONTEXT_DOCUMENT_CODES,
+    MAX_CONTEXT_TURNS,
+    MAX_DOCUMENT_CODE_CHARS,
     MAX_QUESTION_CHARS,
+    ConversationTurn,
     PostgresApprovedCatalogRepository,
     PostgresRetrievalRepository,
     RetrievalService,
@@ -320,7 +324,7 @@ app.mount(
 # niciuna dintre pagini nu încarcă altceva decât fonturile self-hostate din /assets și
 # fetch('/intreaba') same-origin). O modificare a acelor blocuri inline cere hash-uri noi aici,
 # altfel pagina se rupe silențios sub CSP.
-_CSP_SCRIPT_HASHES = ("'sha256-CXFpaA1nAnPr79Hagbe2CN1fPe84kD599ycNcoeIyFU='",)  # static/index.html <script>
+_CSP_SCRIPT_HASHES = ("'sha256-9r08m193WoixMFeNS92dCm4hgR1OETvqmgmMmCLMrUM='",)  # static/index.html <script>
 _CSP_STYLE_HASHES = (
     "'sha256-dfnnV1ZV1nbrift6WtGU2XVQX0ahuMXiVhWB2qwuVPI='",  # static/index.html <style>
     "'sha256-kUyxp8kcWn+qR+O4JbENkEzXFLSQLF+bM6N26VjKs0c='",  # static/termeni.html <style>
@@ -450,8 +454,39 @@ def pagina_confidentialitate() -> FileResponse:
 # activ că nicio rută de acest fel nu reapare.
 
 
+CodDocumentContext = Annotated[str, Field(min_length=1, max_length=MAX_DOCUMENT_CODE_CHARS)]
+
+
+class TurConversatieRequest(BaseModel):
+    """Un tur anterior al conversației, trimis de client ca preferință de căutare.
+
+    Primim numai întrebarea de atunci și codurile oficiale citate atunci — deliberat NU
+    și textul răspunsului generat, ca să nu reintroducem în lanțul de căutare text produs
+    de model. `extra="forbid"`: contextul e intrare controlată de utilizator, deci un câmp
+    nerecunoscut e respins explicit (422), nu ignorat tăcut.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    intrebare: Annotated[str, Field(min_length=1, max_length=MAX_QUESTION_CHARS)]
+    coduri_documente: list[CodDocumentContext] = Field(
+        default_factory=list, max_length=MAX_CONTEXT_DOCUMENT_CODES
+    )
+
+    @field_validator("intrebare")
+    @classmethod
+    def intrebare_nevida(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("întrebarea din context nu poate fi goală")
+        return value
+
+
 class IntrebareRequest(BaseModel):
     intrebare: Annotated[str, Field(min_length=1, max_length=MAX_QUESTION_CHARS)]
+    # Câmp opțional: o cerere veche, cu `intrebare` singură, se comportă exact ca înainte.
+    context_conversatie: list[TurConversatieRequest] = Field(
+        default_factory=list, max_length=MAX_CONTEXT_TURNS
+    )
 
     @field_validator("intrebare")
     @classmethod
@@ -459,6 +494,13 @@ class IntrebareRequest(BaseModel):
         if not value.strip():
             raise ValueError("întrebarea nu poate fi goală")
         return value
+
+    def context_tipat(self) -> tuple[ConversationTurn, ...]:
+        """Traduce contextul deja validat în tipul de domeniu al retrieval-ului."""
+        return tuple(
+            ConversationTurn(tur.intrebare, tuple(tur.coduri_documente))
+            for tur in self.context_conversatie
+        )
 
 
 class CitationResponse(BaseModel):
@@ -643,7 +685,7 @@ def intreaba(
             PostgresRetrievalRepository(connection),
             BudgetGatedEmbedder(dependencies.embedder_factory(), budget_guard),
         )
-        result = retrieval.retrieve(cerere.intrebare)
+        result = retrieval.retrieve(cerere.intrebare, cerere.context_tipat())
 
         if result.status == "not_found":
             answer = IntreabaResponse(
