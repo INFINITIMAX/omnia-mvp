@@ -809,10 +809,11 @@
     // și fără istoric dacă localStorage nu răspunde.
     const HISTORY_KEY = 'omnia_istoric_conversatii_v1';
     const HISTORY_LIMIT = 20;
-    // Context conversațional trimis serverului ca PREFERINȚĂ de căutare: fără el, o
-    // întrebare de continuare ("dar când am un obstacol?") se caută izolat și poate
-    // nimeri în alt normativ. Trimitem strict întrebările anterioare și codurile
-    // documentelor citate atunci — niciodată textul răspunsurilor generate.
+    // Context conversațional trimis serverului ca restricție semantică atunci când
+    // codurile se rezolvă la documente aprobate: fără el, o întrebare de continuare
+    // ("dar când am un obstacol?") se caută izolat și poate nimeri în alt normativ.
+    // Trimitem strict întrebările anterioare și codurile documentelor citate atunci —
+    // niciodată textul răspunsurilor generate.
     // Limitele de mai jos trebuie să rămână identice cu cele din retrieval_core.py,
     // altfel serverul respinge cererea cu 422.
     const MAX_CONTEXT_TURNS = 3;

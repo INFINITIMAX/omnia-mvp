@@ -1,5 +1,14 @@
 # TASKS — Omnia
 
+## Predare — context conversațional fără fallback semantic global (07-09-2026)
+
+- [x] **Decizie aprobată implementată:** un document numit explicit fără articol exact sau codurile de context rezolvate la documente aprobate restrâng semantic retrieval-ul; un rezultat gol/sub prag devine `not_found`, fără căutare globală.
+- [x] **Compatibilitate și cost:** fără document explicit/cod rezolvabil rămâne exact o căutare globală; fiecare rută semantică păstrează exact un embedding, iar `not_found` nu apelează Anthropic.
+- [x] **Regresii mockuite:** scenariul sprinklere P 118/2 → obstacol nu poate ajunge în I7 nici la scoped gol/sub prag; API-ul verifică lista `document_ids`, absența SQL-ului global și zero generator la scoped miss. Validarea contextului rămâne 422 înainte de dependențe.
+- [x] **Validare Coder:** țintit retrieval+API+UI `320 passed, 1 warning`; complet `533 passed, 11 skipped, 1 warning` (warning extern `TestClient`); `git diff --check` curat. Fără DB, API plătit, deploy, commit sau push.
+- [x] **Valoare CV:** regresii unit+API dovedesc izolare de context, controlul costului și prevenirea răspunsurilor cross-document neancorate.
+
+
 ## Predare — blocarea calculelor și dimensionărilor de proiect (07-09-2026)
 
 - [x] **Decizie de produs:** NormativAI nu este calculator; explică numai metodele, formulele și datele normative existente în dovezi.
