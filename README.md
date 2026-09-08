@@ -41,7 +41,7 @@ Live application: https://normativai.ro
 
 ## Local setup
 
-Requires Python 3.11 or newer.
+Requires Python 3.12 or newer.
 
 ```powershell
 python -m venv .venv
