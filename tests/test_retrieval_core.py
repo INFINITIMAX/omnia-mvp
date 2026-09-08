@@ -476,7 +476,7 @@ def test_intrebarea_cu_sedila_gaseste_articolul_exact_ca_varianta_cu_virgula():
     assert repository_sedila.exact_calls == repository_virgula.exact_calls == 1
 
 
-# --- context conversațional: preferință pe documentele citate anterior, nu restricție ---
+# --- context conversațional: restricție semantică la documentele citate, fără fallback global ---
 
 
 # Două documente distincte, ca în bug-ul real din producție: continuarea unei întrebări
@@ -499,7 +499,7 @@ def sprinklere_context():
 
 
 def test_fara_context_cautarea_semantica_ramane_globala_si_neschimbata():
-    """Compatibilitate înapoi: o cerere fără context nu atinge deloc calea de preferință."""
+    """Compatibilitate înapoi: o cerere fără context nu atinge deloc restricția semantică."""
     repository = RepositoryFake([], [evidence(score=0.90)])
     embedder = EmbedderCareRetineIntrebarea()
 
@@ -524,70 +524,28 @@ def test_continuarea_fara_referinta_prefera_documentele_din_context():
     assert [item.document_id for item in result.evidence] == ["doc-p118"]
     # Căutarea restrânsă a primit exact documentul citat anterior, cu același top_k.
     assert repository.scoped_calls == [((0.1, 0.2), ("doc-p118",), 5)]
-    # Preferința a răspuns, deci nu s-a mai făcut și căutarea globală.
+    # Restricția semantică a răspuns, deci căutarea globală nu este permisă.
     assert repository.semantic_calls == 0
     assert embedder.calls == 1
 
 
-def test_preferinta_fara_rezultate_peste_prag_cade_pe_cautarea_globala():
-    """Testul cheie al deciziei „preferință, nu restricție”: dacă documentele din context
-    nu au nimic peste prag, întrebarea NU devine „nu am găsit”, ci se caută global."""
-    global_hit = evidence(document_id="doc-i7", content="rezultat global", score=0.90)
-    repository = RepositoryFake([], [global_hit])
-    repository.semantic_in_documents = [evidence(document_id="doc-p118", score=0.49)]
+@pytest.mark.parametrize("scoped", [[], [evidence(document_id="doc-p118", score=0.49)]])
+def test_context_rezolvat_cu_scoped_miss_este_not_found_fara_fallback_global(scoped):
+    """Regresie: continuarea despre sprinklere nu poate ajunge în I7 nici dacă P 118/2
+    nu are rânduri sau are numai scoruri sub prag."""
+    repository = RepositoryFake([], [evidence(document_id="doc-i7", score=0.90)])
+    repository.semantic_in_documents = scoped
+    embedder = EmbedderFake()
 
-    result = context_service(repository).retrieve(
+    result = context_service(repository, embedder).retrieve(
         "Ok dar spune-mi exact când am un obstacol?", sprinklere_context()
     )
 
-    assert result.status == "found"
-    assert [item.content for item in result.evidence] == ["rezultat global"]
+    assert result.status == "not_found"
+    assert result.evidence == ()
     assert len(repository.scoped_calls) == 1
-    assert repository.semantic_calls == 1
-
-
-def test_preferinta_fara_niciun_rand_cade_tot_pe_cautarea_globala():
-    repository = RepositoryFake([], [evidence(document_id="doc-i7", score=0.90)])
-    repository.semantic_in_documents = []
-
-    result = context_service(repository).retrieve("când am un obstacol?", sprinklere_context())
-
-    assert result.status == "found"
-    assert len(repository.scoped_calls) == 1
-    assert repository.semantic_calls == 1
-
-
-def test_fallbackul_pe_global_face_tot_un_singur_apel_de_embedding():
-    """Costul nu crește: același vector e refolosit pentru ambele interogări SQL."""
-    repository = RepositoryFake([], [evidence(document_id="doc-i7", score=0.90)])
-    repository.semantic_in_documents = [evidence(document_id="doc-p118", score=0.10)]
-    embedder = EmbedderFake()
-
-    context_service(repository, embedder).retrieve("când am un obstacol?", sprinklere_context())
-
+    assert repository.semantic_calls == 0
     assert embedder.calls == 1
-    assert repository.scoped_calls[0][0] == (0.1, 0.2)
-
-
-def test_ambele_interogari_primesc_exact_acelasi_vector():
-    class RepositoryCareRetineVectorii(RepositoryFake):
-        def __init__(self):
-            super().__init__([], [evidence(document_id="doc-i7", score=0.90)])
-            self.vectori = []
-
-        def find_semantic(self, embedding, top_k):
-            self.vectori.append(tuple(embedding))
-            return super().find_semantic(embedding, top_k)
-
-        def find_semantic_in_documents(self, embedding, top_k, document_ids):
-            self.vectori.append(tuple(embedding))
-            return super().find_semantic_in_documents(embedding, top_k, document_ids)
-
-    repository = RepositoryCareRetineVectorii()
-
-    context_service(repository).retrieve("când am un obstacol?", sprinklere_context())
-
-    assert repository.vectori == [(0.1, 0.2), (0.1, 0.2)]
 
 
 def test_referinta_explicita_de_document_invinge_contextul():
@@ -606,17 +564,35 @@ def test_referinta_explicita_de_document_invinge_contextul():
     assert embedder.calls == 0
 
 
-def test_documentul_numit_fara_articol_dezactiveaza_preferinta_din_context():
-    repository = RepositoryFake([], [evidence(document_id="doc-i7", score=0.90)])
-    repository.semantic_in_documents = [evidence(document_id="doc-p118", score=0.99)]
+def test_documentul_numit_fara_articol_cauta_semantic_numai_in_el_fara_context_sau_global():
+    repository = RepositoryFake([], [evidence(document_id="doc-p118", score=0.90)])
+    repository.semantic_in_documents = [evidence(document_id="doc-i7", score=0.90)]
+    embedder = EmbedderCareRetineIntrebarea()
     context = (ConversationTurn("Ce spune despre sprinklere?", ("P 118/2-2013",)),)
 
-    result = context_service(repository).retrieve("Ce spune I7-2011 despre obstacole?", context)
+    result = context_service(repository, embedder).retrieve("Ce spune I7-2011 despre obstacole?", context)
 
     assert result.status == "found"
     assert [item.document_id for item in result.evidence] == ["doc-i7"]
-    assert repository.scoped_calls == []
-    assert repository.semantic_calls == 1
+    assert repository.scoped_calls == [((0.1, 0.2), ("doc-i7",), 5)]
+    assert repository.semantic_calls == 0
+    assert embedder.intrebari_primite == ["Ce spune I7-2011 despre obstacole?"]
+
+
+@pytest.mark.parametrize("scoped", [[], [evidence(document_id="doc-i7", score=0.49)]])
+def test_documentul_explicit_cu_scoped_miss_este_not_found_fara_global(scoped):
+    """Documentul explicit rămâne o restricție și când ar exista un decoy global bun."""
+    repository = RepositoryFake([], [evidence(document_id="doc-p118", score=0.90)])
+    repository.semantic_in_documents = scoped
+    embedder = EmbedderFake()
+
+    result = context_service(repository, embedder).retrieve("Ce spune I7-2011 despre obstacole?")
+
+    assert result.status == "not_found"
+    assert result.evidence == ()
+    assert repository.semantic_calls == 0
+    assert repository.scoped_calls == [((0.1, 0.2), ("doc-i7",), 5)]
+    assert embedder.calls == 1
 
 
 def test_articolul_explicit_ramane_pe_calea_exacta_chiar_cu_context():

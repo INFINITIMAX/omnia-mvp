@@ -1415,3 +1415,298 @@ def test_plafonul_zilnic_invalid_este_eroare_generica(monkeypatch, raw):
 
     with pytest.raises(main.DependencyConfigurationError):
         main._daily_paid_call_limit()
+
+
+# --- Refuz local pentru calcule de proiectare ---
+
+
+def test_calculul_de_proiect_este_refuzat_fara_retrieval_provider_sau_quota(api):
+    connection = ConnectionFake()
+    embedder = EmbedderFake()
+    generator = GeneratorFake()
+    budget_connection = ConnectionFake()
+
+    response = configure(
+        api, connection, embedder, generator, budget_connection=budget_connection
+    ).post(
+        "/intreaba",
+        json={
+            "intrebare": (
+                "Pentru o hală de 200 kW, 4000 mp, 7 m, 28°C, în Buzău, "
+                "calculează sarcina de răcire necesară."
+            )
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "out_of_scope",
+        "raspuns": (
+            "NormativAI nu efectuează calcule sau dimensionări de proiect. "
+            "Pot indica prevederile și datele cerute de normative."
+        ),
+        "citari": [],
+        "intrebari_ramase": 10,
+    }
+    # Rate limit-ul se comite, însă rezervarea temporară de quota este restituită.
+    assert connection.commits == 1
+    assert connection.rollbacks == 1
+    assert embedder.calls == generator.calls == 0
+    assert budget_connection.calls == []
+    executed_sql = "\n".join(sql for sql, _ in connection.calls)
+    assert "SELECT document.document_id" not in executed_sql
+    assert "documente_chunks" not in executed_sql
+
+
+def test_calculul_debitului_minim_nu_ocoleste_refuzul_sau_quota(api):
+    connection = ConnectionFake()
+    embedder = EmbedderFake()
+    generator = GeneratorFake()
+    budget_connection = ConnectionFake()
+
+    response = configure(
+        api, connection, embedder, generator, budget_connection=budget_connection
+    ).post(
+        "/intreaba",
+        json={
+            "intrebare": "Calculează debitul minim necesar pentru ventilația halei mele de 4.000 mp."
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "out_of_scope",
+        "raspuns": (
+            "NormativAI nu efectuează calcule sau dimensionări de proiect. "
+            "Pot indica prevederile și datele cerute de normative."
+        ),
+        "citari": [],
+        "intrebari_ramase": 10,
+    }
+    assert connection.commits == 1
+    assert connection.rollbacks == 1
+    assert embedder.calls == generator.calls == 0
+    assert budget_connection.calls == []
+    executed_sql = "\n".join(sql for sql, _ in connection.calls)
+    assert "SELECT document.document_id" not in executed_sql
+    assert "documente_chunks" not in executed_sql
+
+
+def test_stabiliti_debitul_minim_nu_ocoleste_refuzul_sau_quota(api):
+    connection = ConnectionFake()
+    embedder = EmbedderFake()
+    generator = GeneratorFake()
+    budget_connection = ConnectionFake()
+
+    response = configure(
+        api, connection, embedder, generator, budget_connection=budget_connection
+    ).post(
+        "/intreaba",
+        json={
+            "intrebare": "Stabiliți debitul minim necesar pentru ventilarea halei de 4.000 mp."
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "out_of_scope",
+        "raspuns": (
+            "NormativAI nu efectuează calcule sau dimensionări de proiect. "
+            "Pot indica prevederile și datele cerute de normative."
+        ),
+        "citari": [],
+        "intrebari_ramase": 10,
+    }
+    assert connection.commits == 1
+    assert connection.rollbacks == 1
+    assert embedder.calls == generator.calls == 0
+    assert budget_connection.calls == []
+    executed_sql = "\n".join(sql for sql, _ in connection.calls)
+    assert "SELECT document.document_id" not in executed_sql
+    assert "documente_chunks" not in executed_sql
+
+
+def test_solicitarea_nominala_a_calculului_nu_ocoleste_refuzul_sau_quota(api):
+    connection = ConnectionFake()
+    embedder = EmbedderFake()
+    generator = GeneratorFake()
+    budget_connection = ConnectionFake()
+
+    response = configure(
+        api, connection, embedder, generator, budget_connection=budget_connection
+    ).post(
+        "/intreaba",
+        json={
+            "intrebare": (
+                "Solicit calcularea capacității prevăzute de normativ pentru hala de 4.000 mp."
+            )
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "out_of_scope",
+        "raspuns": (
+            "NormativAI nu efectuează calcule sau dimensionări de proiect. "
+            "Pot indica prevederile și datele cerute de normative."
+        ),
+        "citari": [],
+        "intrebari_ramase": 10,
+    }
+    assert connection.commits == 1
+    assert connection.rollbacks == 1
+    assert embedder.calls == generator.calls == 0
+    assert budget_connection.calls == []
+    executed_sql = "\n".join(sql for sql, _ in connection.calls)
+    assert "SELECT document.document_id" not in executed_sql
+    assert "documente_chunks" not in executed_sql
+
+
+def test_solicitarea_nominala_politicoasa_nu_ocoleste_refuzul_sau_quota(api):
+    connection = ConnectionFake()
+    embedder = EmbedderFake()
+    generator = GeneratorFake()
+    budget_connection = ConnectionFake()
+
+    response = configure(
+        api, connection, embedder, generator, budget_connection=budget_connection
+    ).post(
+        "/intreaba",
+        json={
+            "intrebare": (
+                "Solicit, vă rog, calcularea capacității prevăzute de normativ pentru hala de 4.000 mp."
+            )
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "out_of_scope",
+        "raspuns": (
+            "NormativAI nu efectuează calcule sau dimensionări de proiect. "
+            "Pot indica prevederile și datele cerute de normative."
+        ),
+        "citari": [],
+        "intrebari_ramase": 10,
+    }
+    assert connection.commits == 1
+    assert connection.rollbacks == 1
+    assert embedder.calls == generator.calls == 0
+    assert budget_connection.calls == []
+    executed_sql = "\n".join(sql for sql, _ in connection.calls)
+    assert "SELECT document.document_id" not in executed_sql
+    assert "documente_chunks" not in executed_sql
+
+
+def test_rollback_esuat_la_refuzul_de_calcul_este_fail_closed_503(api):
+    connection = ConnectionFake(rollback_error=psycopg2.OperationalError("rollback db"))
+
+    response = configure(api, connection).post(
+        "/intreaba", json={"intrebare": "Calculează necesarul de răcire pentru hală."}
+    )
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Serviciul este temporar indisponibil."}
+    assert connection.rollbacks == 1
+
+
+# --- Context conversațional: scope semantic fără fallback global ---
+
+P118_CATALOG_ROW = ("doc-p118", "P 118/2-2013", "7.183")
+I7_CATALOG_ROW = ("doc-i7", "I7-2011", "6.3.1")
+P118_SEMANTIC_ROW = (1, "doc-p118", "P 118/2-2013", "P 118/2", "7.183", "7.183", "obstacole sub sprinklere", "p118", 0.90)
+I7_SEMANTIC_DECOY_ROW = (2, "doc-i7", "I7-2011", "I7", "6.3.1", "6.3.1", "obstacole electrice", "i7", 0.90)
+TUR_CONTEXT_SPRINKLERE = {
+    "intrebare": "Unde găsesc detalii despre obstacolele de la sprinklere?",
+    "coduri_documente": ["P 118/2-2013"],
+}
+INTREBARE_ELIPTICA = "Ok dar spune-mi exact când am un obstacol?"
+
+
+def _connection_sprinklere(*, scoped_rows):
+    """P 118/2 este scopul, iar I7 este decoy-ul disponibil doar în global."""
+    return ConnectionFake(
+        catalog_rows=(P118_CATALOG_ROW, I7_CATALOG_ROW),
+        semantic_rows=(I7_SEMANTIC_DECOY_ROW,),
+        semantic_scoped_rows=scoped_rows,
+    )
+
+
+def _interogari_semantice(connection):
+    """Întoarce în ordine dacă SQL-ul semantic este scoped și parametrii săi."""
+    return [
+        ("chunk.document_id = ANY(%s)" in sql, parameters)
+        for sql, parameters in connection.calls
+        if "AS score" in sql
+    ]
+
+
+def test_api_fara_context_face_o_singura_cautare_semantica_globala(api):
+    connection = ConnectionFake()
+
+    response = configure(api, connection).post(
+        "/intreaba", json={"intrebare": "Care este regula sintetică?"}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "answered"
+    assert [scoped for scoped, _ in _interogari_semantice(connection)] == [False]
+
+
+def test_api_sprinklere_context_scoped_hit_foloseste_numai_p118(api):
+    connection = _connection_sprinklere(scoped_rows=(P118_SEMANTIC_ROW,))
+
+    response = configure(api, connection).post(
+        "/intreaba",
+        json={"intrebare": INTREBARE_ELIPTICA, "context_conversatie": [TUR_CONTEXT_SPRINKLERE]},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "answered"
+    assert [citation["cod_document"] for citation in response.json()["citari"]] == ["P 118/2-2013"]
+    assert _interogari_semantice(connection) == [(True, ("[0.1,0.2]", ["doc-p118"], "[0.1,0.2]", 5))]
+
+
+@pytest.mark.parametrize("scoped_rows", [(), (P118_SEMANTIC_ROW[:-1] + (0.49,),)])
+def test_api_sprinklere_scoped_miss_este_not_found_fara_global_sau_generator(api, scoped_rows):
+    connection = _connection_sprinklere(scoped_rows=scoped_rows)
+    embedder = EmbedderFake()
+    generator = GeneratorFake()
+
+    response = configure(api, connection, embedder, generator).post(
+        "/intreaba",
+        json={"intrebare": INTREBARE_ELIPTICA, "context_conversatie": [TUR_CONTEXT_SPRINKLERE]},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "not_found"
+    assert generator.calls == 0
+    assert embedder.calls == 1
+    assert _interogari_semantice(connection) == [(True, ("[0.1,0.2]", ["doc-p118"], "[0.1,0.2]", 5))]
+
+
+@pytest.mark.parametrize(
+    "context",
+    [
+        [{"intrebare": ""}],
+        [{"intrebare": "x" * (main.MAX_QUESTION_CHARS + 1)}],
+        [{"intrebare": "ok", "camp_nerecunoscut": 1}],
+        [{"intrebare": "ok", "coduri_documente": "NP 010-2022"}],
+        [{"coduri_documente": ["NP 010-2022"]}],
+        [{"intrebare": "ok"}] * (main.MAX_CONTEXT_TURNS + 1),
+        "nu-e-o-lista",
+    ],
+)
+def test_api_context_invalid_este_422_inainte_de_dependente(api, context):
+    connection = ConnectionFake()
+    embedder = EmbedderFake()
+    generator = GeneratorFake()
+
+    response = configure(api, connection, embedder, generator).post(
+        "/intreaba", json={"intrebare": "Care este regula sintetică?", "context_conversatie": context}
+    )
+
+    assert response.status_code == 422
+    assert connection.calls == []
+    assert embedder.calls == generator.calls == 0
+    _assert_no_technical_identifiers(response)

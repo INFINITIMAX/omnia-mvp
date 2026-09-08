@@ -809,10 +809,11 @@
     // și fără istoric dacă localStorage nu răspunde.
     const HISTORY_KEY = 'omnia_istoric_conversatii_v1';
     const HISTORY_LIMIT = 20;
-    // Context conversațional trimis serverului ca PREFERINȚĂ de căutare: fără el, o
-    // întrebare de continuare ("dar când am un obstacol?") se caută izolat și poate
-    // nimeri în alt normativ. Trimitem strict întrebările anterioare și codurile
-    // documentelor citate atunci — niciodată textul răspunsurilor generate.
+    // Context conversațional trimis serverului ca restricție semantică atunci când
+    // codurile se rezolvă la documente aprobate: fără el, o întrebare de continuare
+    // ("dar când am un obstacol?") se caută izolat și poate nimeri în alt normativ.
+    // Trimitem strict întrebările anterioare și codurile documentelor citate atunci —
+    // niciodată textul răspunsurilor generate.
     // Limitele de mai jos trebuie să rămână identice cu cele din retrieval_core.py,
     // altfel serverul respinge cererea cu 422.
     const MAX_CONTEXT_TURNS = 3;
@@ -897,11 +898,13 @@
       }));
     }
 
-    function addHistoryEntry(intrebare, raspuns, citari) {
+    function addHistoryEntry(intrebare, raspuns, citari, includeInContext = true) {
       historyEntries = [{ intrebare, raspuns, citari: Array.isArray(citari) ? citari : [] }, ...historyEntries].slice(0, HISTORY_LIMIT);
       saveHistory(historyEntries);
       renderHistoryList();
-      rememberConversationTurn(intrebare, citari);
+      // Refuzul de calcul rămâne vizibil în istoric, dar nu devine preferință pentru
+      // retrieval-ul următoarei întrebări: nu are citări și nu descrie un subiect normativ.
+      if (includeInContext) rememberConversationTurn(intrebare, citari);
     }
 
     function replayHistoryEntry(index) {
@@ -1290,7 +1293,7 @@
         }
         quotaStatus.textContent = `Întrebări rămase: ${data.intrebari_ramase}/browser`;
         setMessage(pendingBody, data.raspuns, data.citari);
-        addHistoryEntry(intrebare, data.raspuns, data.citari);
+        addHistoryEntry(intrebare, data.raspuns, data.citari, data.status !== 'out_of_scope');
       } catch (_) {
         setMessage(pendingBody, GENERIC_ERROR);
       } finally {

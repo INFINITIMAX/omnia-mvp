@@ -410,9 +410,9 @@ class RetrievalService:
     ) -> RetrievalResult:
         """Recuperează dovezile pentru întrebarea curentă, opțional cu contextul conversației.
 
-        Contextul e PREFERINȚĂ, nu restricție: dacă documentele citate anterior nu dau
-        nimic peste prag, se reia căutarea globală normală. Un context absent înseamnă
-        exact comportamentul de dinaintea acestei funcționalități.
+        Un document numit explicit sau rezolvat sigur din context restrânge căutarea
+        semantică: lipsa dovezilor peste prag devine `not_found`, fără fallback global.
+        Fără asemenea document, căutarea globală rămâne neschimbată.
         """
         if not isinstance(question, str) or not question.strip():
             raise ValueError("întrebarea trebuie să fie text nevid")
@@ -436,18 +436,22 @@ class RetrievalService:
             evidence = self._limit_context(self._deduplicate(exact, preserve_documents=True))
             return RetrievalResult("found", evidence) if evidence else RetrievalResult("not_found", ())
 
-        # O referință explicită de document în întrebarea curentă câștigă întotdeauna:
-        # contextul e ignorat, ca utilizatorul să poată schimba deliberat subiectul.
-        preferred = () if reference.document_id is not None else self._preferred_document_ids(turns)
-        # Un SINGUR apel de embedding, indiferent dacă urmează una sau două interogări SQL:
-        # același vector e refolosit și pentru preferință, și pentru căutarea globală.
-        embedding = self._embedder.embed_query(self._embedding_text(question, turns))
-        accepted: tuple[Evidence, ...] = ()
+        # Documentul numit explicit câștigă și ignoră complet contextul; altfel folosim
+        # numai documentele aprobate rezolvate din codurile citate în context. O listă
+        # nenulă este o restricție de siguranță, nu o preferință cu fallback global.
+        preferred = (
+            (reference.document_id,)
+            if reference.document_id is not None
+            else self._preferred_document_ids(turns)
+        )
+        embedding_turns = () if reference.document_id is not None else turns
+        # Un singur embedding este suficient pentru exact o interogare semantică.
+        embedding = self._embedder.embed_query(self._embedding_text(question, embedding_turns))
         if preferred:
             accepted = self._accepted(
                 self._repository.find_semantic_in_documents(embedding, self._semantic_top_k, preferred)
             )
-        if not accepted:
+        else:
             accepted = self._accepted(self._repository.find_semantic(embedding, self._semantic_top_k))
         if self._has_ambiguous_article(accepted):
             return RetrievalResult("ambiguous_article", ())

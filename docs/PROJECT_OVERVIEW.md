@@ -9,7 +9,7 @@
 - Relația document–sursă este protejată prin FK compus.
 - Chunk-urile au articol normalizat, hash de conținut și ordine stabilă.
 - RLS este activ; `anon` și `authenticated` nu au granturi sau politici.
-- Retrieval Core este implementat și testat: parser, exact lookup, semantic pgvector, deduplicare, ambiguitate și limite.
+- Retrieval Core este implementat și testat: parser, exact lookup, semantic pgvector, deduplicare, ambiguitate și limite. Contextul conversațional cu coduri aprobate și documentul numit explicit restrâng semantic retrieval-ul; un scoped miss devine `not_found`, fără fallback global.
 - Generation Core este implementat și testat: ID-uri temporare deterministe, prompt cu întrebarea și dovezi tratate ca date neîncrezătoare, citări validate fail-safe și obiecte publice derivate exclusiv din Evidence.
 - `POST /intreaba` orchestrează catalogul aprobat, Retrieval Core și Generation Core; returnează statusuri controlate și citări oficiale, fără identificatori tehnici.
 - Controalele anonime sunt integrate mock-first în FastAPI: `GET /` emite cookie-ul semnat `normativai_anon`, iar `POST /intreaba` îl emite ca fallback; cookie-ul este `HttpOnly`, `SameSite=Lax`, `Path=/` și expiră în 365 zile. Atributul `Secure` este citit strict din configurația server-side, pentru local/test HTTP.
