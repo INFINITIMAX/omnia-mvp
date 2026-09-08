@@ -84,8 +84,8 @@ python -m uvicorn main:app --reload
 
 ## Current status
 
-- The public application is live. The verified production deployment is commit `74ccec6`.
-- Six approved documents containing 3,345 indexed fragments were verified on 03-09-2026.
+- The public application is live. The verified production deployment is merge commit `47a6133` from `main`.
+- The current catalog contains 10 explicitly approved documents; the repository does not claim a current indexed-fragment total.
 - Explicit document references and approved document codes resolved from conversation context restrict semantic retrieval. A scoped miss becomes `not_found`; it never falls back to global retrieval.
 - Requests to perform engineering calculations or project sizing are rejected server-side before retrieval, Voyage, or Anthropic.
 - Known deferred work includes controlled external testing, physical cleanup scheduling for expired rate-limit records, an independent security review, and the future import of the complete P 118/2-2013 base text. Until then, only its approved amendment content is available.

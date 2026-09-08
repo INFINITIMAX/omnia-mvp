@@ -1,5 +1,13 @@
 # TASKS — Omnia
 
+## Predare — Deploy production din `main` (08-09-2026)
+
+- [x] **Sursă publicată:** merge commit `47a6133` din `main`, prin deploy manual Railway; serviciul nu are Git Source/autodeploy legat.
+- [x] **Gate infrastructură:** healthcheck Railway configurat la `/health`; redeploy-ul de configurare și deploy-ul SHA-ului `47a6133` au ajuns `SUCCESS`.
+- [x] **Smoke HTTPS fără cost:** `/health`, rădăcina și antetele CSP/HSTS/nosniff/frame deny au trecut; contractul `out_of_scope` a răspuns HTTP 200, fără citări, cu quota restaurată. Nu s-au apelat Voyage sau Anthropic.
+- [x] **Efect DB controlat:** smoke-ul `out_of_scope` a incrementat rate limit-ul și a făcut rollback pentru rezervarea quota; fără migrare, ingestion sau apel API plătit.
+- [x] **Valoare CV:** deploy trasabil la SHA, healthcheck configurat și smoke post-deploy documentat, fără publicarea surselor ori a secretelor.
+
 ## Predare — context conversațional fără fallback semantic global (07-09-2026)
 
 - [x] **Decizie aprobată implementată:** un document numit explicit fără articol exact sau codurile de context rezolvate la documente aprobate restrâng semantic retrieval-ul; un rezultat gol/sub prag devine `not_found`, fără căutare globală.
@@ -65,7 +73,7 @@
 2. Kill switch global de cost — limitele Anthropic $20 / Voyage $10 sunt doar alerte, nu opresc nimic automat.
 3. ~~`GET /documents` cu contract aprobat — blochează contorul de documente din nav.~~ **ANULAT (07-09-2026):** catalogul documentelor nu se expune public (decizie de produs — vezi predarea din capul fișierului). Nici endpointul, nici contorul din nav nu se implementează.
 4. Scheduler pentru ștergerea fizică a bucket-urilor IP expirate în max 24h (acum expiră doar logic).
-5. Chips-urile de sugestie: două întreabă lucruri neacoperite de cele 6 documente aprobate, deci produc refuzuri garantate. Decizie de conținut.
+5. Chips-urile de sugestie trebuie reevaluate față de catalogul curent de 10 documente aprobate; acoperirea lor nu se mai deduce din inventarul istoric de 6 documente. Decizie de conținut.
 6. Metrul vizual de quotă (bara 7/10 din mockup) — acum e doar text.
 7. Lotul 4: P118/2-2013 complet (acum doar 22 chunk-uri din amendamentul 2018).
 8. Testare reală de calitate Voyage/Claude pe date reale; smoke tests plătite opt-in.
@@ -316,7 +324,7 @@ spațiere, razele și lista de pattern-uri interzise. Nu inventa valori care nu 
 - [ ] Metrul de quotă din mockup (bara 7/10) nu este implementat: ar cere logică nouă de stare,
       iar acest task este strict de prezentare. Contorul textual rămâne singura sursă.
 - [ ] Chips-urile de sugestie au rămas cele din MVP. Două dintre ele („stările limită”,
-      „debitul minim pentru grupuri sanitare”) nu sunt acoperite de cele 6 documente aprobate
+      „debitul minim pentru grupuri sanitare”) necesită reevaluare față de catalogul curent de 10 documente aprobate
       și vor produce refuzuri. Înlocuirea lor este o decizie de conținut pentru Lucian.
 
 ## Backlog ordonat
@@ -334,6 +342,6 @@ spațiere, razele și lista de pattern-uri interzise. Nu inventa valori care nu 
 ## Observații
 
 - `np057_02` nu are PDF original local; are doar `extracted.txt` și metadata notează acest lucru.
-- Supabase are 3345 chunk-uri aprobate pentru retrieval, în 6 documente (verificare read-only 03-09-2026): NP010 = 408, NP057 = 286, I9-2022 = 650, P118/1-2025 = 1401, NP015-2022 = 578, P118/2-2013 modificări = 22.
+- Catalogul curent are 10 documente `approved`; nu consemnăm un număr curent de chunk-uri fără verificare read-only actualizată. Inventarul detaliat din 03-09-2026 rămâne istoric la predarea sa.
 - `PLAN.md` și acest fișier sunt sursele active de coordonare.
 - Commit `319cf5f`: 17 scripturi legacy neutilizate (ex. `chunkingv2.py`, `omnia_qa.py`, `verificare_db.py`) au fost eliminate din proiectul activ. `_archive/` este în `.gitignore` și nu face parte din repo sau din starea versionată; versiunile eliminate rămân recuperabile din istoricul Git (`git show 319cf5f^:<cale>`).
