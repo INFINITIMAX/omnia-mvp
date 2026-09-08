@@ -2,9 +2,9 @@
 
 ## Ce este acum funcțional
 
-- Supabase/PostgreSQL conține 3345 chunk-uri cu embeddings Voyage, în 6 documente aprobate (verificare read-only 03-09-2026): `np010_2022` = 408, `np057_02` = 286, `i9_2022` = 650, `p118_1_2025` = 1401, `spitale_2022` = 578, `p118_2_2013_modificari` = 22.
+- Catalogul curent Supabase/PostgreSQL conține 10 documente cu status `approved`. Numărul curent de chunk-uri indexate nu este consemnat aici fără o verificare read-only actualizată.
 - Tabelul `documente` păstrează codul și titlul oficial, anul și statusul.
-- Toate cele 6 documente au status `approved`; aprobarea este înregistrată în migrări SQL reproductibile (`20260831220000` pentru lotul 1, `20260903120000` pentru lotul 2).
+- Documentele eligibile pentru retrieval au status `approved`. Aprobările loturilor inițiale sunt înregistrate în migrări SQL reproductibile (`20260831220000` pentru lotul 1, `20260903120000` pentru lotul 2).
 - `p118_2_2013_modificari` conține **numai** Ordinul 966/2018 cu modificări și completări, nu textul de bază al normativului P 118/2-2013. Normativul complet este planificat pentru un lot ulterior; până atunci, o întrebare despre P 118/2 poate primi răspuns doar din lista de modificări.
 - Relația document–sursă este protejată prin FK compus.
 - Chunk-urile au articol normalizat, hash de conținut și ordine stabilă.
