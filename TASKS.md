@@ -1,5 +1,17 @@
 # TASKS — Omnia
 
+## Predare — deploy live fără calcule și context cross-document (08-09-2026)
+
+- [x] **Sursa deployată:** commit `74ccec6` din branch-ul canonic `fix/blocheaza-calcule-proiectare`; deployment Railway `b31333e0-6964-4dea-b4a4-53b9da305bce`, environment `production`, `SUCCESS`; `normativai.ro` este online.
+- [x] **Pre-deploy:** `533 passed, 11 skipped, 1 warning` extern `TestClient`; worktree curat, SHA local egal cu remote și zero fișiere `.env`, `documente_noi/` sau PDF-uri urmărite de Git.
+- [x] **Post-deploy gratuit:** `/health` 200 (`ok`), `/` 200 cu markerul contextului și hash CSP nou, antete CSP/HSTS/X-Content-Type-Options/X-Frame-Options, pagini juridice 200; `/docs`, `/redoc`, `/openapi.json` și `/documents` 404.
+- [x] **Calcul hală live:** `HTTP 200`, mesajul aprobat exact „NormativAI nu efectuează calcule sau dimensionări de proiect. Pot indica prevederile și datele cerute de normative.”, citări goale și 10 întrebări rămase; gate-ul local oprește providerii.
+- [x] **Smoke real aprobat de Lucian:** maximum 10 apeluri externe combinate; plafonul conservator a fost atins și testele s-au oprit. Follow-up-ul real sprinklere → obstacol a returnat exclusiv coduri P 118/2 și zero I7.
+- [x] **Limită de evidență:** nu se afirmă rezultate individuale pentru CTA, tubulatură, stări limită sau debit, fiindcă outputul lor sumar a fost capturat accidental de PowerShell și nu a fost rerulat după atingerea plafonului.
+- [x] **Certificat public inspectat:** CN `normativai.ro`, valid 05-09-2026—04-12-2026; eroarea `urllib` locală nu reflectă certificatul servit.
+- [x] **Fără efecte asupra datelor sau main:** fără DB, migrare ori ingestion; `origin/main` a rămas la `6abdaf0`; deploy manual din branch, fără push direct pe main.
+
+
 ## Predare — context conversațional fără fallback semantic global (07-09-2026)
 
 - [x] **Decizie aprobată implementată:** un document numit explicit fără articol exact sau codurile de context rezolvate la documente aprobate restrâng semantic retrieval-ul; un rezultat gol/sub prag devine `not_found`, fără căutare globală.
