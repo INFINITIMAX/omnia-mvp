@@ -1,5 +1,13 @@
 # TASKS — Omnia
 
+## Predare — Deploy production din `main` (08-09-2026)
+
+- [x] **Sursă publicată:** merge commit `47a6133` din `main`, prin deploy manual Railway; serviciul nu are Git Source/autodeploy legat.
+- [x] **Gate infrastructură:** healthcheck Railway configurat la `/health`; redeploy-ul de configurare și deploy-ul SHA-ului `47a6133` au ajuns `SUCCESS`.
+- [x] **Smoke HTTPS fără cost:** `/health`, rădăcina și antetele CSP/HSTS/nosniff/frame deny au trecut; contractul `out_of_scope` a răspuns HTTP 200, fără citări, cu quota restaurată. Nu s-au apelat Voyage sau Anthropic.
+- [x] **Efect DB controlat:** smoke-ul `out_of_scope` a incrementat rate limit-ul și a făcut rollback pentru rezervarea quota; fără migrare, ingestion sau apel API plătit.
+- [x] **Valoare CV:** deploy trasabil la SHA, healthcheck configurat și smoke post-deploy documentat, fără publicarea surselor ori a secretelor.
+
 ## Predare — context conversațional fără fallback semantic global (07-09-2026)
 
 - [x] **Decizie aprobată implementată:** un document numit explicit fără articol exact sau codurile de context rezolvate la documente aprobate restrâng semantic retrieval-ul; un rezultat gol/sub prag devine `not_found`, fără căutare globală.
