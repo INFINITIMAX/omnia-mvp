@@ -128,10 +128,11 @@ def test_importul_face_upsert_inainte_de_delete_si_populeaza_metadata_noilor_col
         [{"articol": " 1.1. ", "text": "Text local valid."}],
     )
 
-    assert "SELECT document_id, source_key" in apeluri_sql[0][0]
+    assert "SELECT document_id, source_key, status" in apeluri_sql[0][0]
     assert "INSERT INTO documente" in apeluri_sql[1][0]
-    assert "DELETE FROM documente_chunks" in apeluri_sql[2][0]
-    instructiune, parametri = apeluri_sql[3]
+    assert "SELECT content_hash" in apeluri_sql[2][0]
+    assert "DELETE FROM documente_chunks" in apeluri_sql[3][0]
+    instructiune, parametri = apeluri_sql[4]
     assert "articol_normalizat" in instructiune
     assert "content_hash" in instructiune
     assert "chunk_order" in instructiune
@@ -197,13 +198,18 @@ def test_import_real_sare_documentele_neschimbate_fara_apel_voyage(modul_ingesti
 
     class CursorFalsNeschimbat:
         def execute(self, instructiune, _parametri):
+            self.select_document = "SELECT document_id, source_key, status" in instructiune
             self.select_hash = "SELECT content_hash" in instructiune
 
         def fetchall(self):
-            return [(hash_existent,)]
+            if self.select_document:
+                return [("document-test", "document_test", "indexed_pending_validation")]
+            if self.select_hash:
+                return [(hash_existent,)]
+            raise AssertionError("interogare neașteptată")
 
         def fetchone(self):
-            raise AssertionError("nu trebuie apelat cand documentul e neschimbat")
+            return ("document-test",)
 
         def __enter__(self):
             return self
@@ -235,6 +241,106 @@ def test_import_real_sare_documentele_neschimbate_fara_apel_voyage(modul_ingesti
     assert "NESCHIMBAT: document-test" in capsys.readouterr().out
 
 
+class CursorStatusDocument:
+    """Cursor local pentru status și hash, fără conexiune reală la Supabase."""
+
+    def __init__(self, status_existent, hash_uri_db=()):
+        self.status_existent = status_existent
+        self.hash_uri_db = hash_uri_db
+        self.apeluri_sql = []
+        self.ultima_interogare = ""
+
+    def execute(self, instructiune, parametri):
+        self.apeluri_sql.append((instructiune, parametri))
+        self.ultima_interogare = instructiune
+
+    def fetchall(self):
+        if "SELECT document_id, source_key, status" in self.ultima_interogare:
+            if self.status_existent is None:
+                return []
+            return [("document-test", "document_test", self.status_existent)]
+        if "SELECT content_hash" in self.ultima_interogare:
+            return [(content_hash,) for content_hash in self.hash_uri_db]
+        raise AssertionError("fetchall apelat pentru o interogare neașteptată")
+
+    def fetchone(self):
+        return ("document-test",)
+
+
+class ClientVoyageInterzisLaStatus:
+    def count_tokens(self, *_args, **_kwargs):
+        raise AssertionError("Voyage nu trebuie apelat pentru reconcilierea statusului")
+
+    def embed(self, *_args, **_kwargs):
+        raise AssertionError("Voyage nu trebuie apelat pentru reconcilierea statusului")
+
+
+def _metadata_cu_status(status):
+    metadata = metadata_valida()
+    metadata["status"] = status
+    return metadata
+
+
+@pytest.mark.parametrize("status_existent", ["approved", "indexed_pending_validation"])
+def test_status_to_disabled_reconciliaza_inainte_de_skip_fara_voyage(
+    modul_ingestie, status_existent
+):
+    chunkuri = [{"articol": "1.1.", "text": "Text local valid."}]
+    content_hash = modul_ingestie.calculeaza_content_hash(chunkuri[0]["text"])
+    cursor = CursorStatusDocument(status_existent, (content_hash,))
+
+    procesat = modul_ingestie.importa_document(
+        cursor, ClientVoyageInterzisLaStatus(), _metadata_cu_status("disabled"), chunkuri
+    )
+
+    assert procesat is False
+    assert "UPDATE documente" in cursor.apeluri_sql[1][0]
+    assert cursor.apeluri_sql[1][1][3] == "disabled"
+    assert "SELECT content_hash" in cursor.apeluri_sql[2][0]
+    assert not any("DELETE FROM documente_chunks" in sql for sql, _ in cursor.apeluri_sql)
+
+
+@pytest.mark.parametrize(
+    ("status_existent", "status_cerut"),
+    [
+        ("indexed_pending_validation", "approved"),
+        ("disabled", "approved"),
+        ("disabled", "indexed_pending_validation"),
+    ],
+)
+def test_tranzitie_neautorizata_opreste_inainte_de_delete_si_voyage(
+    modul_ingestie, status_existent, status_cerut
+):
+    cursor = CursorStatusDocument(status_existent)
+
+    with pytest.raises(ValueError, match="tranziție de status neautorizată"):
+        modul_ingestie.importa_document(
+            cursor,
+            ClientVoyageInterzisLaStatus(),
+            _metadata_cu_status(status_cerut),
+            [{"articol": "1.1.", "text": "Text local valid."}],
+        )
+
+    assert len(cursor.apeluri_sql) == 1
+    assert not any("DELETE FROM documente_chunks" in sql for sql, _ in cursor.apeluri_sql)
+
+
+def test_document_nou_approved_este_refuzat_inainte_de_insert_delete_si_voyage(modul_ingestie):
+    cursor = CursorStatusDocument(None)
+
+    with pytest.raises(ValueError, match="document nou trebuie să înceapă"):
+        modul_ingestie.importa_document(
+            cursor,
+            ClientVoyageInterzisLaStatus(),
+            _metadata_cu_status("approved"),
+            [{"articol": "1.1.", "text": "Text local valid."}],
+        )
+
+    assert len(cursor.apeluri_sql) == 1
+    assert not any("INSERT INTO documente" in sql for sql, _ in cursor.apeluri_sql)
+    assert not any("DELETE FROM documente_chunks" in sql for sql, _ in cursor.apeluri_sql)
+
+
 def test_chunk_invalid_opreste_inainte_de_sql_si_voyage(modul_ingestie):
     class CursorInterzis:
         def execute(self, *_args, **_kwargs):
@@ -261,7 +367,7 @@ def test_conflict_document_sursa_opreste_inainte_de_delete_si_voyage(modul_inges
             apeluri_sql.append((instructiune, parametri))
 
         def fetchall(self):
-            return [("alt-document", "document_test")]
+            return [("alt-document", "document_test", "approved")]
 
     class ClientVoyageInterzis:
         def embed(self, *_args, **_kwargs):
