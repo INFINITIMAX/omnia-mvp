@@ -7,7 +7,14 @@ __pycache__/
 *.log
 
 documente_noi/
+# Workerul automat păstrează rapoarte locale fără text normativ; directorul-mamă
+# este deja ignorat, iar aceste intrări fac intenția explicită.
+documente_noi/_inbox/
+documente_noi/_auto_state/
 _archive/
+
+# Ledger-ele locale ale gate-urilor nu sunt artefacte de produs.
+.unlazy/
 
 .agents/
 .claude/
