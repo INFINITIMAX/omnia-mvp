@@ -7,7 +7,7 @@ psycopg2-binary==2.9.12
 pydantic==2.13.4
 PyMuPDF==1.28.0
 pytest==9.1.1
-python-dotenv==1.2.2
+python-dotenv==1.2.3
 # Furnizează datele IANA pentru Europe/Bucharest pe Windows.
 tzdata==2026.3
 uvicorn==0.52.4
