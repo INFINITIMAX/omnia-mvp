@@ -172,49 +172,84 @@ def conecteaza_baza_de_date():
 
 
 def asigura_document(cursor, metadata):
-    """Validează perechea document–sursă și face upsert înainte de orice embedding."""
+    """Reconciliază metadata sub lock înainte de skip sau embedding.
+
+    Un document nou pornește exclusiv pending. Pentru documentele existente,
+    importerul poate doar păstra statusul sau retrage explicit documentul prin
+    `disabled`; aprobarea și reactivarea rămân operații SQL aprobate separat.
+    """
     valideaza_metadata(metadata)
     document_id = metadata["document_id"]
     sursa = metadata["source_key"]
+    status_cerut = metadata["status"]
 
     cursor.execute(
         """
-        SELECT document_id, source_key
+        SELECT document_id, source_key, status
         FROM documente
         WHERE document_id = %s OR source_key = %s
         FOR UPDATE
         """,
         (document_id, sursa),
     )
-    for document_id_existent, sursa_existenta in cursor.fetchall():
+    documente_existente = cursor.fetchall()
+    for document_id_existent, sursa_existenta, _status_existent in documente_existente:
         if (document_id_existent, sursa_existenta) != (document_id, sursa):
             raise ValueError("conflict document_id/source_key; importul a fost oprit înainte de Voyage")
 
-    cursor.execute(
-        """
-        INSERT INTO documente (
-            document_id, source_key, cod_oficial, titlu_oficial, an, status
+    if not documente_existente:
+        if status_cerut != "indexed_pending_validation":
+            raise ValueError("document nou trebuie să înceapă indexed_pending_validation")
+        cursor.execute(
+            """
+            INSERT INTO documente (
+                document_id, source_key, cod_oficial, titlu_oficial, an, status
+            )
+            VALUES (%s, %s, %s, %s, %s, %s)
+            RETURNING document_id
+            """,
+            (
+                document_id,
+                sursa,
+                metadata["cod_oficial"],
+                metadata["titlu_oficial"],
+                metadata["an"],
+                status_cerut,
+            ),
         )
-        VALUES (%s, %s, %s, %s, %s, %s)
-        ON CONFLICT (document_id) DO UPDATE
-        SET cod_oficial = EXCLUDED.cod_oficial,
-            titlu_oficial = EXCLUDED.titlu_oficial,
-            an = EXCLUDED.an,
-            status = EXCLUDED.status
-        WHERE documente.source_key = EXCLUDED.source_key
-        RETURNING document_id
-        """,
-        (
-            document_id,
-            sursa,
-            metadata["cod_oficial"],
-            metadata["titlu_oficial"],
-            metadata["an"],
-            metadata["status"],
-        ),
-    )
+    else:
+        status_existent = documente_existente[0][2]
+        tranzitie_permisa = (
+            status_cerut == status_existent
+            or (
+                status_cerut == "disabled"
+                and status_existent in {"indexed_pending_validation", "approved"}
+            )
+        )
+        if not tranzitie_permisa:
+            raise ValueError("tranziție de status neautorizată; importul a fost oprit înainte de Voyage")
+        cursor.execute(
+            """
+            UPDATE documente
+            SET cod_oficial = %s,
+                titlu_oficial = %s,
+                an = %s,
+                status = %s
+            WHERE document_id = %s AND source_key = %s
+            RETURNING document_id
+            """,
+            (
+                metadata["cod_oficial"],
+                metadata["titlu_oficial"],
+                metadata["an"],
+                status_cerut,
+                document_id,
+                sursa,
+            ),
+        )
+
     if cursor.fetchone() is None:
-        raise ValueError("upsert document refuzat; importul a fost oprit înainte de Voyage")
+        raise ValueError("reconciliere document refuzată; importul a fost oprit înainte de Voyage")
 
 
 def chunkurile_sunt_neschimbate(cursor, sursa, chunkuri):
@@ -286,6 +321,8 @@ def creeaza_loturi_embedding(
 def importa_document(cursor, client_voyage, metadata, chunkuri):
     """Reinlocuieste atomic doar chunk-urile sursei curente.
 
+    Returnează `False` când metadata a fost reconciliată, dar hash-urile arată
+    că fragmentele sunt deja identice; în acest caz nu face DELETE sau Voyage.
     Embeddings sunt cerute pe loturi (nu un apel de retea per fragment —
     vezi creeaza_loturi_embedding), pastrand neschimbat restul contractului:
     acelasi model, acelasi input_type, aceeasi valoare stocata per chunk.
@@ -300,6 +337,8 @@ def importa_document(cursor, client_voyage, metadata, chunkuri):
     sursa = metadata["source_key"]
     document_id = metadata["document_id"]
     asigura_document(cursor, metadata)
+    if chunkurile_sunt_neschimbate(cursor, sursa, chunkuri):
+        return False
     cursor.execute("DELETE FROM documente_chunks WHERE sursa = %s", (sursa,))
 
     def numara_tokeni(text):
@@ -358,6 +397,7 @@ def importa_document(cursor, client_voyage, metadata, chunkuri):
                 ),
             )
         print(f"    {document_id}: lot {index_lot}/{len(loturi)} gata ({chunk_order}/{len(chunkuri)} fragmente)")
+    return True
 
 
 def main():
@@ -391,13 +431,11 @@ def main():
         sarite = 0
         with conexiune.cursor() as cursor:
             for metadata, chunkuri in documente:
-                sursa = metadata["source_key"]
-                if chunkurile_sunt_neschimbate(cursor, sursa, chunkuri):
-                    print(f"  NESCHIMBAT: {metadata['document_id']} — sarit, fara cost Voyage")
-                    sarite += 1
+                if importa_document(cursor, client_voyage, metadata, chunkuri):
+                    procesate += 1
                     continue
-                importa_document(cursor, client_voyage, metadata, chunkuri)
-                procesate += 1
+                print(f"  NESCHIMBAT: {metadata['document_id']} — sarit, fara cost Voyage")
+                sarite += 1
         conexiune.commit()
         print(f"\nImport finalizat: {procesate} documente reimportate, {sarite} sarite (neschimbate).")
     except Exception:
