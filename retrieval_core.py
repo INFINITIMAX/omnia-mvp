@@ -16,7 +16,7 @@ MAX_CONTEXT_CHARS = 12000
 
 # Contextul conversațional trimis de client: limite mici și fixe, pentru că e intrare
 # controlată de utilizator. Trei tururi acoperă o continuare firească ("dar atunci când...")
-# fără să umfle textul trimis la embedding sau lista de documente preferate.
+# fără să umfle textul trimis la embedding sau metadata conversației.
 MAX_CONTEXT_TURNS = 3
 MAX_CONTEXT_DOCUMENT_CODES = 4
 MAX_DOCUMENT_CODE_CHARS = 64
@@ -38,7 +38,9 @@ _ANNEX_REFERENCE = re.compile(
 _WHITESPACE = re.compile(r"[ \t\n\r\f\v\u00a0\u202f]+")
 _ALIAS_CHARACTERS = re.compile(r"[^a-z0-9]+")
 _ALIAS_PARTS = re.compile(r"[a-z]+|[0-9]+")
-_ALIAS_SEPARATOR = r"[ \t\n\r\f\v\u00a0\u202f-]*"
+_ALIAS_SEPARATOR = r"[ \t\n\r\f\v\u00a0\u202f/-]*"
+# Inventar literal D12/D14: fără IGNORECASE sau normalizare de spații a directivei.
+_DOCUMENT_RESTRICTION = re.compile(r"(?<!\w)(nu doar din|doar din|numai din|exclusiv din) ")
 
 
 @dataclass(frozen=True)
@@ -135,7 +137,7 @@ class ArticleParser:
 
     @staticmethod
     def normalize_document_alias(value: str) -> str:
-        """Face codurile oficiale comparabile indiferent de spații și cratime."""
+        """Face codurile oficiale comparabile indiferent de spații, cratime și slash."""
         if not isinstance(value, str):
             raise ValueError("aliasul documentului trebuie să fie text")
         normalized = _ALIAS_CHARACTERS.sub("", value.lower())
@@ -154,10 +156,21 @@ class ArticleParser:
         """Acceptă un articol doar cu marker sau, fără marker, doar din catalogul injectat."""
         if not isinstance(question, str):
             raise ValueError("întrebarea trebuie să fie text")
-        document_ids = self._find_documents(question)
-        if len(document_ids) > 1:
+        matches = tuple(
+            (match.start(), match.end(), document_id)
+            for pattern, document_id in self._alias_patterns
+            for match in pattern.finditer(question)
+        )
+        document_ids = frozenset(document_id for _, _, document_id in matches)
+        # Două menționări separate nu sunt o coliziune. Aliasurile suprapuse
+        # ale unor documente diferite rămân ambigue, inclusiv aliasurile scurte comune.
+        if any(
+            left_id != right_id and left_start < right_end and right_start < left_end
+            for left_start, left_end, left_id in matches
+            for right_start, right_end, right_id in matches
+        ):
             return ParsedReference(None, None, False, requires_clarification=True)
-        document_id = next(iter(document_ids), None)
+        document_id = next(iter(document_ids)) if len(document_ids) == 1 else None
         marked = [
             self.normalize_article(match.group(1))
             for match in _ARTICLE_MARKER.finditer(question)
@@ -170,6 +183,8 @@ class ArticleParser:
         if len(set(explicit_articles)) > 1:
             return ParsedReference(document_id, None, False, requires_clarification=True)
         if explicit_articles:
+            if len(document_ids) > 1:
+                return ParsedReference(None, None, False, requires_clarification=True)
             return ParsedReference(document_id, explicit_articles[0], True)
 
         candidates = [
@@ -180,15 +195,17 @@ class ArticleParser:
         if len(set(candidates)) > 1:
             return ParsedReference(document_id, None, False, requires_clarification=True)
         if candidates:
+            if len(document_ids) > 1:
+                return ParsedReference(None, None, False, requires_clarification=True)
             return ParsedReference(document_id, candidates[0], False)
         return ParsedReference(document_id, None, False)
 
     def documents_for_official_code(self, code: str) -> frozenset[str]:
         """Rezolvă un cod oficial primit din context la `document_id`-uri aprobate.
 
-        Folosește exact aliasurile catalogului aprobat, deci un cod necunoscut, gol
-        sau de alt tip întoarce pur și simplu mulțimea goală: contextul poate doar să
-        prefere între documente deja aprobate, niciodată să adauge altele.
+        Folosește exact aliasurile catalogului aprobat: un cod necunoscut, gol
+        sau de alt tip întoarce mulțimea goală. Rezolvarea identității nu autorizează
+        singură un filtru de retrieval și nu adaugă documente eligibile.
         """
         if not isinstance(code, str):
             return frozenset()
@@ -198,11 +215,21 @@ class ArticleParser:
             return frozenset()
         return self._documents_by_alias.get(normalized, frozenset())
 
-    def _find_documents(self, question: str) -> frozenset[str]:
+    def restricted_document_ids(self, question: str) -> frozenset[str] | None:
+        """None = fără directivă; mulțime goală = cod absent din catalogul aprobat.
+
+        Rezolvarea începe imediat după expresia curentă, nu la un alt cod din frază.
+        Guard-ul D14 este strict «nu doar din», nu o interpretare generală a negației.
+        """
+        directive = _DOCUMENT_RESTRICTION.search(question)
+        if directive is None or directive.group(1) == "nu doar din":
+            return None
         return frozenset(
             document_id
             for pattern, document_id in self._alias_patterns
-            if pattern.search(question)
+            if (match := pattern.match(question, directive.end())) is not None
+            # Nu trata aliasul scurt drept identitate pentru un an/parte necunoscută.
+            and not re.match(r"[ \t]*[-/][ \t]*[0-9]", question[match.end():])
         )
 
     def _is_known_article(self, article: str, document_id: str | None) -> bool:
@@ -323,11 +350,11 @@ class PostgresRetrievalRepository:
     def find_semantic_in_documents(
         self, embedding: Sequence[float], top_k: int, document_ids: Sequence[str]
     ) -> list[Evidence]:
-        """Aceeași căutare semantică, restrânsă la documentele preferate din context.
+        """Aceeași căutare semantică, restrânsă la documentele solicitate explicit.
 
         Lista de documente ajunge în SQL ca un singur parametru DB-API (`= ANY(%s)`),
         niciodată interpolată în text, iar filtrul `status = 'approved'` rămâne intact:
-        preferința poate doar să restrângă rezultatele căutării globale.
+        restricția poate doar să reducă documentele eligibile pentru căutare.
         """
         self._require_positive_integer(top_k, "top_k")
         documents = self._validated_document_ids(document_ids)
@@ -410,9 +437,9 @@ class RetrievalService:
     ) -> RetrievalResult:
         """Recuperează dovezile pentru întrebarea curentă, opțional cu contextul conversației.
 
-        Un document numit explicit sau rezolvat sigur din context restrânge căutarea
-        semantică: lipsa dovezilor peste prag devine `not_found`, fără fallback global.
-        Fără asemenea document, căutarea globală rămâne neschimbată.
+        Semantic global implicit; numai o directivă curentă D12 restrânge căutarea.
+        Istoricul întrebărilor ajută embedding-ul, dar citările lui nu impun filtre.
+        În scope explicit, lipsa dovezilor peste prag nu provoacă fallback global.
         """
         if not isinstance(question, str) or not question.strip():
             raise ValueError("întrebarea trebuie să fie text nevid")
@@ -426,6 +453,9 @@ class RetrievalService:
         # la virgula (ț/ș) - am muta problema, nu am rezolva-o.
         question = normalizeaza_diacritice(question)
 
+        restricted = self._parser.restricted_document_ids(question)
+        if restricted is not None and len(restricted) != 1:
+            return RetrievalResult("ambiguous_reference", ())
         reference = self._parser.parse(question)
         if reference.requires_clarification:
             return RetrievalResult("ambiguous_reference", ())
@@ -436,20 +466,13 @@ class RetrievalService:
             evidence = self._limit_context(self._deduplicate(exact, preserve_documents=True))
             return RetrievalResult("found", evidence) if evidence else RetrievalResult("not_found", ())
 
-        # Documentul numit explicit câștigă și ignoră complet contextul; altfel folosim
-        # numai documentele aprobate rezolvate din codurile citate în context. O listă
-        # nenulă este o restricție de siguranță, nu o preferință cu fallback global.
-        preferred = (
-            (reference.document_id,)
-            if reference.document_id is not None
-            else self._preferred_document_ids(turns)
-        )
-        embedding_turns = () if reference.document_id is not None else turns
-        # Un singur embedding este suficient pentru exact o interogare semantică.
-        embedding = self._embedder.embed_query(self._embedding_text(question, embedding_turns))
-        if preferred:
+        # Un singur embedding și o singură interogare; menționările/citările nu sunt scope.
+        embedding = self._embedder.embed_query(self._embedding_text(question, turns))
+        if restricted is not None:
             accepted = self._accepted(
-                self._repository.find_semantic_in_documents(embedding, self._semantic_top_k, preferred)
+                self._repository.find_semantic_in_documents(
+                    embedding, self._semantic_top_k, tuple(sorted(restricted))
+                )
             )
         else:
             accepted = self._accepted(self._repository.find_semantic(embedding, self._semantic_top_k))
@@ -462,8 +485,8 @@ class RetrievalService:
     def _validated_context(context: Sequence[ConversationTurn]) -> tuple[ConversationTurn, ...]:
         """Acceptă numai tururi tipate și păstrează cel mult ultimele MAX_CONTEXT_TURNS.
 
-        Codurile invalide (tip greșit, goale, prea lungi) sunt eliminate în siguranță:
-        un client care trimite gunoi pierde preferința, nu primește o eroare.
+        Codurile invalide (tip greșit, goale, prea lungi) sunt eliminate în siguranță.
+        Validarea metadatelor istorice nu transformă citările în restricții de document.
         """
         if isinstance(context, (str, bytes)) or not isinstance(context, Sequence):
             raise ValueError("contextul conversației trebuie să fie o secvență de tururi")
@@ -489,15 +512,6 @@ class RetrievalService:
                 )
             )
         return tuple(turns)
-
-    def _preferred_document_ids(self, turns: Sequence[ConversationTurn]) -> tuple[str, ...]:
-        """Traduce codurile citate anterior în `document_id`-uri aprobate, fără duplicate."""
-        preferred: dict[str, None] = {}
-        for turn in turns:
-            for cod in turn.coduri_documente:
-                for document_id in sorted(self._parser.documents_for_official_code(cod)):
-                    preferred.setdefault(document_id, None)
-        return tuple(preferred)
 
     @staticmethod
     def _embedding_text(question: str, turns: Sequence[ConversationTurn]) -> str:

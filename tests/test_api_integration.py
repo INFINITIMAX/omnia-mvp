@@ -1822,7 +1822,7 @@ def test_api_fara_context_face_o_singura_cautare_semantica_globala(api):
     assert [scoped for scoped, _ in _interogari_semantice(connection)] == [False]
 
 
-def test_api_sprinklere_context_scoped_hit_foloseste_numai_p118(api):
+def test_api_sprinklere_context_cauta_global_fara_filtru_p118(api):
     connection = _connection_sprinklere(scoped_rows=(P118_SEMANTIC_ROW,))
 
     response = configure(api, connection).post(
@@ -1832,12 +1832,14 @@ def test_api_sprinklere_context_scoped_hit_foloseste_numai_p118(api):
 
     assert response.status_code == 200
     assert response.json()["status"] == "answered"
-    assert [citation["cod_document"] for citation in response.json()["citari"]] == ["P 118/2-2013"]
-    assert _interogari_semantice(connection) == [(True, ("[0.1,0.2]", ["doc-p118"], "[0.1,0.2]", 5))]
+    # D11: citarea istorică nu filtrează; aceeași fixture globală este acum eligibilă.
+    assert [citation["cod_document"] for citation in response.json()["citari"]] == ["I7-2011"]
+    assert _interogari_semantice(connection) == [(False, ("[0.1,0.2]", "[0.1,0.2]", 5))]
+    assert response.json()["intrebari_ramase"] == 9
 
 
 @pytest.mark.parametrize("scoped_rows", [(), (P118_SEMANTIC_ROW[:-1] + (0.49,),)])
-def test_api_sprinklere_scoped_miss_este_not_found_fara_global_sau_generator(api, scoped_rows):
+def test_api_sprinklere_scoped_miss_istoric_nu_impiedica_generarea_din_global(api, scoped_rows):
     connection = _connection_sprinklere(scoped_rows=scoped_rows)
     embedder = EmbedderFake()
     generator = GeneratorFake()
@@ -1848,10 +1850,13 @@ def test_api_sprinklere_scoped_miss_este_not_found_fara_global_sau_generator(api
     )
 
     assert response.status_code == 200
-    assert response.json()["status"] == "not_found"
-    assert generator.calls == 0
+    # D11: miss-ul ipotetic scoped nu mai e consultat; dovada globală permite generarea.
+    assert response.json()["status"] == "answered"
+    assert generator.calls == 1
     assert embedder.calls == 1
-    assert _interogari_semantice(connection) == [(True, ("[0.1,0.2]", ["doc-p118"], "[0.1,0.2]", 5))]
+    assert [citation["cod_document"] for citation in response.json()["citari"]] == ["I7-2011"]
+    assert _interogari_semantice(connection) == [(False, ("[0.1,0.2]", "[0.1,0.2]", 5))]
+    assert response.json()["intrebari_ramase"] == 9
 
 
 @pytest.mark.parametrize(
@@ -1879,3 +1884,143 @@ def test_api_context_invalid_este_422_inainte_de_dependente(api, context):
     assert connection.calls == []
     assert embedder.calls == generator.calls == 0
     _assert_no_technical_identifiers(response)
+
+
+@pytest.mark.parametrize("phrase", ["doar din", "numai din", "exclusiv din"])
+@pytest.mark.parametrize("code", ["XX 999-2099", "NP 777-2099", "NP 010-2099"])
+def test_api_d13_cod_absent_clarifica_si_consuma_quota_rate_fara_apel_platit(api, phrase, code):
+    # Refolosim simularea tranzacțională existentă; nu modificăm testele sau runtime-ul R06.
+    connection = R06TransactionConnection()
+    embedder = EmbedderFake()
+    generator = GeneratorFake()
+    budget_connection = ConnectionFake()
+    client = configure(api, connection, embedder, generator, budget_connection=budget_connection)
+    request = {
+        "intrebare": f"Răspunde {phrase} {code} despre marcajele pieselor fictive.",
+        "context_conversatie": [{"intrebare": "Ce marcaje au piesele fictive?", "coduri_documente": ["NP 010-2022"]}],
+    }
+
+    first = client.post("/intreaba", json=request)
+
+    assert first.status_code == 200
+    assert first.json() == {
+        "status": "ambiguous_reference", "raspuns": main._AMBIGUOUS_REFERENCE,
+        "citari": [], "intrebari_ramase": 9,
+    }
+    assert connection.questions_used == 1 and connection.rate_requests == 1
+    assert connection.commits == 2 and connection.rollbacks == 0
+    assert connection.events == ["rate", "commit", "quota", "commit"]
+    assert connection.closed
+    assert embedder.calls == generator.calls == 0
+    assert budget_connection.calls == []
+    assert budget_connection.commits == budget_connection.rollbacks == 0
+    # Catalogul de metadata este necesar pentru rezolvarea codului; dovezile nu sunt citite.
+    assert len([sql for sql, _ in connection.calls if "SELECT document.document_id" in sql]) == 1
+    assert all("chunk.content_hash" not in sql and "AS score" not in sql for sql, _ in connection.calls)
+    _assert_no_technical_identifiers(first)
+
+    second = client.post("/intreaba", json=request)
+
+    assert second.status_code == 200
+    assert second.json()["status"] == "ambiguous_reference"
+    assert second.json()["intrebari_ramase"] == 8
+    assert connection.questions_used == connection.rate_requests == 2
+    assert connection.commits == 4 and connection.rollbacks == 0
+    quota_parameters = [parameters for sql, parameters in connection.calls if "INSERT INTO public.anonymous_usage" in sql]
+    assert len(quota_parameters) == 2 and quota_parameters[0] == quota_parameters[1]
+    assert embedder.calls == generator.calls == 0
+    assert budget_connection.calls == []
+    assert all("chunk.content_hash" not in sql and "AS score" not in sql for sql, _ in connection.calls)
+
+
+@pytest.mark.parametrize("phrase", ["doar din", "numai din", "exclusiv din"])
+@pytest.mark.parametrize("scoped_rows", [(), (SEMANTIC_ROW[:-1] + (0.49,),)])
+def test_api_d12_scope_explicit_fara_dovezi_nu_face_fallback_global(api, phrase, scoped_rows):
+    connection = ConnectionFake(semantic_scoped_rows=scoped_rows)
+    embedder = EmbedderFake()
+    generator = GeneratorFake()
+    budget_connection = ConnectionFake()
+
+    response = configure(api, connection, embedder, generator, budget_connection=budget_connection).post(
+        "/intreaba", json={"intrebare": f"Răspunde {phrase} NP 010-2022 despre marcajele fictive."}
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "not_found", "raspuns": main._NOT_FOUND, "citari": [], "intrebari_ramase": 9,
+    }
+    assert _interogari_semantice(connection) == [(True, ("[0.1,0.2]", ["doc-1"], "[0.1,0.2]", 5))]
+    assert embedder.calls == 1 and generator.calls == 0
+    assert connection.commits == 2 and connection.rollbacks == 0
+    assert budget_connection.commits == 1
+
+
+@pytest.mark.parametrize("phrase", ["doar din", "numai din", "exclusiv din"])
+def test_api_d12_scope_explicit_gasit_pastreaza_citatul_r06_si_schema(api, phrase):
+    connection = ConnectionFake(semantic_scoped_rows=(SEMANTIC_ROW,))
+    embedder = EmbedderFake()
+    generator = GeneratorFake()
+    budget_connection = ConnectionFake()
+
+    response = configure(api, connection, embedder, generator, budget_connection=budget_connection).post(
+        "/intreaba", json={"intrebare": f"Răspunde {phrase} NP 010-2022 despre marcajele fictive."}
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "answered", "raspuns": "Răspuns [C1].",
+        "citari": [{"id": "C1", "cod_document": "NP 010-2022", "titlu_document": "Titlu oficial",
+                    "articol": "4.4.7.2", "citat": "fragment public"}],
+        "intrebari_ramase": 9,
+    }
+    assert _interogari_semantice(connection) == [(True, ("[0.1,0.2]", ["doc-1"], "[0.1,0.2]", 5))]
+    assert embedder.calls == generator.calls == 1
+    assert budget_connection.commits == 1
+    assert connection.commits == 2 and connection.rollbacks == 0
+
+
+def test_api_d11_comparatia_multi_document_pastreaza_maparea_si_ordinea_citarilor_r06(api):
+    connection = ConnectionFake(
+        catalog_rows=(P118_CATALOG_ROW, I7_CATALOG_ROW),
+        semantic_rows=(P118_SEMANTIC_ROW, I7_SEMANTIC_DECOY_ROW),
+    )
+    embedder = EmbedderFake()
+    generator = RawGeneratorFake(json.dumps({
+        "raspuns": "Marcaje fictive [C2], apoi [C1].",
+        "pasaje": [{"id": "C1", "citat": "obstacole sub sprinklere"},
+                   {"id": "C2", "citat": "obstacole electrice"}],
+    }))
+    budget_connection = ConnectionFake()
+
+    response = configure(api, connection, embedder, generator, budget_connection=budget_connection).post(
+        "/intreaba", json={"intrebare": "Compară P 118/2-2013 și I7-2011 privind marcajele fictive."}
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert set(body) == {"status", "raspuns", "citari", "intrebari_ramase"}
+    assert body["status"] == "answered" and body["intrebari_ramase"] == 9
+    assert body["raspuns"] == "Marcaje fictive [C2], apoi [C1]."
+    assert [(item["id"], item["cod_document"], item["articol"], item["citat"]) for item in body["citari"]] == [
+        ("C2", "I7-2011", "6.3.1", "obstacole electrice"),
+        ("C1", "P 118/2-2013", "7.183", "obstacole sub sprinklere"),
+    ]
+    assert _interogari_semantice(connection) == [(False, ("[0.1,0.2]", "[0.1,0.2]", 5))]
+    assert embedder.calls == generator.calls == 1
+    assert generator.max_tokens == 1200 and budget_connection.commits == 1
+    _assert_no_technical_identifiers(response)
+
+
+def test_api_d14_nu_doar_din_nu_introduce_filtru_scoped(api):
+    connection = ConnectionFake()
+    embedder = EmbedderFake()
+    generator = GeneratorFake()
+
+    response = configure(api, connection, embedder, generator).post(
+        "/intreaba", json={"intrebare": "Răspunde nu doar din NP 010-2022 despre marcajele fictive."}
+    )
+
+    assert response.status_code == 200 and response.json()["status"] == "answered"
+    assert _interogari_semantice(connection) == [(False, ("[0.1,0.2]", "[0.1,0.2]", 5))]
+    assert embedder.calls == generator.calls == 1
+    assert response.json()["intrebari_ramase"] == 9

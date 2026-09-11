@@ -476,7 +476,7 @@ def test_intrebarea_cu_sedila_gaseste_articolul_exact_ca_varianta_cu_virgula():
     assert repository_sedila.exact_calls == repository_virgula.exact_calls == 1
 
 
-# --- context conversațional: restricție semantică la documentele citate, fără fallback global ---
+# --- D11: contextul îmbogățește embedding-ul, fără scope implicit după citări ---
 
 
 # Două documente distincte, ca în bug-ul real din producție: continuarea unei întrebări
@@ -511,7 +511,7 @@ def test_fara_context_cautarea_semantica_ramane_globala_si_neschimbata():
     assert embedder.intrebari_primite == ["când am un obstacol?"]
 
 
-def test_continuarea_fara_referinta_prefera_documentele_din_context():
+def test_continuarea_fara_referinta_cauta_global_cu_context():
     repository = RepositoryFake([], [evidence(document_id="doc-i7", score=0.99)])
     repository.semantic_in_documents = [evidence(document_id="doc-p118", score=0.80)]
     embedder = EmbedderFake()
@@ -521,18 +521,17 @@ def test_continuarea_fara_referinta_prefera_documentele_din_context():
     )
 
     assert result.status == "found"
-    assert [item.document_id for item in result.evidence] == ["doc-p118"]
-    # Căutarea restrânsă a primit exact documentul citat anterior, cu același top_k.
-    assert repository.scoped_calls == [((0.1, 0.2), ("doc-p118",), 5)]
-    # Restricția semantică a răspuns, deci căutarea globală nu este permisă.
-    assert repository.semantic_calls == 0
+    # D11 înlocuiește preferința obligatorie; scenariul și cele două surse sunt păstrate.
+    assert [item.document_id for item in result.evidence] == ["doc-i7"]
+    assert repository.scoped_calls == []
+    assert repository.semantic_calls == 1
+    assert repository.top_k == 5
     assert embedder.calls == 1
 
 
 @pytest.mark.parametrize("scoped", [[], [evidence(document_id="doc-p118", score=0.49)]])
-def test_context_rezolvat_cu_scoped_miss_este_not_found_fara_fallback_global(scoped):
-    """Regresie: continuarea despre sprinklere nu poate ajunge în I7 nici dacă P 118/2
-    nu are rânduri sau are numai scoruri sub prag."""
+def test_context_scoped_miss_nu_impiedica_dovezile_globale(scoped):
+    """D11: lipsa/scorul mic în documentul istoric nu blochează căutarea globală."""
     repository = RepositoryFake([], [evidence(document_id="doc-i7", score=0.90)])
     repository.semantic_in_documents = scoped
     embedder = EmbedderFake()
@@ -541,10 +540,11 @@ def test_context_rezolvat_cu_scoped_miss_este_not_found_fara_fallback_global(sco
         "Ok dar spune-mi exact când am un obstacol?", sprinklere_context()
     )
 
-    assert result.status == "not_found"
-    assert result.evidence == ()
-    assert len(repository.scoped_calls) == 1
-    assert repository.semantic_calls == 0
+    assert result.status == "found"
+    assert result.evidence == tuple(repository.semantic)
+    assert repository.scoped_calls == []
+    assert repository.semantic_calls == 1
+    assert repository.top_k == 5
     assert embedder.calls == 1
 
 
@@ -564,7 +564,7 @@ def test_referinta_explicita_de_document_invinge_contextul():
     assert embedder.calls == 0
 
 
-def test_documentul_numit_fara_articol_cauta_semantic_numai_in_el_fara_context_sau_global():
+def test_documentul_numit_fara_articol_cauta_global_si_pastreaza_contextul():
     repository = RepositoryFake([], [evidence(document_id="doc-p118", score=0.90)])
     repository.semantic_in_documents = [evidence(document_id="doc-i7", score=0.90)]
     embedder = EmbedderCareRetineIntrebarea()
@@ -573,25 +573,30 @@ def test_documentul_numit_fara_articol_cauta_semantic_numai_in_el_fara_context_s
     result = context_service(repository, embedder).retrieve("Ce spune I7-2011 despre obstacole?", context)
 
     assert result.status == "found"
-    assert [item.document_id for item in result.evidence] == ["doc-i7"]
-    assert repository.scoped_calls == [((0.1, 0.2), ("doc-i7",), 5)]
-    assert repository.semantic_calls == 0
-    assert embedder.intrebari_primite == ["Ce spune I7-2011 despre obstacole?"]
+    # D11: simpla menționare nu este directivă D12 și nu elimină întrebările istorice.
+    assert [item.document_id for item in result.evidence] == ["doc-p118"]
+    assert repository.scoped_calls == []
+    assert repository.semantic_calls == 1
+    assert repository.top_k == 5
+    assert embedder.intrebari_primite == [
+        "Ce spune despre sprinklere?\nCe spune I7-2011 despre obstacole?"
+    ]
 
 
 @pytest.mark.parametrize("scoped", [[], [evidence(document_id="doc-i7", score=0.49)]])
-def test_documentul_explicit_cu_scoped_miss_este_not_found_fara_global(scoped):
-    """Documentul explicit rămâne o restricție și când ar exista un decoy global bun."""
+def test_documentul_mentionat_cu_scoped_miss_nu_impiedica_cautarea_globala(scoped):
+    """D11: codul menționat fără exclusivitate nu autorizează scoped, nici la miss."""
     repository = RepositoryFake([], [evidence(document_id="doc-p118", score=0.90)])
     repository.semantic_in_documents = scoped
     embedder = EmbedderFake()
 
     result = context_service(repository, embedder).retrieve("Ce spune I7-2011 despre obstacole?")
 
-    assert result.status == "not_found"
-    assert result.evidence == ()
-    assert repository.semantic_calls == 0
-    assert repository.scoped_calls == [((0.1, 0.2), ("doc-i7",), 5)]
+    assert result.status == "found"
+    assert result.evidence == tuple(repository.semantic)
+    assert repository.semantic_calls == 1
+    assert repository.scoped_calls == []
+    assert repository.top_k == 5
     assert embedder.calls == 1
 
 
@@ -691,11 +696,14 @@ def test_doar_primele_patru_coduri_dintr_un_tur_sunt_luate_in_seama():
 
     context_service(repository).retrieve("continuare", context)
 
-    # Al cincilea cod (singurul valid) e tăiat de limită, deci nu apare nicio preferință.
+    # D11: niciun cod istoric nu filtrează; plafonul de validare rămâne verificat separat.
     assert repository.scoped_calls == []
+    assert repository.semantic_calls == 1
+    validated = context_service(repository)._validated_context(context)
+    assert validated[0].coduri_documente == ("XX 1", "XX 2", "XX 3", "XX 4")
 
 
-def test_documentele_preferate_se_aduna_din_tururi_fara_duplicate():
+def test_codurile_repetate_din_istoric_nu_restrang_documentele():
     repository = RepositoryFake([], [evidence(score=0.90)])
     repository.semantic_in_documents = [evidence(document_id="doc-p118", score=0.90)]
     context = (
@@ -703,10 +711,14 @@ def test_documentele_preferate_se_aduna_din_tururi_fara_duplicate():
         ConversationTurn("a doua", ("P 118/2-2013",)),
     )
 
-    context_service(repository).retrieve("continuare", context)
+    embedder = EmbedderCareRetineIntrebarea()
+    result = context_service(repository, embedder).retrieve("continuare", context)
 
-    assert sorted(repository.scoped_calls[0][1]) == ["doc-i7", "doc-p118"]
-    assert len(repository.scoped_calls[0][1]) == 2
+    # D11: aceleași coduri repetate nu produc nici măcar un filtru deduplicat.
+    assert repository.scoped_calls == []
+    assert repository.semantic_calls == 1
+    assert result.evidence == tuple(repository.semantic)
+    assert embedder.intrebari_primite == ["prima\na doua\ncontinuare"]
 
 
 @pytest.mark.parametrize(
@@ -777,9 +789,11 @@ def test_repository_semantic_restrans_refuza_lista_de_documente_invalida(documen
         repository.find_semantic_in_documents([0.1], 3, document_ids)
 
 
-def test_scenariul_real_sprinklere_apoi_obstacol_ramane_in_documentul_din_context():
-    """Regresie pentru bug-ul din producție: continuarea „când am un obstacol?” nu mai
-    trebuie să aterizeze în I7-2011 dacă P 118/2-2013 are un rezultat bun."""
+def test_scenariul_real_sprinklere_apoi_obstacol_cauta_global_cu_context():
+    """Scenariul istoric este păstrat; D11 nu mai exclude I7 prin citarea anterioară.
+
+    Acest test de rutare nu dovedește relevanța semantică a rezultatului global.
+    """
     din_i7 = evidence(document_id="doc-i7", content="ocolirea corniselor", content_hash="i7", score=0.88)
     din_p118 = evidence(document_id="doc-p118", content="obstacole sub sprinklere", content_hash="p118", score=0.72)
     repository = RepositoryFake([], [din_i7])
@@ -790,4 +804,7 @@ def test_scenariul_real_sprinklere_apoi_obstacol_ramane_in_documentul_din_contex
     )
 
     assert result.status == "found"
-    assert [item.content for item in result.evidence] == ["obstacole sub sprinklere"]
+    assert [item.content for item in result.evidence] == ["ocolirea corniselor"]
+    assert [item.document_id for item in result.evidence] == ["doc-i7"]
+    assert repository.semantic_calls == 1
+    assert repository.scoped_calls == []

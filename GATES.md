@@ -13,16 +13,16 @@ Scope/decizie: `revizii.md` lot D11/2A și `docs/DECISIONS.md`. CWD pentru comen
 - [x] **MD-RED:** regresiile noi eșuează pe runtime-ul inițial din motive comportamentale, nu import/colectare. Host, 11-09-2026: testele D11–D13 au **42 failures, 35 passed, 0 errors/skipped, exit 1**; dovezi `multi-document/red.log`, `red.xml`, `red.receipt.json`. Eșecurile sunt contractul neimplementat (scope automat vechi, comparații ambigue, slash și restricții explicite), nu colectare/import. Supliment D14/D12-history: host `-k "d14 or scope_curent"` → **5 failures, 77 deselected, exit 1**; receipt/log `multi-document/d14-red.*`. Prima invocare din cwd greșit (exit 4, fără teste) este păstrată separat ca receipt de infrastructură; rerularea corectă este singura dovadă RED. Testele noi sunt `tests/test_multi_document_retrieval.py`; runtime-ul rămâne needitat.
   CHECK: python -m pytest -q tests/test_multi_document_retrieval.py
   EXPECT: exit 1 înainte de runtime; scriptul host validează și salvează eșecurile/receipt-ul.
-- [ ] **MD-GLOBAL:** întrebări generale/comparații și context anterior fără filtre obligatorii după documentele menționate/citate; dovezi multi-sursă păstrate când sunt relevante și în limite.
+- [x] **MD-GLOBAL:** întrebări generale/comparații și context anterior fără filtre obligatorii după documentele menționate/citate; dovezi multi-sursă păstrate când sunt relevante și în limite. Host GREEN: 515 teste focalizate trecute; verifică global/scoped, dovezi și embedding. Nu promite relevanța semantică live/R05.
   CHECK: python -m pytest -q tests/test_multi_document_retrieval.py
   EXPECT: exit 0 după implementare; aserțiuni pe apelul global/scoped, dovezi și embedding.
-- [ ] **MD-IDENTITY:** coduri slash/spații/ani/părți corecte, aliasuri realmente ambigue tratate distinct de două documente menționate; exact lookup și scope explicit fără substituție/fallback ascuns, conform scenariilor aprobate.
+- [x] **MD-IDENTITY:** coduri slash/spații/ani/părți corecte, aliasuri realmente ambigue tratate distinct de două documente menționate; exact lookup și scope explicit fără substituție/fallback ascuns, conform scenariilor aprobate. Host GREEN focalizat: exit 0.
   CHECK: python -m pytest -q tests/test_retrieval_core.py tests/test_multi_document_retrieval.py
   EXPECT: exit 0; controale pozitive și negative, fără relaxarea contractelor neaprobate.
-- [ ] **MD-API:** schimbarea ajunge la API, metadata/citările R06 rămân corecte, quota/rate/buget și numărul de apeluri nu se schimbă implicit.
+- [x] **MD-API:** schimbarea ajunge la API, metadata/citările R06 rămân corecte, quota/rate/buget și numărul de apeluri nu se schimbă implicit. Host GREEN focalizat: exit 0; D13 rămâne fără apel plătit, cu quota/rate verificate mockuit.
   CHECK: python -m pytest -q tests/test_api_integration.py tests/test_citation_passages.py
   EXPECT: exit 0; numai mock-uri; zero adaptări de test care maschează defecte.
-- [ ] **MD-REGRESSIONS:** full suite verde, fără noi skip/xfail și cu maparea explicită a testelor politicii vechi adaptate la D11; fișierele din afara scope-ului neschimbate.
+- [x] **MD-REGRESSIONS:** full suite verde, fără noi skip/xfail și cu maparea explicită a testelor politicii vechi adaptate la D11; fișierele din afara scope-ului neschimbate. Host GREEN: **863 passed, 11 skipped, 0 failures/errors**, exit 0; aceeași 11 skip-uri de corpus absent. Snapshot Python verificat de host; R06/5A protejate.
   CHECK: python -m pytest -q
   EXPECT: exit 0; comparație de snapshot și diff pentru acest lot, testele și gold-urile R06/5A protejate.
 - [ ] **MD-REVIEW:** QA și Reviewer independenți OK pe snapshotul final; handoff și explicația codului; D01/D02/R02–R04 rămase se raportează separat. MANUAL: Planner, fără commit/push/DB/API plătit/deploy.
