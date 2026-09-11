@@ -406,3 +406,30 @@ def test_d13_restrictia_la_cod_absent_din_catalog_clarifica_fara_dependente(phra
     assert repository.global_calls == []
     assert repository.scoped_calls == []
     assert repository.exact_calls == []
+
+
+@pytest.mark.parametrize("code,document", RESTRICTION_DOCUMENTS)
+def test_d14_nu_doar_din_ramane_global_cu_istoric_in_embedding(code, document):
+    question = f"Răspunde nu doar din {code} despre marcajele pieselor fictive."
+    previous = "Ce marcaje au piesele fictive?"
+    context = (ConversationTurn(previous, (code,)),)
+    rows = (evidence(document), evidence("doc-np010"))
+
+    result, repository, embedder = retrieve(question, rows, context)
+
+    assert_global(repository, embedder, previous + "\n" + question)
+    assert result.status == "found" and result.evidence == rows
+
+
+@pytest.mark.parametrize("phrase", RESTRICTION_PHRASES)
+def test_d12_scope_curent_pastreaza_ultimele_trei_intrebari_in_embedding(phrase):
+    question = f"Răspunde {phrase} I7-2011 despre marcajele pieselor fictive."
+    context = tuple(ConversationTurn(f"Întrebare fictivă {index}", ("NP 010-2022",)) for index in range(4))
+    target = evidence("doc-i7")
+
+    result, repository, embedder = retrieve(question, (evidence("doc-np010"), target), context)
+
+    assert repository.scoped_calls == [(VECTOR, 5, ("doc-i7",))]
+    assert repository.global_calls == repository.exact_calls == []
+    assert embedder.questions == ["\n".join([turn.intrebare for turn in context[-3:]] + [question])]
+    assert result.status == "found" and result.evidence == (target,)

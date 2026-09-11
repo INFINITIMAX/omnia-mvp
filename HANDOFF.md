@@ -67,7 +67,7 @@ Explicit restrictions still matter. We want multi-source answers, not incorrect 
 
 The baseline, proposed scope and acceptance gates are saved. **D11 gates: 1/8 met (baseline only).** The Coder's proposed detailed diff and new RED tests were not saved. Implementation, QA and Reviewer stages were not launched.
 
-RED a fost ulterior salvat și demonstrat pentru D11–D13: **42 failures/35 passed/0 errors**, exclusiv comportamental; runtime-ul nu a fost schimbat. D12 aprobă formele finite „doar/numai/exclusiv din [cod]”, numai pentru întrebarea curentă. D13 decide codul necunoscut: HTTP 200 `ambiguous_reference`, fără embedding/generare/global fallback/apel plătit, dar cu quota/rate limit consumate. D14 decide guard-ul exact „nu doar din [cod]”: global implicit, nu scope; alte negații rămân excluse. Codul cunoscut rămâne scoped. Capacitatea Coderului nu se presupune; nu relansăm automat.
+RED a fost ulterior salvat și demonstrat pentru D11–D13: **42 failures/35 passed/0 errors**, exclusiv comportamental; runtime-ul nu a fost schimbat. D12 aprobă formele finite „doar/numai/exclusiv din [cod]”, numai pentru întrebarea curentă. D13 decide codul necunoscut: HTTP 200 `ambiguous_reference`, fără embedding/generare/global fallback/apel plătit, dar cu quota/rate limit consumate. D14 decide guard-ul exact „nu doar din [cod]”: global implicit, nu scope; alte negații rămân excluse. RED suplimentar pentru D14 și istoric scope: 5 failures/77 deselected, fără runtime; Coder oprit din nou la limita Codex. Codul cunoscut rămâne scoped. Capacitatea Coderului nu se presupune; nu relansăm automat.
 
 ## 5. GitHub snapshot — checked 11-09-2026
 
