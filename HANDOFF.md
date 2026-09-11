@@ -9,7 +9,7 @@ Updated: **11-09-2026** (EET). This is a handoff, **not a claim that D11 or prod
 - **Latest interruption:** the Coder hit its usage limit before saving the D11 test file. No D11 runtime changes, RED results, implementation review or QA results exist.
 - **Fresh verification for this handoff:** 761 tests passed, 11 skipped; all Python files still match the pre-D11 snapshot. Nothing was lost or staged.
 - **Still wrong:** authentic quotes can accompany unsupported claims. The fixed synthetic diagnostic still exposes 10 such answers. R05 remains open.
-- **Nothing from stabilization has been committed, pushed or deployed.** No live DB/provider calls were made for this handoff.
+- **Checkpoint GitHub:** `8ca650ec21d01142c1936712097b86ec81733188` on `origin/fix/stabilizare-coduri-normative`, `test: checkpoint R06 and multi-document RED`. It preserves a deliberately failing RED lot; it is not merged or deployed. No live DB/provider calls were made.
 
 ## 2. Where the work is
 
@@ -18,7 +18,7 @@ Updated: **11-09-2026** (EET). This is a handoff, **not a claim that D11 or prod
 | Working directory | `D:\Omnia-MVP-stabilizare` |
 | Working branch | `fix/stabilizare-coduri-normative` |
 | Local HEAD / base | `237e11db81251b8eb316ec02aa01e428089c66bc` |
-| Working tree | Modified and untracked files contain the local stabilization work; zero staged files. Do not reset, clean or recreate this worktree. |
+| Git checkpoint | `8ca650ec21d01142c1936712097b86ec81733188`, pushed to `origin/fix/stabilizare-coduri-normative`. D11–D13 is intentionally RED at this checkpoint; do not merge it. |
 | Last recorded production SHA | `47a61339037c941e97f136686832142b8e1ac8e6`; production was **not rechecked** for this handoff. |
 | Complete issue register | [revizii.md](revizii.md): 28 findings, approved decisions, remediation steps and production gates. |
 | Approval source | [docs/DECISIONS.md](docs/DECISIONS.md) |
@@ -73,7 +73,7 @@ RED a fost ulterior salvat și demonstrat pentru D11–D13: **42 failures/35 pas
 
 - Remote: `https://github.com/INFINITIMAX/omnia-mvp.git`.
 - `origin/main` este **exact** `237e11db81251b8eb316ec02aa01e428089c66bc`, identic cu baza acestui worktree. Nu există schimbări remote de integrat.
-- Branch-ul local `fix/stabilizare-coduri-normative` pornește din acel SHA și are munca de stabilizare necomisă; zero staged. Nu am făcut fetch/pull/rebase/merge sau push.
+- Branch-ul local `fix/stabilizare-coduri-normative` pornește din acel SHA și are checkpoint-ul `8ca650e` împins pe GitHub. Nu am făcut fetch/pull/rebase/merge; push-ul creează doar branch-ul de lucru, nu schimbă `main` sau producția.
 - Există cinci PR-uri Dependabot deschise (#1–#5), independente de D11. Nu le-am actualizat/îmbinat.
 
 ## 6. Immediate next steps — in order

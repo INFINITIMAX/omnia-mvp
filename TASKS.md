@@ -14,7 +14,7 @@ Lucian a aprobat căutarea multi-document implicită, cu restricții numai la so
 - Fișiere de implementare propuse: `retrieval_core.py`, testele de retrieval și adaptările strict necesare ale testelor API. `main.py`, R06/generation, evaluatorul/gold-urile, UI, DB, SDK, quota și plafoanele sunt protejate.
 - Un Coder în worktree-ul existent `D:/Omnia-MVP-stabilizare`; QA și Reviewer read-only după implementare. Gazda rulează testele prin PowerShell/Python, deoarece bash-ul nativ al agenților nu are WSL funcțional.
 - Criterii și restanțe: `revizii.md` lot D11/2A și `GATES.md`. Nu declarăm R02–R04 rezolvate prin simpla eliminare a unui filtru.
-- Fără staging/commit/push/merge/deploy, DB real sau API plătit. Nu se aruncă și nu se rescrie munca R06 existentă. Blocajele de produs/capacitate se raportează fără relansări repetate.
+- **Checkpoint GitHub:** `8ca650ec21d01142c1936712097b86ec81733188`, branch `origin/fix/stabilizare-coduri-normative`, mesaj `test: checkpoint R06 and multi-document RED`. Este un lot RED intenționat, nu candidat de merge: testele D11–D13 încă eșuează până la runtime. Fără merge/deploy, DB real sau API plătit. Fiecare progres verificabil ulterior primește checkpoint conform `AGENTS.md`.
 
 ## Predare finală R06 — verificat local, apoi STOP (11-09-2026)
 
