@@ -1,6 +1,27 @@
 # Worker automat de ingestion PDF
 
-## Scop
+## Avertisment actual — 09-09-2026: INACTIV, nu activați
+
+Lucian a renunțat la activarea workerului. Codul este integrat (`6cfd69c`, PR8,
+`origin/main` la `237e11d`), dar workerul rămâne **inactiv**, Task Scheduler este
+**neinstalat**, iar `20260909000000_document_ingestion_sources.sql` este
+**neaplicată conform predării**. Nu s-a făcut audit DB sau verificare scheduler nouă.
+Codul, scriptul de înregistrare și migrarea se păstrează; nu se activează și nu se elimină.
+
+**Fluxul curent aprobat:** Lucian pune **un PDF** în `documente_noi/_inbox`,
+anunță Planner-ul și primește raport **local** de extracție/validare. DB + Voyage
+necesită aprobare separată, iar publicarea prin status `approved` altă aprobare.
+Importul manual sigur punctual **nu este încă livrat**; `populare_db.py` nu este
+insert-only și nu trebuie prezentat drept substitut sigur al acestui flux.
+Registrul SHA și pornirea la logon sunt decizii independente, neaprobate implicit
+prin alegerea fluxului manual.
+
+**Restul runbook-ului descrie comportamentul implementat, nu o operațiune activă.**
+Comenzile de instalare/activare de mai jos sunt exclusiv **referință istorică**, nu
+recomandare curentă și nu autorizație de execuție. Depunerea unui PDF nu pornește
+un import automat în workflow-ul curent. Orice schimbare cere aprobare explicită nouă.
+
+## Scop — referință istorică
 
 Workerul local `auto_ingestion_worker.py` observă numai PDF-uri puse direct în
 `documente_noi/_inbox/`. După instalarea inițială, operatorul nu rulează un CLI
@@ -36,7 +57,7 @@ PDF-ul original nu este mutat, copiat sau modificat. Rapoartele locale fără te
 normativ sunt în `documente_noi/_auto_state/`; ambele directoare rămân în afara
 Git.
 
-## Instalare unică pe Windows — gate manual
+## Instalare unică pe Windows — referință istorică, neautorizată în fluxul curent
 
 Instalarea Task Scheduler nu este executată de cod, test sau deploy. Lucian o
 aprobă și o rulează separat, după ce migrarea versionată pentru

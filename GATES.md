@@ -1,5 +1,76 @@
 # Gate-uri — refuz calcule/proiectare
 
+## Lot D11 / 2A — multi-document implicit (11-09-2026)
+
+**BLOCAT, 1/8 gate-uri îndeplinite:** Coderul a atins limita de utilizare înainte să salveze testele RED. Nu există schimbări de runtime D11, RED/GREEN sau review. Predarea [`HANDOFF.md`](HANDOFF.md) include pașii de reluare. Rerularea proaspătă a suitei vechi (761 passed/11 skipped) confirmă integritatea stării păstrate, nu îndeplinirea gate-urilor D11 rămase.
+
+Scope/decizie: `revizii.md` lot D11/2A și `docs/DECISIONS.md`. CWD pentru comenzi: `D:/Omnia-MVP-stabilizare`. Evidențe și script host în directorul temporar `C:/Users/Lucian-PC/AppData/Local/Temp/normativai-stabilizare-237e11d/multi-document/`. Nu sunt gate-uri de producție. Execuția este staged: contract + RED, apoi confirmarea Plannerului înainte de runtime; nicio alegere D01/D02 nu se deleagă Coderului.
+
+- [x] **MD-BASELINE:** snapshot înainte de cod/teste și suită implicită verde; fișierele R06 protejate și zero staged. Host: 761 passed, 11 skipped, 0 failed/errors, exit 0; dovezi `multi-document/baseline.receipt.json`, `baseline.xml`, `baseline.log` și `baseline-code.json`.
+  CHECK: python -m pytest -q
+  EXPECT: exit 0; rezultate/skip-uri și hash-uri salvate de host, fără DB/providers reali.
+- [ ] **MD-CONTRACT:** diff/scenarii explicite, inclusiv restricții, menționări, comparații, continuări și limitele D01/D02; confirmare înainte de runtime. MANUAL: Planner, cu escaladare la Lucian pentru alegeri de produs noi.
+- [x] **MD-RED:** regresiile noi eșuează pe runtime-ul inițial din motive comportamentale, nu import/colectare. Host, 11-09-2026: testele D11–D13 au **42 failures, 35 passed, 0 errors/skipped, exit 1**; dovezi `multi-document/red.log`, `red.xml`, `red.receipt.json`. Eșecurile sunt contractul neimplementat (scope automat vechi, comparații ambigue, slash și restricții explicite), nu colectare/import. Testele noi sunt `tests/test_multi_document_retrieval.py`; runtime-ul rămâne needitat.
+  CHECK: python -m pytest -q tests/test_multi_document_retrieval.py
+  EXPECT: exit 1 înainte de runtime; scriptul host validează și salvează eșecurile/receipt-ul.
+- [ ] **MD-GLOBAL:** întrebări generale/comparații și context anterior fără filtre obligatorii după documentele menționate/citate; dovezi multi-sursă păstrate când sunt relevante și în limite.
+  CHECK: python -m pytest -q tests/test_multi_document_retrieval.py
+  EXPECT: exit 0 după implementare; aserțiuni pe apelul global/scoped, dovezi și embedding.
+- [ ] **MD-IDENTITY:** coduri slash/spații/ani/părți corecte, aliasuri realmente ambigue tratate distinct de două documente menționate; exact lookup și scope explicit fără substituție/fallback ascuns, conform scenariilor aprobate.
+  CHECK: python -m pytest -q tests/test_retrieval_core.py tests/test_multi_document_retrieval.py
+  EXPECT: exit 0; controale pozitive și negative, fără relaxarea contractelor neaprobate.
+- [ ] **MD-API:** schimbarea ajunge la API, metadata/citările R06 rămân corecte, quota/rate/buget și numărul de apeluri nu se schimbă implicit.
+  CHECK: python -m pytest -q tests/test_api_integration.py tests/test_citation_passages.py
+  EXPECT: exit 0; numai mock-uri; zero adaptări de test care maschează defecte.
+- [ ] **MD-REGRESSIONS:** full suite verde, fără noi skip/xfail și cu maparea explicită a testelor politicii vechi adaptate la D11; fișierele din afara scope-ului neschimbate.
+  CHECK: python -m pytest -q
+  EXPECT: exit 0; comparație de snapshot și diff pentru acest lot, testele și gold-urile R06/5A protejate.
+- [ ] **MD-REVIEW:** QA și Reviewer independenți OK pe snapshotul final; handoff și explicația codului; D01/D02/R02–R04 rămase se raportează separat. MANUAL: Planner, fără commit/push/DB/API plătit/deploy.
+
+## Lot 5B — R06, verificat local și închis la 11-09-2026
+
+Contract aprobat în `revizii.md` §5B și `docs/DECISIONS.md`. Un singur writer; fără modificare DB, API real, staging/commit/push/deploy.
+
+- [x] **R06-RED:** teste noi în `tests/test_citation_passages.py`, înainte de runtime; `python -m pytest -q tests/test_citation_passages.py` eșuează prin aserțiuni ale problemei, nu prin importul unui simbol încă inexistent.
+- [x] **R06-PASSAGES:** JSON strict, ID folosit ↔ pasaj unic nevid de maximum 600 caractere ↔ subșir literal al dovezii corecte; fără prefix fallback, quote repair, chei duplicate sau leak de metadata.
+- [x] **R06-FAILURE:** pasaj lipsă/invalid sau JSON incomplet → 503, rollback quota verificat, fără retry provocat de această eroare; costul consumat/rate limit rămân; erorile rollback rămân fail-closed.
+- [x] **R06-TRUNCATION:** pachet complet/valid cu semnal de trunchiere → răspuns cu avertisment; incomplet → 503. Plafonul de generare și schema publică neschimbate.
+- [x] **R06-REGRESSIONS:** focused + full suite locale trec; testele anterioare și aserțiunile lor sunt păstrate, cu adaptare explicită de fixture/protocol, fără skip/xfail sau mascarea cazurilor negative. Retry-ul existent pentru referințe normative inventate rămâne verificat separat.
+- [x] **R06-EVALUATOR:** cele 19 cazuri inițiale păstrează identitatea și gold-ul. Intrarea nouă include pasaje explicite, independente de câmpurile gold; falsurile semantice cu citat autentic rămân vizibile. Zero pasaj relevant omis și zero candidat valid respins din cauza protocolului pe setul adaptat; nu raportăm R05 rezolvat.
+- [x] **R06-REVIEW:** QA și Reviewer independenți pe snapshotul final; diff limitat la fișierele aprobate, zero staged, predare completă și explicația codului. Nicio integrare/publicare implicită.
+
+**Închidere 11-09-2026:** RED 133 failed/18 passed (exit 1 înainte de runtime); GREEN 402 focused passed, 761 full passed/11 skipped/1 warning (exit 0). Diagnostic pe aceleași 19 gold-uri: 0 pasaje omise/0 candidați valizi respinși/0 erori, dar 10 publicări neconforme R05 (exit 1). Patru probe mockuite suplimentare pe ruta semantică au trecut. QA și Reviewer OK; comparația AST a celor patru adaptări de teste a fost acceptată de QA. Planner a reconfirmat la închidere hash-urile celor opt fișiere față de snapshoturile revizuite; `main.py` este neschimbat. `r06/*.receipt.json`, `qa-preservation-comparison.json` și `qa-semantic-probes.json` păstrează dovezile în directorul temporar indicat în `revizii.md`. Explicația codului este în `docs/R06_CODE_WALKTHROUGH.md`. Sunt închise 7/7 gate-uri R06 locale, nu gate-urile de producție. Fără staged/commit/push/deploy. Oprire după predare la cererea lui Lucian.
+
+## Lot verificat 5A — evaluator local afirmații/citări (09-09-2026)
+
+Scope aprobat: numai `grounding_eval.py`, `tests/test_grounding_eval.py` și predarea documentară. Cazuri exclusiv sintetice; fără validator public nou, DB/provideri, commit/push/migrare/deploy. Gate-urile 0–1 de mai jos rămân deschise, nu sunt înlocuite ca obligații.
+
+- [x] **EVAL-01 — etichete independente:** fiecare caz are identitate unică, dovezi fictive, candidat fix, așteptare și justificare; Reviewer validează separat textul, nu preia drept adevăr verdictul runtime.
+- [x] **EVAL-02 — infrastructură:** `python -m pytest -q tests/test_grounding_eval.py` trece, inclusiv controale evaluator negativ/pozitiv; fără skip/xfail și fără enshrinement al unui bug de produs ca rezultat permanent obligatoriu.
+- [x] **EVAL-03 — diagnostic onest:** `python grounding_eval.py --output <cale-temporară-aprobată>` produce raport reproductibil și exit nonzero când găsește candidat nesusținut acceptat, candidat susținut respins ori pasaj cerut lipsă. Raportul măsoară numai candidați ficși sintetici, nu rata de eroare a modelului live.
+- [x] **EVAL-04 — regresii:** `python -m pytest -q` trece; skip-urile istorice sunt raportate distinct, nu ascund erori noi.
+- [x] **EVAL-05 — limite:** diff-check trecut; hash-urile fișierelor runtime publice neschimbate; numai fișierele autorizate și documentația deja prezentă sunt modificate; nimic staged.
+- [x] **EVAL-06 — QA/review:** rapoarte read-only independente pe același snapshot final; problemele de produs R05/R06 rămân deschise indiferent de trecerea testelor evaluatorului.
+
+
+**Dovezi de închidere EVAL, 10-09-2026:** worktree `D:/Omnia-MVP-stabilizare`, baza `237e11d`; 34 focused passed (exit 0), 591 full passed/11 skipped/1 warning (exit 0), diagnostic 19 cazuri/12 constatări în 11 cazuri (exit 1 intenționat, zero erori de execuție). QA și Reviewer OK pe snapshotul inițial. Clarificarea finală numai în docstring are AST executabil neschimbat și teste identice; host a rerulat toate verificările. SHA256 final evaluator `9e2aed89ec2d3fd6646c3df02df0dbdddc406af65e0f12b03c46eca55d3a80b6`, teste `cd4e4bb9f6dbd804c731f28548dc1fe14fd55d6d1ff255ddf751b5360764348c`. Loguri în directorul temporar `normativai-stabilizare-237e11d` indicat în `revizii.md`: `grounding-focused.log`, `grounding-full.log`, `grounding-diagnostic.log`, `grounding-final-docstring-check.log`, `grounding-final-skips.log`; rapoarte QA/review în workflow `49d43a49-3ff6-4f3c-8705-1d3e7a7973d7`. `git diff --check` trecut, whitespace/UTF-8 pentru fișierele noi verificate separat, nimic staged. R05/R06 și toate gates PROD rămân deschise.
+
+## Lot 0–1 — stabilizare coduri normative (09-09-2026)
+
+Secțiune nouă; gate-urile pentru refuzul calculelor de mai jos rămân istoric și nu se înlocuiesc. Pentru acest lot, singurul worktree autorizat este `D:/Omnia-MVP-stabilizare`, branch `fix/stabilizare-coduri-normative`, bază `origin/main` la `237e11d`. Comenzile istorice către alt worktree nu se folosesc.
+
+- [ ] **Documentație coerentă, verificare manuală:** cele șase fișiere ale pasului 0 disting codul integrat de deploy-ul verificat anterior, confirmarea istorică a catalogului de auditul DB, workerul inactiv de importul manual încă nelivrat și migrările documentate aplicate de cele neaplicate/neverificate.
+- [ ] **Regresie înainte de runtime:** host-ul rulează `python -m pytest -q tests/test_retrieval_core.py -k alias_slash_regression` după adăugarea testelor, dar înainte de schimbarea `_ALIAS_SEPARATOR`; eșecul așteptat trebuie documentat ca eroare de recunoaștere slash, nu de mediu sau colectare. După fix, aceeași selecție trebuie să treacă.
+- [ ] **Teste focalizate retrieval + API:** host-ul rulează `python -m pytest -q tests/test_retrieval_core.py tests/test_api_integration.py`; fără schimbări de coduri necunoscute/context/status/DB/provideri și fără slăbirea testelor.
+- [ ] **Full suite mock:** host-ul rulează `python -m pytest -q`; fără opt-in la teste externe/plătite.
+- [ ] **Diff și index:** host-ul verifică `git diff --check`, `git diff --name-only`, `git status --short` și `git diff --cached --name-only`; numai fișierele autorizate, nimic staged.
+- [ ] **Review independent:** Reviewer și Tester/QA read-only dau verdict separat pe diff-ul final și dovezile host; orice finding de produs cere aprobare, nu remediere implicită.
+- [ ] **Zero operațiuni externe:** fără DB, rețea/provider API, ingestion, migrări, scheduler, stage/commit/push/merge/deploy; fără acces la secrete.
+
+Baseline disponibil, **nu gate final**: logul host `C:/Users/Lucian-PC/AppData/Local/Temp/normativai-stabilizare-237e11d/baseline.log` raportează `557 passed, 11 skipped, 1 warning` (TestClient). Nicio bifă de mai sus nu este închisă prin acest baseline. Coder-ul nu a executat personal comenzile.
+
+## Gate-uri istorice — refuz calcule/proiectare
+
 ## Rezultate observabile
 
 1. `POST /intreaba` detectează local, determinist și conservator cererile de execuție a unui calcul, estimări sau dimensionări și răspunde HTTP 200 cu statusul, mesajul și citările aprobate.

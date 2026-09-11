@@ -3,6 +3,7 @@
 import base64
 import hashlib
 import importlib
+import json
 import re
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -19,6 +20,7 @@ import voyageai
 import main
 from access_control import RateLimitResult
 from generation_core import TRUNCATION_NOTICE, GeneratedText
+from generation_fixture_helpers import RawGeneratorFake, simulated_provider_payload
 
 
 CATALOG_ROWS = [("doc-1", "NP 010-2022", "4.4.7.2")]
@@ -125,6 +127,8 @@ class EmbedderFake:
 
 @dataclass
 class GeneratorFake:
+    """Simulare provider JSON pentru regresii vechi; payloadurile invalide sunt RAW."""
+
     answer: str | GeneratedText = "Răspuns [C1]."
     calls: int = 0
     error: Exception | None = None
@@ -135,7 +139,7 @@ class GeneratorFake:
         self.prompt = prompt
         if self.error:
             raise self.error
-        return self.answer
+        return simulated_provider_payload(self.answer, prompt)
 
 
 @pytest.fixture
@@ -202,7 +206,7 @@ def test_exact_answered_are_citare_publica_si_zero_voyage(api):
 
 
 def test_raspunsul_trunchiat_ajunge_marcat_la_client_fara_sa_schimbe_contractul(api):
-    """Marcajul de trunchiere intră în câmpul `raspuns`; forma JSON rămâne neschimbată."""
+    """Pachetul intern complet valid păstrează marcajul în `raspuns` și schema publică."""
     connection = ConnectionFake()
     generator = GeneratorFake(answer=GeneratedText("Răspuns [C1] tăiat la jum", truncated=True))
 
@@ -365,7 +369,7 @@ def test_input_invalid_este_422_inainte_de_toti_providerii(api, question):
         (ConnectionFake(error=psycopg2.OperationalError("db")), EmbedderFake(), GeneratorFake(), "art. 4.4.7.2"),
         (ConnectionFake(), EmbedderFake(error=main.ProviderUnavailableError()), GeneratorFake(), "întrebare semantică"),
         (ConnectionFake(), EmbedderFake(), GeneratorFake(error=main.ProviderUnavailableError()), "art. 4.4.7.2"),
-        (ConnectionFake(), EmbedderFake(), GeneratorFake(answer="răspuns fără citare"), "art. 4.4.7.2"),
+        (ConnectionFake(), EmbedderFake(), RawGeneratorFake(json.dumps({"raspuns": "răspuns fără citare", "pasaje": []})), "art. 4.4.7.2"),
     ],
 )
 def test_erorile_dependentei_sunt_503_generic_si_conexiunea_se_inchide(
@@ -1608,6 +1612,171 @@ def test_rollback_esuat_la_refuzul_de_calcul_este_fail_closed_503(api):
     assert response.status_code == 503
     assert response.json() == {"detail": "Serviciul este temporar indisponibil."}
     assert connection.rollbacks == 1
+
+
+# --- R06: pasajele invalide restituie quota, nu rate limit-ul sau bugetul consumat ---
+
+
+class R06TransactionConnection(ConnectionFake):
+    """Stare tranzacțională sintetică pentru a verifica quota și la cererea următoare."""
+
+    def __init__(self, **kwargs):
+        super().__init__(quota_results=((1,),) * 4, **kwargs)
+        self.questions_used = 0
+        self.pending_question = False
+        self.rate_requests = 0
+        self.pending_rate = 0
+        self.events = []
+
+    def cursor(self):
+        class TransactionCursor(CursorFake):
+            def execute(cursor, sql, parameters):
+                super().execute(sql, parameters)
+                if "SET request_count = request_count + 1" in sql:
+                    self.pending_rate += 1
+                    self.events.append("rate")
+                elif "INSERT INTO public.anonymous_usage" in sql:
+                    self.pending_question = True
+                    cursor.row = (self.questions_used + 1,)
+                    self.events.append("quota")
+
+        cursor = TransactionCursor(self)
+        self.cursors.append(cursor)
+        return cursor
+
+    def commit(self):
+        super().commit()
+        self.questions_used += int(self.pending_question)
+        self.rate_requests += self.pending_rate
+        self.pending_question = False
+        self.pending_rate = 0
+        self.events.append("commit")
+
+    def rollback(self):
+        super().rollback()
+        self.pending_question = False
+        self.pending_rate = 0
+        self.events.append("rollback")
+
+
+def _r06_payload(answer="Răspuns [C1].", quote="fragment public"):
+    return json.dumps({
+        "raspuns": answer, "pasaje": [{"id": "C1", "citat": quote}],
+    }, ensure_ascii=False)
+
+
+@pytest.mark.parametrize("payload", [
+    pytest.param(_r06_payload(quote="pasaj fabricat"), id="pasaj-invalid"),
+    pytest.param(_r06_payload(answer="Conform STAS 987654321 [C1].", quote="pasaj fabricat"), id="invalid-inainte-de-retry"),
+    pytest.param('{"raspuns":"Răspuns [C1]."}', id="pasaje-lipsa"),
+    pytest.param(GeneratedText(_r06_payload()[:-1], truncated=True), id="json-incomplet-trunchiat"),
+    pytest.param(GeneratedText(_r06_payload(quote="fabricat"), truncated=True), id="pasaj-invalid-trunchiat"),
+])
+def test_r06_pasaj_invalid_503_rollback_quota_exact_fara_retry_cu_rate_si_buget_pastrate(api, payload):
+    connection = R06TransactionConnection()
+    budget_connection = ConnectionFake()
+    generator = RawGeneratorFake(payload)
+    embedder = EmbedderFake()
+    client = configure(api, connection, embedder, generator, budget_connection=budget_connection)
+    # Cookie valid înainte de eroare: ambele întrebări aparțin aceluiași vizitator.
+    assert client.get("/").status_code == 200
+
+    response = client.post("/intreaba", json={"intrebare": "art. 4.4.7.2"})
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Serviciul este temporar indisponibil."}
+    assert generator.calls == 1 and embedder.calls == 0
+    assert generator.max_tokens == 1200
+    assert connection.commits == 1 and connection.rollbacks == 1
+    assert connection.events == ["rate", "commit", "quota", "rollback"]
+    assert connection.questions_used == 0 and not connection.pending_question
+    assert connection.rate_requests == 1
+    assert connection.closed
+    assert budget_connection.commits == 1 and budget_connection.rollbacks == 0
+    assert len([sql for sql, _ in budget_connection.calls if "INSERT INTO public.paid_call_budget" in sql]) == 1
+    _assert_no_technical_identifiers(response)
+    assert "fabricat" not in response.text and "987654321" not in response.text
+
+    # Aceeași conexiune sintetică păstrează starea comisă, nu valori quota scriptate.
+    generator.answer = _r06_payload()
+    second = client.post("/intreaba", json={"intrebare": "art. 4.4.7.2"})
+    assert second.status_code == 200
+    assert second.json()["intrebari_ramase"] == 9
+    assert connection.questions_used == 1 and connection.rate_requests == 2
+    assert connection.commits == 3 and connection.rollbacks == 1
+    assert generator.calls == 2
+    assert budget_connection.commits == 2 and budget_connection.rollbacks == 0
+    quota_parameters = [parameters for sql, parameters in connection.calls if "INSERT INTO public.anonymous_usage" in sql]
+    assert len(quota_parameters) == 2 and quota_parameters[0] == quota_parameters[1]
+
+
+def test_r06_pasaj_invalid_rollback_esuat_ramane_503_fara_retry(api):
+    connection = R06TransactionConnection(rollback_error=psycopg2.OperationalError("rollback fictiv"))
+    budget_connection = ConnectionFake()
+    generator = RawGeneratorFake(_r06_payload(quote="fabricat"))
+
+    response = configure(api, connection, generator=generator, budget_connection=budget_connection).post(
+        "/intreaba", json={"intrebare": "art. 4.4.7.2"}
+    )
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Serviciul este temporar indisponibil."}
+    assert connection.commits == 1 and connection.rollbacks == 1
+    assert connection.closed and connection.rate_requests == 1
+    assert generator.calls == 1
+    assert budget_connection.commits == 1 and budget_connection.rollbacks == 0
+    _assert_no_technical_identifiers(response)
+
+
+@pytest.mark.parametrize("truncated", [False, True])
+def test_r06_endpoint_afiseaza_pasajul_literal_dupa_600_si_schema_publica(truncated, api):
+    quote = "Carcasa fictivă este turcoaz."
+    content = "Decor fictiv. " * 60 + quote
+    row = EXACT_ROW[:6] + (content, EXACT_ROW[7])
+    connection = ConnectionFake(exact_rows=(row,))
+    answer = f"{quote} [C1]"
+    generator = RawGeneratorFake(GeneratedText(_r06_payload(answer, quote), truncated=truncated))
+    assert content.index(quote) > 600
+
+    response = configure(api, connection, generator=generator).post(
+        "/intreaba", json={"intrebare": "art. 4.4.7.2"}
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "answered",
+        "raspuns": answer + (f"\n\n{TRUNCATION_NOTICE}" if truncated else ""),
+        "citari": [{
+            "id": "C1", "cod_document": row[2], "titlu_document": row[3],
+            "articol": row[4], "citat": quote,
+        }],
+        "intrebari_ramase": 9,
+    }
+    assert quote in row[6] and quote != row[6][:600]
+    assert generator.calls == 1 and generator.max_tokens == 1200
+    assert connection.commits == 2 and connection.rollbacks == 0
+    _assert_no_technical_identifiers(response)
+
+
+def test_r06_referinta_inventata_cu_pasaj_valid_pastreaza_retry_si_consumul_quota(api):
+    connection = R06TransactionConnection()
+    budget_connection = ConnectionFake()
+    generator = RawGeneratorFake(_r06_payload(answer="Conform STAS 987654321 [C1]."))
+
+    response = configure(api, connection, generator=generator, budget_connection=budget_connection).post(
+        "/intreaba", json={"intrebare": "art. 4.4.7.2"}
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "unsupported_answer", "raspuns": main._UNSUPPORTED_ANSWER,
+        "citari": [], "intrebari_ramase": 9,
+    }
+    assert generator.calls == 2
+    assert connection.questions_used == 1 and connection.rate_requests == 1
+    assert connection.commits == 2 and connection.rollbacks == 0
+    assert budget_connection.commits == 1 and budget_connection.rollbacks == 0
+    assert len([sql for sql, _ in budget_connection.calls if "INSERT INTO public.paid_call_budget" in sql]) == 1
 
 
 # --- Context conversațional: scope semantic fără fallback global ---

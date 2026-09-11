@@ -4,7 +4,27 @@
 
 Omnia devine o aplicație publică pentru normative tehnice românești: răspunsuri bazate exclusiv pe dovezi, cu citare oficială, căutare exactă de articol, costuri API controlate și teste automate.
 
-## Stare executivă — 03-09-2026 (actualizat 03-09-2026, seara — deploy live)
+## Reluare și direcție aprobată — 11-09-2026
+
+R06 este verificat local. După discuție, Lucian aprobă **multi-document implicit**, cu restricții numai la solicitare explicită, apoi cere reluarea execuției. D11 în `docs/DECISIONS.md` înlocuiește scope-ul semantic automat bazat pe documente menționate/citate. Lucrul curent: specificație și regresii pentru recunoașterea codurilor oficiale, întrebări multi-document și context fără filtru ascuns, apoi implementare numai în contractul aprobat. Detaliile D01/D02 și istoricul UI se separă dacă cer alegeri noi; fără alegerea unor statusuri/quota implicit. Păstrăm R06, aprobarea documentelor și limitele de cost/context. Fără commit/push, DB, API plătit sau deploy. Pașii vechi de mai jos sunt istoric unde contrazic D11.
+
+## Prioritate revizuită — 09-09-2026
+
+Lucian cere începerea cu problemele cele mai complicate din `revizii.md`. Prioritatea curentă este **5A — R05/R06, corectitudinea afirmațiilor și a citărilor**: diagnostic local, apoi strategie/specificație aprobată înainte de implementare. Ordinea inițială 0–1 de mai jos nu mai este prioritatea de execuție; restanțele rămân deschise. Această schimbare nu aprobă implicit mecanismul de validare, apeluri plătite, DB sau publicare. Ulterior Lucian a aprobat varianta 1: **set local sintetic de evaluare** înainte de protecții noi (`grounding_eval.py` și `tests/test_grounding_eval.py`), fără runtime public modificat. D07 este decis numai pentru această subetapă locală; pragurile/evaluarea reală rămân deschise. La 10-09-2026, 5A este verificat local, iar Lucian aprobă direcția D08/R06: modelul indică pasajul exact, backendul verifică existența în dovada citată. Lucian a aprobat apoi pentru pasaj lipsă/invalid: HTTP 503, rollback quota verificat și zero retry provocat de această eroare; costul consumat/rate limit-ul rămân, fără fallback la prefix. Lucian a confirmat trunchierea: JSON complet și valid păstrează avertismentul; JSON incomplet → 503, fără reparare/retry. Contract intern `raspuns` + `pasaje[{id,citat}]`, literal maximum 600 caractere; schema publică și plafonul de generare rămân. Lotul local R06 poate începe; fără cost/API real aprobat implicit.
+
+## Actualizare aprobată — 09-09-2026
+
+Lucian a renunțat la activarea workerului automat. Fluxul curent: **un PDF** în `documente_noi/_inbox` → anunț Planner → raport **local** de extracție/validare → aprobare separată pentru DB + Voyage → aprobare separată pentru publicare (`approved`). Importul manual sigur punctual nu este încă livrat; `populare_db.py` nu este insert-only.
+
+Workerul rămâne în cod, **inactiv**; Task Scheduler este neinstalat, iar migrarea `20260909000000_document_ingestion_sources.sql` este neaplicată conform predării. Codul/scriptul/migrarea nu se elimină și nu se activează. Registrul SHA și pornirea la logon sunt decizii independente, neaprobate implicit prin alegerea fluxului manual.
+
+Este aprobat numai lotul **0 — sincronizare documentație**, apoi **1 — aliasuri slash** (`_ALIAS_SEPARATOR` admite `/` pe lângă whitespace/cratimă, cu regresii în `tests/test_retrieval_core.py`). Nu se schimbă coduri necunoscute, context, statusuri, DB sau provideri. Pașii 2–6 sunt backlog TODO, neautorizați în acest lot; ordinea și gates sunt în `TASKS.md` și `GATES.md`.
+
+Referința versionată este `origin/main` la `237e11d` (PR8 include `e49223f` și `6cfd69c`), nu SHA-ul vechi de mai jos. Ultimul deploy verificat anterior este `47a6133`; nu s-a reverificat live. Cele 10 documente `approved` sunt confirmarea istorică a lui Lucian, fără audit DB nou; numărul curent de chunk-uri este necunoscut.
+
+**Istoric, nu stare curentă:** inventarul de 6 documente/3345 chunk-uri, hold-ul lotului 4 și ordinea recomandată la reluare de mai jos sunt depășite ca sursă de coordonare. `/documents` rămâne anulat definitiv. Etapele istorice nu autorizează operațiuni externe sau implementarea backlogului nou.
+
+## Stare executivă istorică — 03-09-2026 (actualizat 03-09-2026, seara — deploy live)
 
 ### Avem, în starea versionată sigură (`main` la `5dffaf9`, sincron cu `origin/main`)
 
@@ -34,7 +54,7 @@ Din același motiv, lista documentelor fusese deja scoasă din nav-ul UI la 03-0
 menționează `/documents` sau contorul de documente, sunt **depășite de această decizie** și
 nu trebuie reimplementate. Un test dedicat împiedică reintroducerea tăcută a rutei.
 
-### Ordinea recomandată la reluare
+### Ordinea recomandată la reluare — istoric depășit; vezi actualizarea 09-09-2026
 
 1. Testare externă controlată (4 testeri) pe linkul live, cu monitorizare manuală a costurilor Anthropic/Voyage în primele ore.
 2. `/documents` cu contract aprobat, dacă testarea externă merge bine.

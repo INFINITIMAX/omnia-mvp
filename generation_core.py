@@ -13,8 +13,8 @@ MAX_ANSWER_TOKENS = 1200
 MAX_CITATION_CHARS = 600
 _CITATION_ID = re.compile(r"\[([Cc][1-9][0-9]*)\]")
 
-# Rândul adăugat la finalul unui răspuns tăiat de plafonul de tokeni. Nu e o eroare:
-# răspunsul parțial rămâne util, dar utilizatorul trebuie să știe că nu e complet.
+# Rândul adăugat numai după validarea unui pachet JSON complet marcat ca trunchiat.
+# Un pachet incomplet este eroare de validare, nu răspuns public reparat.
 #
 # Marcajul e `**...**`, nu `_..._`: rendererul Markdown din static/index.html e deliberat
 # minimal (construit exclusiv cu createElement/textContent, fără innerHTML, fiindcă textul
@@ -30,9 +30,9 @@ TRUNCATION_NOTICE = (
 class GeneratedText:
     """Textul generat plus semnalul de trunchiere venit de la furnizor.
 
-    `truncated` are valoare implicită `False`, iar `GenerationService` acceptă în
-    continuare generatoare care întorc direct un `str` (cazul „nu știu dacă a fost
-    tăiat"). Așa se poate extinde contractul fără să se rupă implementările existente.
+    `truncated` are valoare implicită `False`. Transportul poate fi și un `str`
+    fără semnal de trunchiere; în ambele cazuri textul trebuie să conțină pachetul
+    JSON strict cu răspuns și pasaje. Textul simplu fără acest pachet este invalid.
     """
 
     text: str
@@ -42,8 +42,8 @@ class GeneratedText:
 class Generator(Protocol):
     """Contract injectabil pentru un furnizor de generare.
 
-    Poate întoarce fie textul brut (`str`, compatibil cu implementările vechi), fie un
-    `GeneratedText`, când furnizorul știe dacă răspunsul a fost tăiat de plafon.
+    Întoarce pachetul JSON ca `str` sau ca `GeneratedText`, când furnizorul știe
+    dacă generarea a fost tăiată de plafon.
     """
 
     def generate(self, prompt: str, *, max_tokens: int) -> str | GeneratedText: ...
@@ -51,6 +51,10 @@ class Generator(Protocol):
 
 class GenerationValidationError(Exception):
     """Răspunsul generatorului nu poate fi publicat în siguranță."""
+
+
+class InvalidGenerationPayloadError(GenerationValidationError):
+    """Pachetul JSON sau pasajele declarate încalcă contractul de proveniență."""
 
 
 class EmptyGeneratedAnswerError(GenerationValidationError):
@@ -246,31 +250,30 @@ class GenerationService:
                 "not_found", "Nu am găsit această informație în documentele aprobate.", ()
             )
 
-        allowed_ids = {citation_id for citation_id, _ in assigned}
+        evidence_by_id = dict(assigned)
         supported_fragments = _supported_reference_fragments([item for _, item in assigned])
         prompt = self._build_prompt(question, assigned)
 
-        generated, used_ids = self._generate_validated(prompt, allowed_ids)
+        generated, used_ids, passages = self._generate_validated(prompt, evidence_by_id)
         unsupported = _unsupported_normative_references(generated.text, supported_fragments)
         if unsupported:
             # O SINGURĂ reîncercare plătită, niciodată în buclă: dacă și a doua încercare
             # inventează referințe, refuzăm în loc să afișăm răspunsul.
-            generated, used_ids = self._generate_validated(
-                self._retry_prompt(prompt, unsupported), allowed_ids
+            generated, used_ids, passages = self._generate_validated(
+                self._retry_prompt(prompt, unsupported), evidence_by_id
             )
             if _unsupported_normative_references(generated.text, supported_fragments):
                 raise UngroundedReferenceError(
                     "răspunsul invocă referințe normative care nu apar în dovezi"
                 )
 
-        evidence_by_id = dict(assigned)
         citations = tuple(
             PublicCitation(
                 id=citation_id,
                 cod_document=evidence_by_id[citation_id].cod_document,
                 titlu_document=evidence_by_id[citation_id].titlu_document,
                 articol=evidence_by_id[citation_id].articol,
-                citat=evidence_by_id[citation_id].content[:MAX_CITATION_CHARS],
+                citat=passages[citation_id],
             )
             for citation_id in used_ids
         )
@@ -280,17 +283,78 @@ class GenerationService:
         return GenerationResult("answered", answer, citations)
 
     def _generate_validated(
-        self, prompt: str, allowed_ids: set[str]
-    ) -> tuple[GeneratedText, tuple[str, ...]]:
-        """Un singur apel la generator, cu validările care nu depind de dovezi."""
+        self, prompt: str, evidence_by_id: dict[str, Evidence]
+    ) -> tuple[GeneratedText, tuple[str, ...], dict[str, str]]:
+        """Validează întregul pachet înainte ca referințele să poată provoca retry."""
         generated = self._as_generated_text(
             self._generator.generate(prompt, max_tokens=self._max_answer_tokens)
         )
-        return generated, self._validated_used_ids(generated.text, allowed_ids)
+        payload = self._decode_payload(generated.text)
+        answer = payload["raspuns"]
+        if not isinstance(answer, str) or not answer.strip():
+            raise EmptyGeneratedAnswerError("generatorul a returnat un răspuns gol")
+        used_ids = self._validated_used_ids(answer, set(evidence_by_id))
+        passages = self._validated_passages(payload["pasaje"], used_ids, evidence_by_id)
+        return GeneratedText(answer, truncated=generated.truncated), used_ids, passages
+
+    @staticmethod
+    def _decode_payload(text: str) -> dict[str, object]:
+        """Nu repară JSON și nu permite chei duplicate, nici în obiectele imbricate."""
+        def unique_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
+            result: dict[str, object] = {}
+            for key, value in pairs:
+                if key in result:
+                    raise InvalidGenerationPayloadError("cheie JSON duplicată")
+                result[key] = value
+            return result
+
+        def reject_constant(_value: str) -> None:
+            raise InvalidGenerationPayloadError("constantă JSON invalidă")
+
+        try:
+            payload = json.loads(
+                text, object_pairs_hook=unique_object, parse_constant=reject_constant
+            )
+        except (ValueError, RecursionError) as error:
+            raise InvalidGenerationPayloadError("pachet JSON invalid") from error
+        if not isinstance(payload, dict) or set(payload) != {"raspuns", "pasaje"}:
+            raise InvalidGenerationPayloadError("schema pachetului este invalidă")
+        return payload
+
+    @staticmethod
+    def _validated_passages(
+        value: object, used_ids: tuple[str, ...], evidence_by_id: dict[str, Evidence]
+    ) -> dict[str, str]:
+        """Verifică proveniența literală în dovada proprie, nu susținerea semantică."""
+        if not isinstance(value, list):
+            raise InvalidGenerationPayloadError("lista pasajelor este invalidă")
+        passages: dict[str, str] = {}
+        for entry in value:
+            if not isinstance(entry, dict) or set(entry) != {"id", "citat"}:
+                raise InvalidGenerationPayloadError("schema pasajului este invalidă")
+            citation_id = entry["id"]
+            if not isinstance(citation_id, str) or not re.fullmatch(r"[Cc][1-9][0-9]*", citation_id):
+                raise InvalidGenerationPayloadError("identificator de pasaj invalid")
+            citation_id = citation_id.upper()
+            if citation_id not in used_ids or citation_id in passages:
+                raise InvalidGenerationPayloadError("mapare de pasaje invalidă")
+            quote = entry["citat"]
+            if (
+                not isinstance(quote, str)
+                or not quote.strip()
+                or len(quote) > MAX_CITATION_CHARS
+                or quote not in evidence_by_id[citation_id].content
+            ):
+                raise InvalidGenerationPayloadError("pasaj fără proveniență literală validă")
+            # Păstrăm textul original; strip() de mai sus verifică doar lipsa conținutului.
+            passages[citation_id] = quote
+        if set(passages) != set(used_ids):
+            raise InvalidGenerationPayloadError("lipsește un pasaj citat")
+        return passages
 
     @staticmethod
     def _as_generated_text(value: object) -> GeneratedText:
-        """Acceptă atât `str` (contractul vechi), cât și `GeneratedText` (cu semnal de trunchiere)."""
+        """Extrage transportul JSON; validarea pachetului urmează separat."""
         if isinstance(value, GeneratedText):
             generated = value
         elif isinstance(value, str):
@@ -341,6 +405,16 @@ class GenerationService:
             "oprește-te; nu estima și nu presupune valori.\n"
             "5. Fii concis: pune concluzia la început, evită tabelele lungi inutile și încadrează-te "
             "în bugetul de tokeni disponibil.\n"
+            '6. Întoarce numai JSON strict cu schema {"raspuns":"text [C1]",'
+            '"pasaje":[{"id":"C1","citat":"pasaj exact"}]}, fără Markdown fences sau proză în afara JSON. '
+            "Nu adăuga alte chei și nu duplica chei JSON.\n"
+            "7. Pentru fiecare ID folosit în raspuns, furnizează exact un pasaj în pasaje, "
+            "numai pentru ID-urile folosite, fără duplicate (C1 și c1 sunt același ID). "
+            "Citatul trebuie să fie text nevid de maximum 600 caractere, copiat ca subșir literal "
+            "din textul dovezii cu acel ID. Păstrează exact spațiile și diacriticele; nu concatena "
+            "bucăți separate, nu parafraza citatul și nu inventa metadata. Alege pasajul care "
+            "susține răspunsul, chiar dacă apare târziu în dovadă. "
+            "Încadrează răspunsul și pasajele împreună în buget și închide complet JSON-ul.\n"
             "<intrebare_json>\n"
             f"{serialized_question}\n"
             "</intrebare_json>\n"

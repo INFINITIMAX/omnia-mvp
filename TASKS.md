@@ -1,5 +1,107 @@
 # TASKS — Omnia
 
+## Predare verificată — 11-09-2026
+
+La cererea lui Lucian, situația completă și pașii executabili sunt în [`HANDOFF.md`](HANDOFF.md). Verificare proaspătă de host: **761 passed, 11 skipped**; diagnostic 19 cazuri, 10 afirmații nepublicabile acceptate, zero pasaje omise/erori. Toate fișierele Python sunt identice cu snapshotul pre-D11; zero staged și zero agenți activi. Predarea este finalizată, **implementarea D11 nu este finalizată**. Nu s-a relansat Coderul și nu s-a schimbat providerul pentru această predare. Dovezi în directorul temporar `normativai-stabilizare-237e11d/handoff-11-09-2026/`.
+
+## Sarcină curentă BLOCATĂ — D11, multi-document implicit (11-09-2026)
+
+Lucian a aprobat căutarea multi-document implicită, cu restricții numai la solicitare explicită, apoi a cerut „please go on and proceed”. Această reluare înlocuiește oprirea după R06, **numai pentru lucrul local descris aici**, nu pentru publicare sau celelalte restanțe.
+
+- Obiectiv: recunoașterea corectă a codurilor și retrieval multi-document fără blocare automată după sursele citate anterior. Nu evităm sinteza multi-sursă; evităm atribuirea greșită și încălcarea unei restricții explicite.
+- Baseline: **761 passed, 11 skipped**, exit 0; snapshot Python complet și zero staged. Coderul reutilizat a salvat exclusiv `tests/test_multi_document_retrieval.py` (18 funcții/77 cazuri parametrizate declarate); host RED: **42 failed, 35 passed, 0 errors/skipped**, exit 1 comportamental. Confirmă filtrarea automată după coduri/context, ambiguitatea artificială la două documente, lipsa separatorului `/` și D12/D13 neimplementate; nu există editări runtime. Doar `MD-BASELINE` și `MD-RED` sunt închise (2/8). Implementarea, QA și Reviewer nu sunt lansate.
+- **D12/D13 aprobate:** numai „doar din [cod]”, „numai din [cod]”, „exclusiv din [cod]”, în întrebarea curentă; cod recunoscut/aprobat → scope fără fallback global; cod necunoscut/neaprobat → HTTP 200 `ambiguous_reference`, mesaj existent, zero embedding/generare/global fallback/apel plătit, dar consumă quota și rate limit existente. Nu persistă implicit. Negările/formulările alternative, mai multe restricții, continuarea de articol ambiguă și replay-ul UI rămân D02/D03. Coderul nu poate alege aceste ramuri tacit.
+- Fișiere de implementare propuse: `retrieval_core.py`, testele de retrieval și adaptările strict necesare ale testelor API. `main.py`, R06/generation, evaluatorul/gold-urile, UI, DB, SDK, quota și plafoanele sunt protejate.
+- Un Coder în worktree-ul existent `D:/Omnia-MVP-stabilizare`; QA și Reviewer read-only după implementare. Gazda rulează testele prin PowerShell/Python, deoarece bash-ul nativ al agenților nu are WSL funcțional.
+- Criterii și restanțe: `revizii.md` lot D11/2A și `GATES.md`. Nu declarăm R02–R04 rezolvate prin simpla eliminare a unui filtru.
+- Fără staging/commit/push/merge/deploy, DB real sau API plătit. Nu se aruncă și nu se rescrie munca R06 existentă. Blocajele de produs/capacitate se raportează fără relansări repetate.
+
+## Predare finală R06 — verificat local, apoi STOP (11-09-2026)
+
+- **R06 / 5B VERIFICAT LOCAL:** Reviewer OK și QA OK; cele opt fișiere revizuite au fost reconfirmate neschimbate prin hash. `main.py` este identic cu snapshotul inițial.
+- Dovezi: RED 133 failed/18 passed înainte de runtime; GREEN 402 focused passed, 761 full passed/11 skipped/1 warning. Patru probe semantice suplimentare mockuite au trecut. Comenzile au fost executate de host, nu de agenții read-only.
+- Pe cele 19 cazuri inițiale păstrate: 2 → 0 pasaje omise, zero refuzuri false/erori de execuție. Cele 10 afirmații nepublicabile acceptate rămân **R05 deschis**; diagnosticul are exit 1. Nu este evaluare de model live sau validare de expert uman.
+- QA a confirmat păstrarea tuturor funcțiilor vechi de test și a celor patru adaptări de aserțiuni/decoratori. Niciun scenariu eliminat/slăbit și nicio omisiune nouă pentru a masca erori.
+- Explicația codului: [`docs/R06_CODE_WALKTHROUGH.md`](docs/R06_CODE_WALKTHROUGH.md). Dovezi, hash-uri și rapoarte: `revizii.md` §5B și `GATES.md`.
+- Comportament local: pasaj declarat verificat literal în dovada proprie; payload/pasaj invalid → 503 și rollback quota verificat, fără retry provocat de pasaj; JSON complet valid trunchiat păstrează avertismentul. Schema publică/DB/SDK și plafoanele sunt neschimbate; costul/compatibilitatea modelului real nu au fost măsurate.
+- **Fără commit/staging/push, migrare, API plătit sau deploy.** Nicio schimbare în producție. Gate-urile PROD, R05 și celelalte taskuri rămân deschise conform planului.
+- **STOP cerut de Lucian:** nu pornim următorul task. Nu există agenți activi la predare; continuarea necesită discuția cu Lucian.
+
+## Reluare R06 — implementare salvată, GREEN local (10-09-2026)
+
+- Coderul a salvat implementarea și migrarea fixture-urilor/evaluatorului înainte de limita providerului; nu refacem munca de la zero.
+- RED istoric confirmat: 133 failed, 18 passed, exit 1 înainte de runtime. După reluare, host a rulat focused: **402 passed**; full: **761 passed, 11 skipped, 1 warning**, exit 0. Skip-urile sunt corpusul local absent.
+- Evaluator: aceleași 19 cazuri, candidați și gold; **zero pasaje relevante omise**, zero candidați publicabili respinși, zero erori de execuție. Rămân **10 candidați nepublicabili acceptați** (R05), diagnostic exit 1 intenționat.
+- Snapshot final în `C:/Users/Lucian-PC/AppData/Local/Temp/normativai-stabilizare-237e11d/r06/`; hash generation core `47bcd5cde02a71c6ec8c4cc6eb316a45a653b7cb766cad2ac10960e12419d959`.
+- Status: **IMPLEMENTAT / QA-REVIEW ÎN CURS**, nu închis încă. Refolosim Testerul și Reviewerul 5A prin workflow `be4c8237-902a-464f-a6e2-086d1f191093`; Coderul nu se repornește fără finding concret.
+- `main.py` executabil, schema publică, DB și SDK-urile sunt neschimbate. Fără commit/staging/push, apel plătit sau deploy.
+
+## Următorul task — 5B/R06, direcție aprobată (10-09-2026)
+
+- Lucian aprobă: modelul indică pasajul exact; backendul verifică existența în dovada citată; metadata rămâne controlată de backend.
+- **Politică aprobată ulterior:** pasaj lipsă/invalid → 503 cu rollback quota verificat, fără retry provocat de această eroare, fără fallback la prefix. Costul deja consumat și rate limit-ul rămân; R05 nu este rezolvat prin verificarea existenței pasajului.
+- **Trunchiere aprobată:** pachet JSON complet/valid cu semnal de trunchiere păstrează avertismentul; pachet incomplet → 503 fără reparare/retry.
+- Status: **APROBAT / pregătire RED**, conform specificației 5B din `revizii.md`. Scope: generation core, adaptările strict necesare ale fixture-urilor/API/evaluatorului și regresii noi; fără DB/provideri reali sau publicare. Dacă agentul este încă la limită, workflow-ul se oprește fără încercări repetate.
+- 5A rămâne verificat local, iar capacitatea Coderului nu este presupusă restabilită. Nicio relansare sau schimbare runtime în această actualizare.
+
+## Predare finală — 5A, evaluator local verificat (10-09-2026)
+
+- **VERIFICAT LOCAL:** `grounding_eval.py` (19 cazuri exclusiv sintetice) și `tests/test_grounding_eval.py` (34 teste noi). API-ul, GenerationService și testele existente sunt nemodificate.
+- Host: 34 focused passed; full 591 passed, 11 skipped, 1 warning; diagnostic exit 1 intenționat: 10 candidați nepublicabili acceptați și 2 pasaje omise, 12 constatări în 11/19 cazuri. Nu este rata de eroare a modelului live.
+- QA și Reviewer: OK pentru evaluator. Clarificarea finală salvată de Coder schimbă numai docstring-ul; Planner a confirmat AST executabil și teste identice cu snapshotul revizuit, apoi a rerulat verificările. Providerul a blocat din nou Coderul după salvare; nu s-au repetat lansările.
+- `pytest -q -rs` confirmă că cele 11 skip-uri sunt cauzate de corpusul absent. Problemele temporare de afișare UTF-8 ale gazdei nu au necesitat schimbări în teste/aplicație.
+- Dovezi și hash-uri finale în `revizii.md`, pasul 5; logurile locale în `C:/Users/Lucian-PC/AppData/Local/Temp/normativai-stabilizare-237e11d/`. Explicația pe linii este în raportul Coderului din workflow `49d43a49-3ff6-4f3c-8705-1d3e7a7973d7`, artefact `grounding/coder.md`.
+- Etichetele au fost redactate/revizuite de agenți, nu validate de expert uman; se aplică exact candidaților fixați. Un răspuns rescris ulterior cere reevaluarea etichetelor.
+- **R05/R06 rămân deschise; pasul 5 complet și gate-urile PROD nu sunt închise.** Urmează decizia D08, recomandat R06/pasaj relevant verificabil, înainte de orice schimbare publică.
+- Fără commit/staging/push, DB, API plătit, ingestion, migrare sau deploy. Pasul 0 rămâne nerevizuit ca lot separat, iar R01 neînceput. Nu există agenți activi la această predare.
+- **Valoare CV:** evaluare reproductibilă și verificată independent, cu distincția explicită între instrument corect și produs încă vulnerabil.
+
+## Prioritate curentă — 5A, corectitudinea afirmațiilor/citărilor (09-09-2026)
+
+- Lucian a cerut să începem cu problemele cele mai complicate. Lotul 0–1 de mai jos rămâne deschis, dar nu mai este primul în ordinea de execuție.
+- Obiectiv actual: R05/R06 din `revizii.md`, diagnostic local și alegerea strategiei; fără implementare publică sau cost aprobat implicit.
+- Planner a rulat șase probe sintetice: control pozitiv acceptat; patru afirmații greșite acceptate cu ID valid; pasaj relevant după 600 de caractere absent din citatul public. Raport: `C:/Users/Lucian-PC/AppData/Local/Temp/normativai-stabilizare-237e11d/r05-r06-probes.json`.
+- Aceste probe demonstrează limitele validatorului, nu calitatea modelului live. Zero DB/provideri reali; runtime și teste proiect nemodificate. Nu avem încă un fix de bifat.
+- **Aprobare nouă:** Lucian a ales varianta 1 — set local de evaluare înainte de mecanisme noi; fără DB/API plătit. Implementarea este limitată la `grounding_eval.py`, `tests/test_grounding_eval.py` și predare documentară, fără runtime public modificat.
+- Următoarea acțiune: Coder implementează evaluatorul, host rulează testele/diagnosticul, Tester și Reviewer verifică separat. Un diagnostic care găsește erori trebuie să rămână vizibil ca nonzero; pytest al evaluatorului nu declară produsul sigur. Dacă providerul refuză din nou agentul, ne oprim, fără relansări repetate.
+
+## Predare — plan consolidat de revizii (09-09-2026)
+
+- La cererea lui Lucian, Planner-ul a redactat [`revizii.md`](revizii.md): constatările R01–R28, decizii aprobate versus propuneri, statusuri, pași 0–6 și gate-uri de producție PROD-01–PROD-11.
+- Documentul consolidează auditul; nu înlocuiește `AGENTS.md` sau registrul `docs/DECISIONS.md` și nu autorizează implicit implementări, DB, costuri ori publicare.
+- Workflow-ul lotului 0–1 s-a oprit la limita providerului după editarea celor șase documente. Baseline: 557 passed, 11 skipped, 1 warning; runtime-ul și testele retrieval sunt nemodificate, QA/review final neîncepute.
+- Următoarea acțiune: la restabilirea capacității verificăm starea, închidem review-ul pasului 0 și reluăm testele RED pentru R01. Etapa de după producție rămâne de clarificat cu Lucian.
+- Această predare modifică numai documentație; fără relansare de agenți, commit/push, DB, ingestion sau deploy.
+
+## Lot aprobat 0–1 — stabilizare coduri normative (09-09-2026)
+
+**Stare de referință:** `origin/main` la `237e11db81251b8eb316ec02aa01e428089c66bc` include fixul de status `e49223f` și workerul `6cfd69c`, integrate prin PR8. Lucrul acestui lot este limitat la `D:/Omnia-MVP-stabilizare`, branch `fix/stabilizare-coduri-normative`. Ultimul deploy **verificat anterior** este `47a6133` (08-09-2026); nu există verificare live nouă în acest lot.
+
+**Intent:** sincronizarea sursei de adevăr, apoi remedierea strictă a aliasurilor cu slash, fără extinderea comportamentului de produs.
+
+**Spec aprobat:** pasul 0 schimbă numai documentația; pasul 1 permite `/` în `_ALIAS_SEPARATOR`, alături de whitespace/cratimă, și extinde `tests/test_retrieval_core.py`. Codurile necunoscute, contextul, statusurile, DB și providerii rămân neschimbate.
+
+**Plan minimal și stare:**
+- [ ] **0 — Documentație:** sincronizare propusă în această predare în `TASKS.md`, `PLAN.md`, `GATES.md`, `docs/DECISIONS.md`, `docs/PROJECT_OVERVIEW.md`, `docs/AUTO_INGESTION_WORKER.md`; acceptarea manuală independentă rămâne deschisă.
+- [ ] **1 — Slash:** mai întâi demonstrarea regresiei `pytest -k alias_slash_regression` pe runtime nemodificat, apoi modificarea separatorului și validările din `GATES.md`. Nu este implementat în predarea pasului 0.
+
+**Workflow curent aprobat:** Lucian pune **un PDF** în `documente_noi/_inbox`, anunță Planner-ul, primește raport **local** de extracție/validare și aprobă separat DB + Voyage. Publicarea prin status `approved` necesită altă aprobare explicită. Importul manual sigur punctual **nu este încă livrat**; `populare_db.py` nu este un importer insert-only.
+
+**Worker inactiv:** Lucian a renunțat la activare. Codul, scriptul de înregistrare și migrarea se păstrează; Task Scheduler este neinstalat și `20260909000000_document_ingestion_sources.sql` este **neaplicată**, conform predării, nu unui audit nou. Registrul SHA și pornirea la logon sunt decizii independente; fluxul manual nu le aprobă implicit.
+
+**Dovezi disponibile:** logul host `C:/Users/Lucian-PC/AppData/Local/Temp/normativai-stabilizare-237e11d/baseline.log` raportează `557 passed, 11 skipped, 1 warning` (TestClient). Este baseline anterior schimbărilor, nu validare a lotului și nu execuție personală a Coder-ului. Gates rămân deschise până la dovezi. Zero operațiuni externe autorizate: fără DB, rețea/API, ingestion, migrări, scheduler, stage/commit/push/merge/deploy.
+
+**Backlog ordonat — TODO, pașii 2–6 neautorizați în acest lot:**
+- [ ] **2 — Context:** clarificare și stabilizare; orice schimbare de comportament cere aprobare explicită.
+- [ ] **3 — Import manual sigur punctual:** livrare separată; aprobarea workflow-ului nu aprobă implicit implementarea, registrul SHA sau logon-ul.
+- [ ] **4 — Integritate articole:** verificări și propuneri, fără reparări automate de date.
+- [ ] **5 — Evaluare reală:** protocol și cost aprobate separat; testele mock nu dovedesc calitatea reală.
+- [ ] **6 — Operare:** decizii și execuție aprobate separat, fără activare implicită de worker/scheduler.
+
+**Notă de lectură a istoricului:** predările și backlogurile de mai jos sunt păstrate ca istoric. Afirmațiile vechi despre 6 documente/3345 chunk-uri, lotul P118/2 încă neimportat, lipsa antetelor/trusted proxy/deploy/redesign sau `/documents` de implementat nu sunt stare curentă. Cele **10 documente `approved`** sunt confirmarea istorică a lui Lucian, nu o verificare DB nouă; numărul curent de chunk-uri este necunoscut. Pentru migrări, vezi distincția documentat aplicat/neaplicat/neverificat din `docs/PROJECT_OVERVIEW.md`.
+
+**Valoare CV:** trasabilitate între decizie, cod versionat, deploy verificat și gates cu dovezi, fără a confunda teste mock cu validare de producție.
+
 ## Predare — Deploy production din `main` (08-09-2026)
 
 - [x] **Sursă publicată:** merge commit `47a6133` din `main`, prin deploy manual Railway; serviciul nu are Git Source/autodeploy legat.
@@ -327,7 +429,7 @@ spațiere, razele și lista de pattern-uri interzise. Nu inventa valori care nu 
       „debitul minim pentru grupuri sanitare”) necesită reevaluare față de catalogul curent de 10 documente aprobate
       și vor produce refuzuri. Înlocuirea lor este o decizie de conținut pentru Lucian.
 
-## Backlog ordonat
+## Backlog ordonat — istoric, depășit de lotul 0–1 și backlogul 2–6 de mai sus
 
 1. Faza 1: migrarea Supabase pentru metadata și chunk identity. **Finalizată.**
 2. Faza 3A: retrieval core descris mai sus. **Finalizată în branch-ul `feat/retrieval-core`; fără API public.**
@@ -342,6 +444,6 @@ spațiere, razele și lista de pattern-uri interzise. Nu inventa valori care nu 
 ## Observații
 
 - `np057_02` nu are PDF original local; are doar `extracted.txt` și metadata notează acest lucru.
-- Catalogul curent are 10 documente `approved`; nu consemnăm un număr curent de chunk-uri fără verificare read-only actualizată. Inventarul detaliat din 03-09-2026 rămâne istoric la predarea sa.
+- Lucian a confirmat istoric 10 documente `approved`; nu este o verificare DB nouă. Numărul curent de chunk-uri este necunoscut. Inventarul detaliat din 03-09-2026 rămâne istoric la predarea sa.
 - `PLAN.md` și acest fișier sunt sursele active de coordonare.
 - Commit `319cf5f`: 17 scripturi legacy neutilizate (ex. `chunkingv2.py`, `omnia_qa.py`, `verificare_db.py`) au fost eliminate din proiectul activ. `_archive/` este în `.gitignore` și nu face parte din repo sau din starea versionată; versiunile eliminate rămân recuperabile din istoricul Git (`git show 319cf5f^:<cale>`).
