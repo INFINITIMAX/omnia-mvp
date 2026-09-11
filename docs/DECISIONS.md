@@ -4,6 +4,10 @@ Acest fișier separă deciziile explicite ale lui Lucian de propunerile agențil
 
 ## Decizii active
 
+### D14 — negația exactă „nu doar din”, aprobată Lucian (11-09-2026)
+
+Lucian alege opțiunea 1: expresia exactă **„nu doar din [cod]”** nu creează scope; ea păstrează căutarea multi-document globală implicită. Este un guard împotriva false scope-ului produs de subșirul „doar din”, nu un parser general de negații. Nu extindem automat regula la „nu numai”, „nu exclusiv”, alte poziții, case/spacing, negații multiple ori alte expresii; acestea rămân în afara lotului. Nu se schimbă schema, quota, DB sau providerii.
+
 ### D13 — cod explicit necunoscut, aprobat Lucian (11-09-2026)
 
 Pentru „doar/numai/exclusiv din [cod necunoscut sau neaprobat]”, Lucian aprobă răspuns HTTP 200 cu statusul existent `ambiguous_reference` și mesajul de clarificare existent. Nu se face embedding, retrieval global, generare sau apel plătit. Cererea **consumă o întrebare din quota**, la fel ca celelalte cereri valide dar ambigue; tentativa rămâne în rate limit. Nu se adaugă un nou status public, nu se modifică schema, DB sau limitele.
