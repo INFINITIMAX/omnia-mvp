@@ -1,5 +1,17 @@
 # Gate-uri — refuz calcule/proiectare
 
+## MII — importer persistent manual pentru un PDF (11-09-2026)
+
+**OWNS:** `manual_ingestion_import.py`, `tests/test_manual_ingestion_import.py`, `docs/MANUAL_INGESTION_IMPORT_SPEC.md`, documentația de rulare, `TASKS.md`, `GATES.md`, `PLAN.md`, `docs/DECISIONS.md`.
+
+- [ ] **MII-RED:** teste mockuite înregistrează contractul absent pentru report/metadata/SHA, document nou insert-only, dry-run fără servicii și commit fail-closed.
+- [ ] **MII-LOCAL:** dry-run revalidează PDF/report/metadata/chunking fără DB/Voyage; `--commit` simulat folosește numai INSERT, status exact pending și rollback la orice eșec.
+- [ ] **MII-COST:** duplicate/conflict sunt oprite înainte de clientul Voyage; loturile verifică numărul embedding-urilor, niciun retry automat; testele nu cheamă provider real.
+- [ ] **MII-SECURITY:** conexiune TLS/timeout, SQL parametrizat/advisory locks, fără raport cu text/chunk/secrete; fără update/delete/approved/migrare/worker.
+- [ ] **MII-REGRESSION:** host rulează focused, apoi suita completă; fără DB/Voyage real.
+- [ ] **MII-CHECKPOINT:** diff verificat și checkpoint GitHub după GREEN.
+- [ ] **MII-REVIEW:** QA și Reviewer read-only după checkpoint. Niciun verdict local nu este aprobare pentru comandă reală `--commit`.
+
 ## MIP — preflight manual pentru un PDF (11-09-2026)
 
 **OWNS:** `manual_ingestion_preflight.py`, `tests/test_manual_ingestion_preflight.py`, `docs/MANUAL_INGESTION_PREFLIGHT_SPEC.md`, `TASKS.md`, `GATES.md`, `PLAN.md`, `docs/DECISIONS.md`, documentația de rulare nouă.

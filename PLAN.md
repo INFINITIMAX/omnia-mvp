@@ -6,7 +6,7 @@ Omnia devine o aplicație publică pentru normative tehnice românești: răspun
 
 ## MVP administrat manual — direcție aprobată, 11-09-2026
 
-Lucian a confirmat revenirea la obiectivul MVP: nu tratăm registrul complet de riscuri ca precondiție de produs. După D11–D14 acceptat local, următoarea etapă este preflight-ul manual fără cost pentru **un PDF**. Specificația aprobată este `docs/MANUAL_INGESTION_PREFLIGHT_SPEC.md`: PDF explicit din `_inbox` → raport local fără text normativ → aprobare separată DB + Voyage → import viitor numai pending → aprobare separată pentru `approved`. Workerul automat rămâne inactiv, iar `populare_db.py` nu este ruta sigură. Această etapă nu autorizează DB, Voyage, migrare, import, publicare sau deploy.
+Lucian a confirmat revenirea la obiectivul MVP: nu tratăm registrul complet de riscuri ca precondiție de produs. După D11–D14 acceptat local, preflight-ul manual fără cost pentru **un PDF** este acceptat local. Următoarea etapă aprobată este importerul persistent manual din `docs/MANUAL_INGESTION_IMPORT_SPEC.md`: metadata explicită → dry-run local → comandă `--commit` aprobată separat → document nou numai `indexed_pending_validation` → aprobare separată pentru `approved`. Workerul automat rămâne inactiv, iar `populare_db.py` nu este ruta sigură. Implementarea mock-first nu autorizează DB/Voyage real, migrare, publicare sau deploy.
 
 ## Reluare și direcție aprobată — 11-09-2026
 

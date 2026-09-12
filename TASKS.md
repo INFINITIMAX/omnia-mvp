@@ -1,18 +1,12 @@
 # TASKS — Omnia
 
-## Task activ — preflight manual pentru un PDF (11-09-2026)
+## Task activ — importer persistent manual pentru un PDF (11-09-2026)
 
-**Obiectiv aprobat:** implementăm exclusiv raportul local fără cost din `docs/MANUAL_INGESTION_PREFLIGHT_SPEC.md`. Coderul poate modifica numai noul CLI de preflight, testele dedicate, documentația acestui flux și gate-urile aferente. Nu atinge workerul automat, `populare_db.py`, DB/migrări, providerii, statusurile, UI sau deploy-ul. PDF-urile, textele extrase și rapoartele locale rămân ignorate de Git.
+**Contract aprobat:** `docs/MANUAL_INGESTION_IMPORT_SPEC.md` / D16. Se construiește mock-first un CLI separat cu metadata explicită, dry-run fără DB/Voyage și `--commit` pentru document nou insert-only, numai `indexed_pending_validation`. Nu modifică workerul automat sau `populare_db.py`, nu updatează/șterge/reimportă, nu aplică migrare și nu acordă `approved`.
 
-**RED verificat:** host a rulat testele noi înainte de runtime: 12 errors, exit 1, toate `ModuleNotFoundError` pentru `manual_ingestion_preflight` absent. Eșecul este intenționat și dovedește contractul neimplementat, nu o eroare de fixture/mediu; dovezi `manual-ingestion/mip-red.*`.
+**Gates înainte de runtime:** RED demonstrează absența importerului și contractul de metadata/SHA/identitate, dry-run fără conexiune/provider, commit cu rollback și zero update/delete, loturi embedding și refuzuri fail-closed. Host rulează RED înainte de runtime; DB/Voyage reale rămân interzise. După GREEN, checkpoint, QA și Reviewer sunt taskuri separate.
 
-**QA finding remediat și GREEN:** QA a găsit că validatorul local nu verifica identitatea articolului ca importerul. Fixul normalizează spațiile/literele/punctul final și refuză orice identificator în afara `[a-z0-9().-]+`; testul nou execută pipeline-ul implicit complet și refuză articolul neacceptat. Host: 13 focused passed și **975 full passed/11 skipped/1 warning**, exit 0. Nu importă workerul, `populare_db.py`, DB sau provideri. Explicația pentru începător: `docs/MANUAL_INGESTION_PREFLIGHT_WALKTHROUGH.md`.
-
-**Reviewer P2 remediat și GREEN:** Reviewerul a semnalat că rezervarea prin fișier final putea expune JSON gol. Preflight-ul rezervă acum lock separat, scrie JSON complet temporar și publică numai prin replace; testul verifică explicit fereastra. Host: 14 focused passed și **976 full passed/11 skipped/1 warning**, exit 0.
-
-**MIP ACCEPTAT LOCAL:** QA recheck și Reviewer P2 sunt OK, fără finding-uri. Preflight-ul verifică un PDF explicit și raportează local, fără DB/cost/import; host final: **14 focused passed, 976 full passed/11 skipped/1 warning**. Checkpointul final de cod este `5d26366`; predarea documentară urmează separat.
-
-**Nu urmează import automat:** DB + Voyage, `indexed_pending_validation` și `approved` necesită decizii/aprobări separate ale lui Lucian. Nu începem alt task până la decizia lui.
+**Preflight MIP predat:** acceptat local la `8f11c4b`; host final 14 focused, 976 full passed/11 skipped, QA/Reviewer OK. Este precondiție locală, nu import persistent.
 
 
 ## Predare verificată — 11-09-2026

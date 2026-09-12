@@ -4,6 +4,10 @@ Acest fișier separă deciziile explicite ale lui Lucian de propunerile agențil
 
 ## Decizii active
 
+### D16 — importer persistent manual, aprobat Lucian (11-09-2026)
+
+Lucian aprobă contractul din `docs/MANUAL_INGESTION_IMPORT_SPEC.md`: metadata locală explicită, dry-run fără DB/Voyage implicit și `--commit` explicit pentru un document nou, insert-only, cu status exclusiv `indexed_pending_validation`. Importerul verifică reportul/SHA/metadata, refuză identități existente înainte de Voyage, păstrează lock DB în tranzacție pentru a evita costuri duplicate și nu face retry automat. La eșec, DB face rollback; un apel Voyage deja acceptat poate rămâne facturabil fără persistență. Nu se aprobă update/delete/reimport, migrare nouă/aplicare, worker/scheduler, `approved`, DB/Voyage real, deploy sau publicare prin această decizie.
+
 ### D15 — preflight manual pentru un PDF, aprobat Lucian (11-09-2026)
 
 Lucian aprobă implementarea locală a preflight-ului din `docs/MANUAL_INGESTION_PREFLIGHT_SPEC.md`: un PDF indicat explicit din `documente_noi/_inbox` produce un raport local fără text normativ, după extracție, verificarea stabilității SHA-256, validarea chunking-ului și identificarea strictă a candidaților unici de metadata. Preflight-ul nu importă, nu citește/scrie Supabase, nu apelează Voyage/Anthropic, nu modifică statusuri și nu activează workerul/schedulerul. Un rezultat local nu aprobă DB + Voyage sau publicarea; acestea rămân aprobări separate ale lui Lucian.
