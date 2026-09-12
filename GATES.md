@@ -4,7 +4,7 @@
 
 **OWNS:** `manual_ingestion_preflight.py`, `tests/test_manual_ingestion_preflight.py`, `docs/MANUAL_INGESTION_PREFLIGHT_SPEC.md`, `TASKS.md`, `GATES.md`, `PLAN.md`, `docs/DECISIONS.md`, documentația de rulare nouă.
 
-- [ ] **MIP-RED:** testele mockuite demonstrează pe runtime absent că sunt refuzate calea din afara `_inbox`, extensia ne-PDF, PDF instabil, extracția/chunking-ul invalid și metadata candidat lipsă/ambiguă; nicio dependență externă nu este apelată.
+- [x] **MIP-RED:** host, 11-09-2026: `python -m pytest -q tests/test_manual_ingestion_preflight.py` → 12 errors, exit 1, toate `ModuleNotFoundError: manual_ingestion_preflight`; runtime-ul lipsește intenționat. Testele mockuite descriu refuzul căii din afara `_inbox`, extensiei ne-PDF, PDF instabil, extracției/chunking-ului invalid, metadata lipsă/ambiguă și raport existent, plus absența dependențelor externe. Dovezi: `manual-ingestion/mip-red.{log,xml,receipt.json}`.
 - [ ] **MIP-LOCAL:** un PDF fixture valid produce numai raport JSON local cu hash, număr de pagini/caractere/chunk-uri, candidați metadata și status; raportul nu conține text normativ/chunk-uri/embedding/secrete și nu se suprascrie.
 - [ ] **MIP-BOUNDARY:** codul nu importă sau apelează `psycopg2`, `voyageai`, `load_dotenv`, workerul automat ori `populare_db.py`; nu face operații DB/rețea/cost.
 - [ ] **MIP-REGRESSION:** host rulează testele dedicate, apoi `python -m pytest -q`; nu sunt slăbite testele existente.

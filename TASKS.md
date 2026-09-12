@@ -4,7 +4,9 @@
 
 **Obiectiv aprobat:** implementăm exclusiv raportul local fără cost din `docs/MANUAL_INGESTION_PREFLIGHT_SPEC.md`. Coderul poate modifica numai noul CLI de preflight, testele dedicate, documentația acestui flux și gate-urile aferente. Nu atinge workerul automat, `populare_db.py`, DB/migrări, providerii, statusurile, UI sau deploy-ul. PDF-urile, textele extrase și rapoartele locale rămân ignorate de Git.
 
-**Plan/gate înainte de cod:** testele RED trebuie să demonstreze refuzul căii din afara `_inbox`, PDF instabil, metadata lipsă/ambiguă și orice apel extern; GREEN trebuie să demonstreze raportul minim fără text normativ și chunking valid. După host verification urmează checkpoint GitHub; QA/Reviewer sunt taskuri separate.
+**RED verificat:** host a rulat testele noi înainte de runtime: 12 errors, exit 1, toate `ModuleNotFoundError` pentru `manual_ingestion_preflight` absent. Eșecul este intenționat și dovedește contractul neimplementat, nu o eroare de fixture/mediu; dovezi `manual-ingestion/mip-red.*`.
+
+**Următorul subpas:** Coderul implementează numai CLI-ul local pentru a face aceste teste GREEN. După host verification urmează checkpoint GitHub; QA/Reviewer sunt taskuri separate.
 
 
 ## Predare verificată — 11-09-2026
