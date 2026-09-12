@@ -8,7 +8,9 @@
 
 **QA finding remediat și GREEN:** QA a găsit că validatorul local nu verifica identitatea articolului ca importerul. Fixul normalizează spațiile/literele/punctul final și refuză orice identificator în afara `[a-z0-9().-]+`; testul nou execută pipeline-ul implicit complet și refuză articolul neacceptat. Host: 13 focused passed și **975 full passed/11 skipped/1 warning**, exit 0. Nu importă workerul, `populare_db.py`, DB sau provideri. Explicația pentru începător: `docs/MANUAL_INGESTION_PREFLIGHT_WALKTHROUGH.md`.
 
-**Următorul subpas:** checkpoint GitHub, re-QA read-only pe finding, apoi Reviewer separat. DB + Voyage și `approved` nu sunt aprobate sau implementate.
+**Reviewer P2 remediat și GREEN:** Reviewerul a semnalat că rezervarea prin fișier final putea expune JSON gol. Preflight-ul rezervă acum lock separat, scrie JSON complet temporar și publică numai prin replace; testul verifică explicit fereastra. Host: 14 focused passed și **976 full passed/11 skipped/1 warning**, exit 0.
+
+**Următorul subpas:** checkpoint GitHub, re-review P2 read-only. DB + Voyage și `approved` nu sunt aprobate sau implementate.
 
 
 ## Predare verificată — 11-09-2026

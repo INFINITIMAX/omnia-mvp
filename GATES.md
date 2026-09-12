@@ -9,7 +9,7 @@
 - [x] **MIP-BOUNDARY:** test static și inspecție host: `manual_ingestion_preflight.py` nu importă/apelează `psycopg2`, `voyageai`, `load_dotenv`, workerul automat sau `populare_db.py`; testul injectează dependențe externe interzise și ruta validă rămâne locală.
 - [x] **MIP-REGRESSION:** host după fix QA: `python -m pytest -q tests/test_manual_ingestion_preflight.py` → 13 passed; `python -m pytest -q` → 975 passed, 11 skipped, 1 warning extern TestClient, exit 0. Testele metadata acoperă cod/titlu/an lipsă și ambiguu; nu sunt slăbite teste existente.
 - [x] **MIP-CHECKPOINT:** diff inspectat, `git diff --check` curat, documentația explică pașii pentru începător, iar GREEN verificat este checkpointat pe branchul de lucru. SHA-ul remote este consemnat în predare.
-- [ ] **MIP-REVIEW:** QA a găsit incompatibilitatea articolului și testul implicit lipsă; fixul este GREEN, deci re-QA read-only, apoi Reviewer separat. Aprobarea locală nu este aprobare DB + Voyage sau publicare.
+- [ ] **MIP-REVIEW:** QA recheck este OK după fixul articolului. Reviewer a dat OK cu nota P2: raportul final gol putea fi observat înainte de replace. P2 este remediat/GREEN: lock separat, JSON temporar, replace final; host 14 focused și 976 full passed/11 skipped. Urmează re-review P2 strict. Aprobarea locală nu este aprobare DB + Voyage sau publicare.
 
 
 ## Lot D11 / 2A — multi-document implicit (11-09-2026)

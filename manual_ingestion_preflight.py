@@ -135,36 +135,51 @@ def _metadata_unica(candidati: Mapping[str, Sequence[object]]) -> dict[str, obje
     return {"cod_oficial": coduri[0], "titlu_oficial": titluri[0], "an": ani[0]}
 
 
+def _cale_lock_raport(cale_raport: Path) -> Path:
+    """Dă un nume separat pentru lock; raportul final rămâne invizibil până la replace."""
+    return cale_raport.with_name(f".{cale_raport.name}.lock")
+
+
 def _scrie_raport_atomic(cale_raport: Path, raport: Mapping[str, object]) -> None:
-    """Rezervă numele cu O_EXCL și îl înlocuiește atomic numai cu JSON complet."""
+    """Publică numai JSON complet și folosește un lock separat pentru un singur scriitor.
+
+    Fișierul final nu este creat ca rezervare. Un cititor concurent vede fie un
+    raport JSON complet, fie nimic; lock-ul temporar protejează două preflight-uri
+    locale care aleg simultan același nume de raport.
+    """
+    lock = _cale_lock_raport(cale_raport)
     try:
         cale_raport.parent.mkdir(parents=True, exist_ok=True)
-        descriptor = os.open(cale_raport, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        descriptor = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        os.close(descriptor)
     except FileExistsError as error:
         raise PreflightError("report_exists") from error
     except OSError as error:
         raise PreflightError("invalid_report_path") from error
 
-    rezervat = True
     temporar = cale_raport.with_name(f".{cale_raport.name}.{uuid.uuid4().hex}.tmp")
     try:
-        os.close(descriptor)
+        # Re-verificarea acoperă un raport scris între validarea inițială și lock.
+        if cale_raport.exists():
+            raise PreflightError("report_exists")
         with temporar.open("x", encoding="utf-8", newline="\n") as fisier:
             json.dump(raport, fisier, ensure_ascii=False, indent=2, sort_keys=True)
             fisier.write("\n")
             fisier.flush()
             os.fsync(fisier.fileno())
+        if cale_raport.exists():
+            raise PreflightError("report_exists")
         os.replace(temporar, cale_raport)
-        rezervat = False
+    except PreflightError:
+        raise
     except OSError as error:
         raise PreflightError("report_write_failed") from error
     finally:
         try:
             temporar.unlink(missing_ok=True)
-            if rezervat:
-                cale_raport.unlink(missing_ok=True)
+            lock.unlink(missing_ok=True)
         except OSError:
-            # Nu mascăm rezultatul valid sau eroarea inițială cu o problemă de cleanup.
+            # Lock-ul rămas blochează fail-closed o nouă scriere cu același nume.
             pass
 
 

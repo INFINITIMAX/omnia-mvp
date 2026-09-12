@@ -104,6 +104,30 @@ def test_pdf_valid_scrie_raport_minim_fara_text_sau_chunkuri(preflight_module, d
     assert "embedding" not in serializat
 
 
+def test_publicarea_atomica_nu_expune_raport_final_gol(preflight_module, directoare, monkeypatch):
+    inbox, rapoarte = directoare
+    pdf = scrie_pdf_sintetic(inbox)
+    raport = rapoarte / "atomic.json"
+    replace_real = preflight_module.os.replace
+    momente_replace = []
+
+    def replace_verificat(temporar: Path, final: Path):
+        lock = preflight_module._cale_lock_raport(final)
+        assert not final.exists()
+        assert lock.exists()
+        momente_replace.append((temporar, final, lock))
+        replace_real(temporar, final)
+
+    monkeypatch.setattr(preflight_module.os, "replace", replace_verificat)
+
+    rezultat = ruleaza_valid(preflight_module, pdf, raport)
+
+    assert momente_replace
+    assert raport.exists()
+    assert json.loads(raport.read_text(encoding="utf-8")) == rezultat
+    assert not preflight_module._cale_lock_raport(raport).exists()
+
+
 def test_pipeline_implicit_valideaza_articolul_si_refuza_caractere_neacceptate(preflight_module, directoare):
     inbox, rapoarte = directoare
     pdf = scrie_pdf_sintetic(inbox)
