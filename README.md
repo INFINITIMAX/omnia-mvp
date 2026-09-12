@@ -66,13 +66,21 @@ For every push and pull request targeting `main`, GitHub Actions runs (`.github/
 
 Dependabot checks Python dependency updates weekly. These checks run without application secrets or paid provider calls.
 
-## Cost-free ingestion validation
+## Manual one-PDF preflight (recommended)
+
+```powershell
+python manual_ingestion_preflight.py --pdf documente_noi/_inbox/un-document.pdf --report documente_noi/_reports/un-document.preflight.json
+```
+
+This local-only step validates one explicit PDF before any import. It does not access Supabase, call Voyage or Anthropic, create embeddings, or approve a document. A `ready_for_human_metadata` report still requires a separate operator decision for a future DB + Voyage import and another decision for `approved` publication.
+
+## Legacy cost-free ingestion validation
 
 ```powershell
 python populare_db.py --dry-run
 ```
 
-This validates metadata and chunking, including embedding batch construction, without calling Voyage or modifying Supabase.
+This legacy command validates structured documents and embedding-batch construction without calling Voyage or modifying Supabase. It is not the safe one-PDF manual import route.
 
 ## Local API startup
 

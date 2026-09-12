@@ -5,10 +5,10 @@
 **OWNS:** `manual_ingestion_preflight.py`, `tests/test_manual_ingestion_preflight.py`, `docs/MANUAL_INGESTION_PREFLIGHT_SPEC.md`, `TASKS.md`, `GATES.md`, `PLAN.md`, `docs/DECISIONS.md`, documentația de rulare nouă.
 
 - [x] **MIP-RED:** host, 11-09-2026: `python -m pytest -q tests/test_manual_ingestion_preflight.py` → 12 errors, exit 1, toate `ModuleNotFoundError: manual_ingestion_preflight`; runtime-ul lipsește intenționat. Testele mockuite descriu refuzul căii din afara `_inbox`, extensiei ne-PDF, PDF instabil, extracției/chunking-ului invalid, metadata lipsă/ambiguă și raport existent, plus absența dependențelor externe. Dovezi: `manual-ingestion/mip-red.{log,xml,receipt.json}`.
-- [ ] **MIP-LOCAL:** un PDF fixture valid produce numai raport JSON local cu hash, număr de pagini/caractere/chunk-uri, candidați metadata și status; raportul nu conține text normativ/chunk-uri/embedding/secrete și nu se suprascrie.
-- [ ] **MIP-BOUNDARY:** codul nu importă sau apelează `psycopg2`, `voyageai`, `load_dotenv`, workerul automat ori `populare_db.py`; nu face operații DB/rețea/cost.
-- [ ] **MIP-REGRESSION:** host rulează testele dedicate, apoi `python -m pytest -q`; nu sunt slăbite testele existente.
-- [ ] **MIP-CHECKPOINT:** diff inspectat, `git diff --check` curat, documentația explică pașii pentru începător, iar progresul verificat este commit+push pe branchul de lucru.
+- [x] **MIP-LOCAL:** 12 teste focalizate trecute: PDF fixture valid produce numai raport JSON local cu hash, număr de pagini/caractere/chunk-uri, candidați metadata și status; raportul nu conține text/chunk-uri/embedding/secrete și nu se suprascrie. Proba host a parserului/chunkerului implicit a confirmat cod/titlu/an unice și un chunk. Dovezi `manual-ingestion/mip-focused-final.*`.
+- [x] **MIP-BOUNDARY:** test static și inspecție host: `manual_ingestion_preflight.py` nu importă/apelează `psycopg2`, `voyageai`, `load_dotenv`, workerul automat sau `populare_db.py`; testul injectează dependențe externe interzise și ruta validă rămâne locală.
+- [x] **MIP-REGRESSION:** host: `python -m pytest -q tests/test_manual_ingestion_preflight.py` → 12 passed; `python -m pytest -q` → 974 passed, 11 skipped, 1 warning extern TestClient, exit 0. Testele metadata acoperă cod/titlu/an lipsă și ambiguu; nu sunt slăbite teste existente.
+- [x] **MIP-CHECKPOINT:** diff inspectat, `git diff --check` curat, documentația explică pașii pentru începător, iar GREEN verificat este checkpointat pe branchul de lucru. SHA-ul remote este consemnat în predare.
 - [ ] **MIP-REVIEW:** QA și Reviewer read-only, în taskuri separate după checkpoint. Aprobarea locală nu este aprobare DB + Voyage sau publicare.
 
 

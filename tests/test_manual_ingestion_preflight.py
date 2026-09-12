@@ -172,15 +172,28 @@ def test_refuza_metadata_lipsa_sau_ambigua(preflight_module, directoare):
     inbox, rapoarte = directoare
     pdf = scrie_pdf_sintetic(inbox)
 
-    for candidati in (
-        {"cod_oficial": (), "titlu_oficial": ("Titlu",), "an": (2026,)},
-        {"cod_oficial": ("NP 010-2026", "NP 011-2026"), "titlu_oficial": ("Titlu",), "an": (2026,)},
+    for nume_caz, candidati in (
+        ("cod-lipsa", {"cod_oficial": (), "titlu_oficial": ("Titlu",), "an": (2026,)}),
+        (
+            "cod-ambiguu",
+            {"cod_oficial": ("NP 010-2026", "NP 011-2026"), "titlu_oficial": ("Titlu",), "an": (2026,)},
+        ),
+        ("titlu-lipsa", {"cod_oficial": ("NP 010-2026",), "titlu_oficial": (), "an": (2026,)}),
+        (
+            "titlu-ambiguu",
+            {"cod_oficial": ("NP 010-2026",), "titlu_oficial": ("Titlu A", "Titlu B"), "an": (2026,)},
+        ),
+        ("an-lipsa", {"cod_oficial": ("NP 010-2026",), "titlu_oficial": ("Titlu",), "an": ()}),
+        (
+            "an-ambiguu",
+            {"cod_oficial": ("NP 010-2026",), "titlu_oficial": ("Titlu",), "an": (2025, 2026)},
+        ),
     ):
         with pytest.raises(preflight_module.PreflightError, match="ambiguous_metadata"):
             ruleaza_valid(
                 preflight_module,
                 pdf,
-                rapoarte / f"{len(candidati['cod_oficial'])}.json",
+                rapoarte / f"{nume_caz}.json",
                 find_metadata_candidates=lambda _text, valori=candidati: valori,
             )
 

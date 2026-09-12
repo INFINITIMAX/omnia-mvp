@@ -30,7 +30,7 @@ Lucian a cerut începerea cu problemele cele mai complicate: 5A/R05–R06 din `r
 
 - **Cod integrat:** `origin/main` la `237e11db81251b8eb316ec02aa01e428089c66bc`, cu fixul de status `e49223f` și workerul `6cfd69c`, ambele prin PR8. Cod integrat nu înseamnă deploy sau activare.
 - **Ultimul deploy verificat anterior:** `47a6133` (08-09-2026). Nu există verificare live nouă în acest lot.
-- **Workflow aprobat:** Lucian pune **un PDF** în `documente_noi/_inbox`, anunță Planner-ul și primește raport **local** de extracție/validare; DB + Voyage cer aprobare separată, iar publicarea (`approved`) încă una. Importul manual sigur punctual **nu este încă livrat**; `populare_db.py` nu este insert-only.
+- **Workflow manual local:** preflight-ul livrat `manual_ingestion_preflight.py` primește explicit un PDF din `_inbox` și scrie un raport local fără text normativ după SHA/extracție/chunking/metadata candidat. DB + Voyage cer aprobare separată, iar publicarea (`approved`) încă una. Importerul DB sigur punctual nu este încă livrat; `populare_db.py` nu este insert-only.
 - **Worker păstrat, inactiv:** Lucian a renunțat la activare; Task Scheduler este neinstalat, migrarea `20260909000000_document_ingestion_sources.sql` este neaplicată conform predării. Nu se elimină codul/scriptul/migrarea. Registrul SHA și pornirea la logon sunt decizii independente, neaprobate implicit pentru fluxul manual.
 - **Validare locală de referință:** logul host `C:/Users/Lucian-PC/AppData/Local/Temp/normativai-stabilizare-237e11d/baseline.log` arată `557 passed, 11 skipped, 1 warning` (TestClient). Este baseline, nu gate final, test rulat personal de Coder sau evaluare reală de calitate.
 
@@ -85,6 +85,7 @@ Lucian a cerut începerea cu problemele cele mai complicate: 5A/R05–R06 din `r
 
 - `main.py` — FastAPI: `GET /` și `POST /intreaba`, integrează Retrieval Core, Generation Core și controalele anonime.
 - `retrieval_core.py` — parser, repository PostgreSQL și serviciul de retrieval.
+- `manual_ingestion_preflight.py` — preflight local, fără DB/cost, pentru un PDF; explicație în `docs/MANUAL_INGESTION_PREFLIGHT_WALKTHROUGH.md`.
 - `populare_db.py` — ingestion existent, nu insert-only și nu livrarea importului manual sigur punctual.
 - `auto_ingestion_worker.py` — worker automat integrat, păstrat **inactiv**; runbook istoric în `docs/AUTO_INGESTION_WORKER.md`.
 - `supabase/migrations/` — schema reproductibilă și metadata.
@@ -111,4 +112,4 @@ Lucian a cerut începerea cu problemele cele mai complicate: 5A/R05–R06 din `r
 
 ## Următorul obiectiv
 
-Lotul aprobat **0 — documentație**, apoi **1 — aliasuri slash**, cu gates încă deschise în `GATES.md`. Pasul 1 adaugă `/` în `_ALIAS_SEPARATOR`, alături de whitespace/cratimă, și regresii în `tests/test_retrieval_core.py`; fără schimbări de coduri necunoscute/context/status/DB/provideri. Pașii 2 context, 3 import manual, 4 integritate articole, 5 evaluare reală, 6 operare rămân TODO și neautorizați în acest lot (`TASKS.md`). `/documents` rămâne eliminat definitiv; nici workerul, nici cleanup-ul programat nu se activează implicit.
+Preflight-ul manual fără cost pentru un PDF este implementat local și necesită QA/Reviewer. Pasul următor, neaprobat încă, este importerul DB + Voyage insert-only către `indexed_pending_validation`; `approved` rămâne o decizie separată. D02/D03, integritatea corpusului, evaluarea reală și operarea rămân backlog. `/documents` rămâne eliminat definitiv; nici workerul, nici cleanup-ul programat nu se activează implicit.
