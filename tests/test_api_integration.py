@@ -1982,6 +1982,44 @@ def test_api_d12_scope_explicit_gasit_pastreaza_citatul_r06_si_schema(api, phras
     assert connection.commits == 2 and connection.rollbacks == 0
 
 
+@pytest.mark.parametrize("phrase", ["doar din", "numai din", "exclusiv din"])
+@pytest.mark.parametrize("marker", ["", "art. "], ids=["nemarcat", "marcat"])
+@pytest.mark.parametrize("has_evidence", [True, False], ids=["exact-hit", "exact-miss"])
+def test_api_p1_restrictia_cu_articol_cunoscut_pastreaza_ruta_exacta(api, phrase, marker, has_evidence):
+    connection = R06TransactionConnection(exact_rows=(EXACT_ROW,) if has_evidence else ())
+    embedder = EmbedderFake()
+    generator = GeneratorFake()
+    budget_connection = ConnectionFake()
+
+    response = configure(api, connection, embedder, generator, budget_connection=budget_connection).post(
+        "/intreaba", json={"intrebare": f"Răspunde {phrase} NP 010-2022 {marker}4.4.7.2"}
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "answered" if has_evidence else "not_found",
+        "raspuns": "Răspuns [C1]." if has_evidence else main._NOT_FOUND,
+        "citari": [{"id": "C1", "cod_document": "NP 010-2022", "titlu_document": "Titlu oficial",
+                    "articol": "4.4.7.2", "citat": "fragment public"}] if has_evidence else [],
+        "intrebari_ramase": 9,
+    }
+    exact_calls = [(sql, parameters) for sql, parameters in connection.calls if "chunk.content_hash" in sql]
+    assert len(exact_calls) == 1
+    sql, parameters = exact_calls[0]
+    assert "document.status = 'approved'" in sql
+    assert "chunk.document_id = %s AND chunk.articol_normalizat = %s" in sql
+    assert parameters == ("doc-1", "4.4.7.2")
+    assert _interogari_semantice(connection) == []
+    assert embedder.calls == 0
+    assert generator.calls == int(has_evidence)
+    assert budget_connection.commits == int(has_evidence)
+    if not has_evidence:
+        assert budget_connection.calls == []
+    assert connection.questions_used == connection.rate_requests == 1
+    assert connection.commits == 2 and connection.rollbacks == 0
+    _assert_no_technical_identifiers(response)
+
+
 def test_api_d11_comparatia_multi_document_pastreaza_maparea_si_ordinea_citarilor_r06(api):
     connection = ConnectionFake(
         catalog_rows=(P118_CATALOG_ROW, I7_CATALOG_ROW),

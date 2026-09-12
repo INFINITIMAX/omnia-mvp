@@ -448,6 +448,49 @@ def test_d13_control_sufix_numeric_cunoscut_pastreaza_scope(phrase, separator):
     assert result.status == "found" and result.evidence == (target,)
 
 
+@pytest.mark.parametrize("phrase", RESTRICTION_PHRASES)
+@pytest.mark.parametrize("marker", ["", "art. "], ids=["nemarcat", "marcat"])
+@pytest.mark.parametrize("has_evidence", [True, False], ids=["exact-hit", "exact-miss"])
+def test_p1_restrictia_cu_articol_cunoscut_pastreaza_ruta_exacta(phrase, marker, has_evidence):
+    catalog = PostgresApprovedCatalogRepository(ConnectionFake([
+        ("doc-np010", "NP 010-2022", "4.4.7.2"),
+        ("doc-i7", "I7-2011", "4.4.7.2"),
+    ])).load()
+    parser = catalog.create_parser()
+    target = evidence("doc-np010", article="4.4.7.2")
+    rows = (evidence("doc-i7", article="4.4.7.2"),) + ((target,) if has_evidence else ())
+    repository = RepositoryFake(rows)
+    embedder = EmbedderFake()
+    question = f"Răspunde {phrase} NP 010-2022 {marker}4.4.7.2"
+
+    assert parser.restricted_document_ids(question) == frozenset({"doc-np010"})
+    result = RetrievalService(parser, repository, embedder).retrieve(question)
+
+    assert repository.exact_calls == [("doc-np010", "4.4.7.2")]
+    assert repository.global_calls == repository.scoped_calls == []
+    assert embedder.questions == []
+    assert result.status == ("found" if has_evidence else "not_found")
+    assert result.evidence == ((target,) if has_evidence else ())
+
+
+@pytest.mark.parametrize("phrase", RESTRICTION_PHRASES)
+@pytest.mark.parametrize("marker", ["", "art. "], ids=["nemarcat", "marcat"])
+def test_p1_articolul_cunoscut_ulterior_nu_mascheaza_anul_necunoscut(phrase, marker):
+    parser = PostgresApprovedCatalogRepository(ConnectionFake([
+        ("doc-np010", "NP 010-2022", "4.4.7.2"),
+    ])).load().create_parser()
+    repository = RepositoryFake((evidence("doc-np010", article="4.4.7.2"),))
+    embedder = EmbedderFake()
+    question = f"Răspunde {phrase} NP 010 2099 {marker}4.4.7.2"
+
+    assert parser.restricted_document_ids(question) == frozenset()
+    result = RetrievalService(parser, repository, embedder).retrieve(question)
+
+    assert result.status == "ambiguous_reference" and result.evidence == ()
+    assert embedder.questions == []
+    assert repository.exact_calls == repository.global_calls == repository.scoped_calls == []
+
+
 @pytest.mark.parametrize("code,document", RESTRICTION_DOCUMENTS)
 def test_d14_nu_doar_din_ramane_global_cu_istoric_in_embedding(code, document):
     question = f"Răspunde nu doar din {code} despre marcajele pieselor fictive."

@@ -228,8 +228,20 @@ class ArticleParser:
             document_id
             for pattern, document_id in self._alias_patterns
             if (match := pattern.match(question, directive.end())) is not None
-            # Nu accepta un alias scurt înaintea unui sufix numeric separat ca în codurile oficiale.
-            and not re.match(rf"{_ALIAS_SEPARATOR}[0-9]", question[match.end():])
+            # Un articol cunoscut imediat după cod nu este un an/parte suplimentară.
+            and (
+                not re.match(rf"{_ALIAS_SEPARATOR}[0-9]", question[match.end():])
+                or self._has_known_article_suffix(question, match.end(), document_id)
+            )
+        )
+
+    def _has_known_article_suffix(self, question: str, alias_end: int, document_id: str) -> bool:
+        whitespace = _WHITESPACE.match(question, alias_end)
+        if whitespace is None:
+            return False
+        article = _UNMARKED_ARTICLE.match(question, whitespace.end())
+        return article is not None and self._is_known_article(
+            self.normalize_article(article.group(1)), document_id
         )
 
     def _is_known_article(self, article: str, document_id: str | None) -> bool:
