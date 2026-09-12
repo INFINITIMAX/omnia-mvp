@@ -40,6 +40,8 @@ _PATTERN_ARTICOL = re.compile(
 )
 _PATTERN_LINIE_CUPRINS = re.compile(r"\.{2,}\s*\d{1,4}\s*(?=\n|$)")
 _PATTERN_SUBPUNCT = re.compile(r"\n\s*\((\d+)\)\s+")
+_PATTERN_SPATIERE_ARTICOL = re.compile(r"[ \t\n\r\f\v\u00a0\u202f]+")
+_PATTERN_ARTICOL_NORMALIZAT = re.compile(r"^[a-z0-9().-]+$")
 _LUNGIME_MINIMA_CHUNK = 15
 _LUNGIME_SPLIT_SECUNDAR = 2000
 
@@ -223,6 +225,20 @@ def preflight_pdf(
     return rezultat
 
 
+def _normalizeaza_articol(articol: object) -> str:
+    """Aplică exact contractul ASCII al importerului înainte ca un chunk să fie valid.
+
+    Spațiile dispar, literele devin mici și punctul final nu schimbă identitatea.
+    Orice alt caracter este refuzat, nu eliminat sau interpretat.
+    """
+    if not isinstance(articol, str):
+        raise ValueError("articol invalid")
+    normalizat = _PATTERN_SPATIERE_ARTICOL.sub("", articol).lower().rstrip(".")
+    if not _PATTERN_ARTICOL_NORMALIZAT.fullmatch(normalizat):
+        raise ValueError("articol invalid")
+    return normalizat
+
+
 def _creeaza_chunkuri_locale(text: str) -> list[dict[str, str]]:
     """Aplică local chunking-ul determinist pe articole, fără DB sau embeddings.
 
@@ -233,12 +249,20 @@ def _creeaza_chunkuri_locale(text: str) -> list[dict[str, str]]:
     limita_cuprins = int(len(text) * 0.20)
     aparitii_cuprins = list(_PATTERN_LINIE_CUPRINS.finditer(text[:limita_cuprins]))
     continut = text[aparitii_cuprins[-1].end() :] if aparitii_cuprins else text
-    bucati = _PATTERN_ARTICOL.split("\n" + continut)
+    sursa = "\n" + continut
+    potriviri = list(_PATTERN_ARTICOL.finditer(sursa))
     dupa_articol: dict[str, dict[str, str]] = {}
 
-    for index in range(1, len(bucati), 2):
-        articol = bucati[index].strip()
-        text_articol = bucati[index + 1].strip() if index + 1 < len(bucati) else ""
+    for index, potrivire in enumerate(potriviri):
+        articol = potrivire.group(1).strip()
+        # Dacă un caracter ne-separator urmează imediat identificatorului, îl
+        # păstrăm pentru validator. Astfel `1.1./` nu devine tăcut `1.1.`.
+        sufix = re.match(r"[^\s]+", sursa[potrivire.end(1) :])
+        if sufix is not None:
+            articol += sufix.group(0)
+        inceput_text = potrivire.end()
+        sfarsit_text = potriviri[index + 1].start() if index + 1 < len(potriviri) else len(sursa)
+        text_articol = sursa[inceput_text:sfarsit_text].strip()
         if len(text_articol) < _LUNGIME_MINIMA_CHUNK:
             continue
         existent = dupa_articol.get(articol)
@@ -272,6 +296,7 @@ def _valideaza_chunkuri_locale(chunkuri: Sequence[object]) -> Sequence[object]:
     for chunk in chunkuri:
         if not isinstance(chunk, Mapping) or not isinstance(chunk.get("text"), str) or not chunk["text"].strip():
             raise ValueError("chunk invalid")
+        _normalizeaza_articol(chunk.get("articol"))
     return chunkuri
 
 

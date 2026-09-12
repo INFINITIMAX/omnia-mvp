@@ -104,6 +104,35 @@ def test_pdf_valid_scrie_raport_minim_fara_text_sau_chunkuri(preflight_module, d
     assert "embedding" not in serializat
 
 
+def test_pipeline_implicit_valideaza_articolul_si_refuza_caractere_neacceptate(preflight_module, directoare):
+    inbox, rapoarte = directoare
+    pdf = scrie_pdf_sintetic(inbox)
+    text_valid = (
+        "NP 010-2026\n"
+        "Normativ privind testarea locală sigură\n\n"
+        "1.1.\n"
+        "Text sintetic suficient de lung pentru un chunk valid."
+    )
+
+    rezultat = preflight_module.preflight_pdf(
+        pdf,
+        rapoarte / "implicit-valid.json",
+        extract_pdf=lambda _pdf: (text_valid, 1),
+    )
+
+    assert rezultat["status"] == "ready_for_human_metadata"
+    assert rezultat["chunk_count"] == 1
+    assert rezultat["metadata_candidates"]["cod_oficial"] == "NP 010-2026"
+
+    text_articol_neacceptat = text_valid.replace("1.1.\n", "1.1./\n")
+    with pytest.raises(preflight_module.PreflightError, match="invalid_chunks"):
+        preflight_module.preflight_pdf(
+            pdf,
+            rapoarte / "implicit-articol-neacceptat.json",
+            extract_pdf=lambda _pdf: (text_articol_neacceptat, 1),
+        )
+
+
 def test_refuza_pdf_din_afara_inbox_inainte_de_extragere(preflight_module, directoare, tmp_path):
     _inbox, rapoarte = directoare
     pdf_extern = tmp_path / "extern.pdf"

@@ -5,11 +5,11 @@
 **OWNS:** `manual_ingestion_preflight.py`, `tests/test_manual_ingestion_preflight.py`, `docs/MANUAL_INGESTION_PREFLIGHT_SPEC.md`, `TASKS.md`, `GATES.md`, `PLAN.md`, `docs/DECISIONS.md`, documentația de rulare nouă.
 
 - [x] **MIP-RED:** host, 11-09-2026: `python -m pytest -q tests/test_manual_ingestion_preflight.py` → 12 errors, exit 1, toate `ModuleNotFoundError: manual_ingestion_preflight`; runtime-ul lipsește intenționat. Testele mockuite descriu refuzul căii din afara `_inbox`, extensiei ne-PDF, PDF instabil, extracției/chunking-ului invalid, metadata lipsă/ambiguă și raport existent, plus absența dependențelor externe. Dovezi: `manual-ingestion/mip-red.{log,xml,receipt.json}`.
-- [x] **MIP-LOCAL:** 12 teste focalizate trecute: PDF fixture valid produce numai raport JSON local cu hash, număr de pagini/caractere/chunk-uri, candidați metadata și status; raportul nu conține text/chunk-uri/embedding/secrete și nu se suprascrie. Proba host a parserului/chunkerului implicit a confirmat cod/titlu/an unice și un chunk. Dovezi `manual-ingestion/mip-focused-final.*`.
+- [x] **MIP-LOCAL:** după finding QA, 13 teste focalizate trecute: PDF fixture valid produce numai raport JSON local cu hash, număr de pagini/caractere/chunk-uri, candidați metadata și status; raportul nu conține text/chunk-uri/embedding/secrete și nu se suprascrie. Pipeline-ul implicit parser/chunker/validator/candidați este testat; articolul neacceptat este refuzat. Dovezi `manual-ingestion/mip-qa-fix-focused.*`.
 - [x] **MIP-BOUNDARY:** test static și inspecție host: `manual_ingestion_preflight.py` nu importă/apelează `psycopg2`, `voyageai`, `load_dotenv`, workerul automat sau `populare_db.py`; testul injectează dependențe externe interzise și ruta validă rămâne locală.
-- [x] **MIP-REGRESSION:** host: `python -m pytest -q tests/test_manual_ingestion_preflight.py` → 12 passed; `python -m pytest -q` → 974 passed, 11 skipped, 1 warning extern TestClient, exit 0. Testele metadata acoperă cod/titlu/an lipsă și ambiguu; nu sunt slăbite teste existente.
+- [x] **MIP-REGRESSION:** host după fix QA: `python -m pytest -q tests/test_manual_ingestion_preflight.py` → 13 passed; `python -m pytest -q` → 975 passed, 11 skipped, 1 warning extern TestClient, exit 0. Testele metadata acoperă cod/titlu/an lipsă și ambiguu; nu sunt slăbite teste existente.
 - [x] **MIP-CHECKPOINT:** diff inspectat, `git diff --check` curat, documentația explică pașii pentru începător, iar GREEN verificat este checkpointat pe branchul de lucru. SHA-ul remote este consemnat în predare.
-- [ ] **MIP-REVIEW:** QA și Reviewer read-only, în taskuri separate după checkpoint. Aprobarea locală nu este aprobare DB + Voyage sau publicare.
+- [ ] **MIP-REVIEW:** QA a găsit incompatibilitatea articolului și testul implicit lipsă; fixul este GREEN, deci re-QA read-only, apoi Reviewer separat. Aprobarea locală nu este aprobare DB + Voyage sau publicare.
 
 
 ## Lot D11 / 2A — multi-document implicit (11-09-2026)

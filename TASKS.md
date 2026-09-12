@@ -6,9 +6,9 @@
 
 **RED verificat:** host a rulat testele noi înainte de runtime: 12 errors, exit 1, toate `ModuleNotFoundError` pentru `manual_ingestion_preflight` absent. Eșecul este intenționat și dovedește contractul neimplementat, nu o eroare de fixture/mediu; dovezi `manual-ingestion/mip-red.*`.
 
-**GREEN verificat:** preflight-ul local este implementat în `manual_ingestion_preflight.py`. Host: 12 focused passed și **974 full passed/11 skipped/1 warning**, exit 0. Calea implicită extrage local, verifică SHA înainte/după, validează chunking-ul, cere cod/titlu/an unice și scrie JSON atomic fără text/chunk-uri/embedding. Nu importă workerul, `populare_db.py`, DB sau provideri. Explicația pentru începător: `docs/MANUAL_INGESTION_PREFLIGHT_WALKTHROUGH.md`.
+**QA finding remediat și GREEN:** QA a găsit că validatorul local nu verifica identitatea articolului ca importerul. Fixul normalizează spațiile/literele/punctul final și refuză orice identificator în afara `[a-z0-9().-]+`; testul nou execută pipeline-ul implicit complet și refuză articolul neacceptat. Host: 13 focused passed și **975 full passed/11 skipped/1 warning**, exit 0. Nu importă workerul, `populare_db.py`, DB sau provideri. Explicația pentru începător: `docs/MANUAL_INGESTION_PREFLIGHT_WALKTHROUGH.md`.
 
-**Următorul subpas:** checkpoint GitHub; QA/Reviewer sunt taskuri separate. DB + Voyage și `approved` nu sunt aprobate sau implementate.
+**Următorul subpas:** checkpoint GitHub, re-QA read-only pe finding, apoi Reviewer separat. DB + Voyage și `approved` nu sunt aprobate sau implementate.
 
 
 ## Predare verificată — 11-09-2026
