@@ -16,16 +16,16 @@ Scope/decizie: `revizii.md` lot D11/2A și `docs/DECISIONS.md`. CWD pentru comen
 - [x] **MD-GLOBAL:** întrebări generale/comparații și context anterior fără filtre obligatorii după documentele menționate/citate; dovezi multi-sursă păstrate când sunt relevante și în limite. Host GREEN: 515 teste focalizate trecute; verifică global/scoped, dovezi și embedding. Nu promite relevanța semantică live/R05.
   CHECK: python -m pytest -q tests/test_multi_document_retrieval.py
   EXPECT: exit 0 după implementare; aserțiuni pe apelul global/scoped, dovezi și embedding.
-- [x] **MD-IDENTITY:** coduri slash/spații/ani/părți corecte, aliasuri realmente ambigue tratate distinct de două documente menționate; exact lookup și scope explicit fără substituție/fallback ascuns, conform scenariilor aprobate. P1 remediat: host focused 81 passed și repro direct `NP 010 2099` → `ambiguous_reference`, zero embedder/query; full 932 passed/11 skipped. Identitatea anului/particularității complete rămâne fail-closed.
+- [ ] **MD-IDENTITY:** coduri slash/spații/ani/părți corecte, aliasuri realmente ambigue tratate distinct de două documente menționate; exact lookup și scope explicit fără substituție/fallback ascuns, conform scenariilor aprobate. P1 inițial remediat: `NP 010 2099` → `ambiguous_reference`, zero embedder/query. **Redeschis de Reviewer P1:** aceeași regulă respinge articolul exact nemarcat `NP 010-2022 4.4.7.2`; trebuie diferențierea articolului cunoscut de anul/parte necunoscută.
   CHECK: python -m pytest -q tests/test_retrieval_core.py tests/test_multi_document_retrieval.py
   EXPECT: exit 0; controale pozitive și negative, fără relaxarea contractelor neaprobate.
-- [x] **MD-API:** schimbarea ajunge la API, metadata/citările R06 rămân corecte, quota/rate/buget și numărul de apeluri nu se schimbă implicit. P1 remediat: API regressions D13 includ formele numeric separate; focused 81 passed. D13 rămâne fără apel plătit, cu quota/rate verificate mockuit.
+- [ ] **MD-API:** schimbarea ajunge la API, metadata/citările R06 rămân corecte, quota/rate/buget și numărul de apeluri nu se schimbă implicit. P1 inițial remediat: API regressions D13 includ formele numeric separate. **Redeschis:** adăugăm regresia exact-article nemarcat/marker pentru ruta API, păstrând D13/costurile mockuite.
   CHECK: python -m pytest -q tests/test_api_integration.py tests/test_citation_passages.py
   EXPECT: exit 0; numai mock-uri; zero adaptări de test care maschează defecte.
-- [x] **MD-REGRESSIONS:** full suite verde, fără noi skip/xfail și cu maparea explicită a testelor politicii vechi adaptate la D11; fișierele din afara scope-ului neschimbate. P1 GREEN: **932 passed, 11 skipped, 0 failures/errors**, exit 0; aceeași 11 skip-uri de corpus absent și 1 warning extern Starlette/httpx. Snapshot/diff în scope; R06/5A protejate. Acceptarea locală încă necesită QA/Reviewer.
+- [ ] **MD-REGRESSIONS:** full suite verde, fără noi skip/xfail și cu maparea explicită a testelor politicii vechi adaptate la D11; fișierele din afara scope-ului neschimbate. P1 GREEN istoric: **932 passed, 11 skipped, 0 failures/errors**, dar nu acoperă regresia exact-article găsită ulterior. Rerulăm după remediere; R06/5A rămân protejate.
   CHECK: python -m pytest -q
   EXPECT: exit 0; comparație de snapshot și diff pentru acest lot, testele și gold-urile R06/5A protejate.
-- [ ] **MD-REVIEW:** QA P1 **OK** pe `ee14516` (fără findings; 81 focused/932 full inspectate ca dovezi host). Este încă necesar re-review independent al candidatului complet D11–D14 după P1; handoff și explicația codului există. D01/D02/R02–R04 rămase se raportează separat. MANUAL: Planner, fără merge/DB/API plătit/deploy.
+- [ ] **MD-REVIEW:** QA P1 **OK**, dar Reviewer final **BLOCKED/P1**: articol exact nemarcat după cod complet este refuzat. După fix și GREEN, reluăm numai review-ul acestei regresii. D01/D02/R02–R04 rămase se raportează separat. MANUAL: Planner, fără merge/DB/API plătit/deploy.
 
 ## Lot 5B — R06, verificat local și închis la 11-09-2026
 
