@@ -10,7 +10,9 @@
 
 **Reviewer P2 remediat și GREEN:** Reviewerul a semnalat că rezervarea prin fișier final putea expune JSON gol. Preflight-ul rezervă acum lock separat, scrie JSON complet temporar și publică numai prin replace; testul verifică explicit fereastra. Host: 14 focused passed și **976 full passed/11 skipped/1 warning**, exit 0.
 
-**Următorul subpas:** checkpoint GitHub, re-review P2 read-only. DB + Voyage și `approved` nu sunt aprobate sau implementate.
+**MIP ACCEPTAT LOCAL:** QA recheck și Reviewer P2 sunt OK, fără finding-uri. Preflight-ul verifică un PDF explicit și raportează local, fără DB/cost/import; host final: **14 focused passed, 976 full passed/11 skipped/1 warning**. Checkpointul final de cod este `5d26366`; predarea documentară urmează separat.
+
+**Nu urmează import automat:** DB + Voyage, `indexed_pending_validation` și `approved` necesită decizii/aprobări separate ale lui Lucian. Nu începem alt task până la decizia lui.
 
 
 ## Predare verificată — 11-09-2026

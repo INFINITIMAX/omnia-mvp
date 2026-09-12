@@ -9,8 +9,9 @@
 - [x] **MIP-BOUNDARY:** test static și inspecție host: `manual_ingestion_preflight.py` nu importă/apelează `psycopg2`, `voyageai`, `load_dotenv`, workerul automat sau `populare_db.py`; testul injectează dependențe externe interzise și ruta validă rămâne locală.
 - [x] **MIP-REGRESSION:** host după fix QA: `python -m pytest -q tests/test_manual_ingestion_preflight.py` → 13 passed; `python -m pytest -q` → 975 passed, 11 skipped, 1 warning extern TestClient, exit 0. Testele metadata acoperă cod/titlu/an lipsă și ambiguu; nu sunt slăbite teste existente.
 - [x] **MIP-CHECKPOINT:** diff inspectat, `git diff --check` curat, documentația explică pașii pentru începător, iar GREEN verificat este checkpointat pe branchul de lucru. SHA-ul remote este consemnat în predare.
-- [ ] **MIP-REVIEW:** QA recheck este OK după fixul articolului. Reviewer a dat OK cu nota P2: raportul final gol putea fi observat înainte de replace. P2 este remediat/GREEN: lock separat, JSON temporar, replace final; host 14 focused și 976 full passed/11 skipped. Urmează re-review P2 strict. Aprobarea locală nu este aprobare DB + Voyage sau publicare.
+- [x] **MIP-REVIEW:** QA recheck este OK după fixul articolului. Reviewer P2 este **LOCAL OK**, fără finding-uri, pe `5d26366`: lock separat, JSON temporar fsync și replace final; host 14 focused și 976 full passed/11 skipped. Preflight-ul MIP este acceptat **local**. Nu este aprobare DB + Voyage, status `indexed_pending_validation`, `approved` sau publicare.
 
+**Închidere MIP locală, 11-09-2026:** 6/6 gate-uri locale. Checkpointuri: spec `20eec3b`, RED `4757e92`, runtime `71afc0a`, compatibilitate articol `088aecd`, atomicitate raport `5d26366`; QA recheck și Reviewer P2 OK. Rămân interzise/neimplementate DB, Voyage, import persistent, statusuri și worker automat.
 
 ## Lot D11 / 2A — multi-document implicit (11-09-2026)
 
