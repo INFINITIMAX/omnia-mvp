@@ -10,7 +10,7 @@
 - [x] **MII-SECURITY:** conexiune TLS/timeout, SQL parametrizat/advisory locks, fără rezultat cu text/chunk/secrete; fără update/delete/approved/migrare/worker.
 - [x] **MII-REGRESSION:** host: focused `tests/test_manual_ingestion_import.py` → 15 passed; `python -m pytest -q` → 991 passed, 11 skipped, 1 warning extern TestClient, exit 0. Fără DB/Voyage real. Dovezi `manual-ingestion-import/mii-focused-recheck.*`, `mii-full.*`.
 - [x] **MII-CHECKPOINT:** diff verificat și GREEN este checkpointat pe branchul de lucru; SHA remote este consemnat în predare.
-- [ ] **MII-REVIEW:** QA este OK mock-first. Reviewer a blocat acceptarea operațională: commitul incert trebuie `commit_unknown`, fără rollback/retry, cu reconciliere DB read-only obligatorie. D17 este aprobat; urmează test RED/fix/GREEN/re-review. Niciun verdict local nu este aprobare pentru comandă reală `--commit`.
+- [ ] **MII-REVIEW:** QA este OK mock-first. Reviewer a blocat acceptarea operațională: commitul incert trebuie `commit_unknown`, fără rollback/retry, cu reconciliere DB read-only obligatorie. D17 este aprobat; RED host: 1 failed/14 passed, runtime actual întoarce `database_error`. Dovezi `manual-ingestion-import/mii-d17-red.*`. Urmează fix/GREEN/re-review. Niciun verdict local nu este aprobare pentru comandă reală `--commit`.
 
 ## MIP — preflight manual pentru un PDF (11-09-2026)
 

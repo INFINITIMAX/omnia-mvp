@@ -320,14 +320,14 @@ def test_voyage_esuat_sau_incomplet_face_rollback_inainte_de_insert(
     ]
 
 
-def test_eroare_db_rollback_si_nu_publica_stare_partiala(importer_module, directoare):
+def test_commit_incert_nu_face_rollback_si_inchide_resursele(importer_module, directoare):
     inbox, rapoarte = directoare
     pdf = scrie_pdf(inbox)
     raport, metadata = scrie_intrari(rapoarte, pdf)
     cursor = CursorFake()
     connection = ConnectionFake(cursor, commit_error=True)
 
-    with pytest.raises(importer_module.ImportError, match="database_error"):
+    with pytest.raises(importer_module.ImportError, match="commit_unknown"):
         ruleaza(
             importer_module,
             pdf,
@@ -339,7 +339,7 @@ def test_eroare_db_rollback_si_nu_publica_stare_partiala(importer_module, direct
         )
 
     assert connection.commits == 1
-    assert connection.rollbacks == 1
+    assert connection.rollbacks == 0
     assert connection.closed and cursor.closed
 
 

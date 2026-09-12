@@ -8,7 +8,7 @@
 
 **GREEN verificat:** `manual_ingestion_import.py` este implementat mock-first. Host: 15 focused passed și **991 full passed/11 skipped/1 warning**, exit 0; proba directă a dry-run-ului cu chunking implicit a trecut cu zero apeluri externe. Importerul revalidează SHA/report/metadata/pagini/caractere/chunk-uri; `--commit` simulat este insert-only `indexed_pending_validation`, cu lock, TLS/timeout, cardinalitate embeddings și rollback. Explicația pentru începător: `docs/MANUAL_INGESTION_IMPORT_WALKTHROUGH.md`.
 
-**Reviewer finding aprobat D17:** o excepție la `connection.commit()` poate însemna commit aplicat dar răspuns pierdut. Următorul fix adaugă `commit_unknown`, fără rollback/retry automat și cu reconciliere DB read-only obligatorie înainte de orice rerulare. Nu există import DB/Voyage real sau `approved`.
+**Reviewer finding aprobat D17:** o excepție la `connection.commit()` poate însemna commit aplicat dar răspuns pierdut. RED host confirmat: 1 failed/14 passed — runtimeul actual întoarce `database_error`, nu `commit_unknown`. Urmează fixul fără rollback/retry și cu reconciliere DB read-only obligatorie înainte de orice rerulare. Nu există import DB/Voyage real sau `approved`.
 
 **Preflight MIP predat:** acceptat local la `8f11c4b`; host final 14 focused, 976 full passed/11 skipped, QA/Reviewer OK. Este precondiție locală, nu import persistent.
 
