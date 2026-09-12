@@ -4,7 +4,7 @@
 
 **OWNS:** `manual_ingestion_import.py`, `tests/test_manual_ingestion_import.py`, `docs/MANUAL_INGESTION_IMPORT_SPEC.md`, documentația de rulare, `TASKS.md`, `GATES.md`, `PLAN.md`, `docs/DECISIONS.md`.
 
-- [ ] **MII-RED:** teste mockuite înregistrează contractul absent pentru report/metadata/SHA, document nou insert-only, dry-run fără servicii și commit fail-closed.
+- [x] **MII-RED:** host: `python -m pytest -q tests/test_manual_ingestion_import.py` → 13 errors, exit 1, toate `ModuleNotFoundError: manual_ingestion_import`; runtime-ul lipsește intenționat. Testele mockuite fixează report/metadata/SHA, document nou insert-only, dry-run fără servicii și commit fail-closed. Dovezi: `manual-ingestion-import/mii-red.*`.
 - [ ] **MII-LOCAL:** dry-run revalidează PDF/report/metadata/chunking fără DB/Voyage; `--commit` simulat folosește numai INSERT, status exact pending și rollback la orice eșec.
 - [ ] **MII-COST:** duplicate/conflict sunt oprite înainte de clientul Voyage; loturile verifică numărul embedding-urilor, niciun retry automat; testele nu cheamă provider real.
 - [ ] **MII-SECURITY:** conexiune TLS/timeout, SQL parametrizat/advisory locks, fără raport cu text/chunk/secrete; fără update/delete/approved/migrare/worker.

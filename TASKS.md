@@ -4,7 +4,9 @@
 
 **Contract aprobat:** `docs/MANUAL_INGESTION_IMPORT_SPEC.md` / D16. Se construiește mock-first un CLI separat cu metadata explicită, dry-run fără DB/Voyage și `--commit` pentru document nou insert-only, numai `indexed_pending_validation`. Nu modifică workerul automat sau `populare_db.py`, nu updatează/șterge/reimportă, nu aplică migrare și nu acordă `approved`.
 
-**Gates înainte de runtime:** RED demonstrează absența importerului și contractul de metadata/SHA/identitate, dry-run fără conexiune/provider, commit cu rollback și zero update/delete, loturi embedding și refuzuri fail-closed. Host rulează RED înainte de runtime; DB/Voyage reale rămân interzise. După GREEN, checkpoint, QA și Reviewer sunt taskuri separate.
+**RED verificat:** host a rulat `tests/test_manual_ingestion_import.py` înainte de runtime: 13 errors, exit 1, toate `ModuleNotFoundError` pentru `manual_ingestion_import` absent. Eșecul este intenționat; contractul acoperă metadata/SHA/identitate, dry-run fără conexiune/provider, commit cu rollback și zero update/delete, loturi embedding și refuzuri fail-closed. Dovezi `manual-ingestion-import/mii-red.*`. DB/Voyage reale rămân interzise.
+
+**Următorul subpas:** Coderul implementează numai runtime-ul importerului pentru GREEN; apoi checkpoint, QA și Reviewer separate.
 
 **Preflight MIP predat:** acceptat local la `8f11c4b`; host final 14 focused, 976 full passed/11 skipped, QA/Reviewer OK. Este precondiție locală, nu import persistent.
 
