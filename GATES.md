@@ -25,7 +25,7 @@ Scope/decizie: `revizii.md` lot D11/2A și `docs/DECISIONS.md`. CWD pentru comen
 - [x] **MD-REGRESSIONS:** full suite verde, fără noi skip/xfail și cu maparea explicită a testelor politicii vechi adaptate la D11; fișierele din afara scope-ului neschimbate. P1 GREEN: **932 passed, 11 skipped, 0 failures/errors**, exit 0; aceeași 11 skip-uri de corpus absent și 1 warning extern Starlette/httpx. Snapshot/diff în scope; R06/5A protejate. Acceptarea locală încă necesită QA/Reviewer.
   CHECK: python -m pytest -q
   EXPECT: exit 0; comparație de snapshot și diff pentru acest lot, testele și gold-urile R06/5A protejate.
-- [ ] **MD-REVIEW:** QA și Reviewer independenți OK pe snapshotul final; handoff și explicația codului; D01/D02/R02–R04 rămase se raportează separat. MANUAL: Planner, fără commit/push/DB/API plătit/deploy.
+- [ ] **MD-REVIEW:** QA P1 **OK** pe `ee14516` (fără findings; 81 focused/932 full inspectate ca dovezi host). Este încă necesar re-review independent al candidatului complet D11–D14 după P1; handoff și explicația codului există. D01/D02/R02–R04 rămase se raportează separat. MANUAL: Planner, fără merge/DB/API plătit/deploy.
 
 ## Lot 5B — R06, verificat local și închis la 11-09-2026
 
