@@ -324,6 +324,18 @@ def test_multi_document_cautarea_sql_globala_pastreaza_approved_si_top_k():
 # D12: inventar finit, exact cum a fost aprobat; fără sinonime sau regex în teste.
 RESTRICTION_PHRASES = ("doar din", "numai din", "exclusiv din")
 RESTRICTION_DOCUMENTS = (("I7-2011", "doc-i7"), ("P 118/1-2025", "doc-p1"))
+NUMERIC_SUFFIX_SEPARATORS = [
+    pytest.param(" ", id="spatiu"),
+    pytest.param("\t", id="tab"),
+    pytest.param("\n", id="newline"),
+    pytest.param("\r", id="carriage-return"),
+    pytest.param("\f", id="form-feed"),
+    pytest.param("\v", id="vertical-tab"),
+    pytest.param("\u00a0", id="nbsp"),
+    pytest.param("\u202f", id="narrow-nbsp"),
+    pytest.param("-", id="cratima-control"),
+    pytest.param("/", id="slash-control"),
+]
 
 
 def assert_scoped_once(repository, embedder, question, document):
@@ -406,6 +418,34 @@ def test_d13_restrictia_la_cod_absent_din_catalog_clarifica_fara_dependente(phra
     assert repository.global_calls == []
     assert repository.scoped_calls == []
     assert repository.exact_calls == []
+
+
+@pytest.mark.parametrize("phrase", RESTRICTION_PHRASES)
+@pytest.mark.parametrize("separator", NUMERIC_SUFFIX_SEPARATORS)
+def test_d13_sufix_numeric_necunoscut_nu_accepta_aliasul_scurt(phrase, separator):
+    parser = catalog_parser()
+    question = f"Răspunde {phrase} NP 010{separator}2099 despre marcaje."
+    repository = RepositoryFake((evidence("doc-np010"),))
+    embedder = EmbedderFake()
+
+    assert parser.restricted_document_ids(question) == frozenset()
+    result = RetrievalService(parser, repository, embedder).retrieve(question)
+
+    assert result.status == "ambiguous_reference" and result.evidence == ()
+    assert embedder.questions == []
+    assert repository.global_calls == repository.scoped_calls == repository.exact_calls == []
+
+
+@pytest.mark.parametrize("phrase", RESTRICTION_PHRASES)
+@pytest.mark.parametrize("separator", NUMERIC_SUFFIX_SEPARATORS)
+def test_d13_control_sufix_numeric_cunoscut_pastreaza_scope(phrase, separator):
+    question = f"Răspunde {phrase} NP 010{separator}2022 despre marcaje."
+    target = evidence("doc-np010")
+
+    result, repository, embedder = retrieve(question, (evidence("doc-i7"), target))
+
+    assert_scoped_once(repository, embedder, question, "doc-np010")
+    assert result.status == "found" and result.evidence == (target,)
 
 
 @pytest.mark.parametrize("code,document", RESTRICTION_DOCUMENTS)

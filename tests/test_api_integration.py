@@ -1887,7 +1887,9 @@ def test_api_context_invalid_este_422_inainte_de_dependente(api, context):
 
 
 @pytest.mark.parametrize("phrase", ["doar din", "numai din", "exclusiv din"])
-@pytest.mark.parametrize("code", ["XX 999-2099", "NP 777-2099", "NP 010-2099"])
+@pytest.mark.parametrize("code", [
+    "XX 999-2099", "NP 777-2099", "NP 010-2099", "NP 010/2099", "NP 010 2099",
+])
 def test_api_d13_cod_absent_clarifica_si_consuma_quota_rate_fara_apel_platit(api, phrase, code):
     # Refolosim simularea tranzacțională existentă; nu modificăm testele sau runtime-ul R06.
     connection = R06TransactionConnection()
@@ -1956,14 +1958,15 @@ def test_api_d12_scope_explicit_fara_dovezi_nu_face_fallback_global(api, phrase,
 
 
 @pytest.mark.parametrize("phrase", ["doar din", "numai din", "exclusiv din"])
-def test_api_d12_scope_explicit_gasit_pastreaza_citatul_r06_si_schema(api, phrase):
+@pytest.mark.parametrize("code", ["NP 010-2022", "NP 010 2022"])
+def test_api_d12_scope_explicit_gasit_pastreaza_citatul_r06_si_schema(api, phrase, code):
     connection = ConnectionFake(semantic_scoped_rows=(SEMANTIC_ROW,))
     embedder = EmbedderFake()
     generator = GeneratorFake()
     budget_connection = ConnectionFake()
 
     response = configure(api, connection, embedder, generator, budget_connection=budget_connection).post(
-        "/intreaba", json={"intrebare": f"Răspunde {phrase} NP 010-2022 despre marcajele fictive."}
+        "/intreaba", json={"intrebare": f"Răspunde {phrase} {code} despre marcajele fictive."}
     )
 
     assert response.status_code == 200

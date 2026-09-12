@@ -17,7 +17,7 @@ Status: **GREEN local, QA/Reviewer încă necesari** (11-09-2026). Nu este deplo
 4. Pentru articol explicit sau articol cunoscut, mai multe documente rămân `ambiguous_reference`. Nu alegem documentul arbitrar și nu facem embedding.
 5. `restricted_document_ids()` separă lipsa unei directive (`None`) de o directivă care nu rezolvă exact un document (mulțime goală sau cu mai multe identități).
 6. Metoda caută un cod imediat după directivă. Nu folosește un cod găsit mai târziu în propoziție ca să ascundă un cod absent.
-7. Verificarea numerică de după alias împiedică un alias scurt să accepte greșit un an sau o parte necunoscută, de exemplu `NP 010-2099`.
+7. Verificarea numerică de după alias reutilizează exact separatorii oficiali (whitespace, slash, cratimă). Ea împiedică un alias scurt să accepte greșit un an sau o parte necunoscută, de exemplu `NP 010-2099` sau `NP 010 2099`; codul complet cunoscut rămâne valid.
 8. `nu doar din` întoarce `None`: este guard-ul D14, deci ruta rămâne globală. Nu este un parser general de negații.
 9. `retrieve()` verifică întâi o directivă nerezolvată. Ea întoarce `ambiguous_reference` înainte de embedding sau citirea dovezilor.
 10. Ruta exactă document+articol rămâne înainte de semantic și nu apelează embedderul.
@@ -36,8 +36,8 @@ Status: **GREEN local, QA/Reviewer încă necesari** (11-09-2026). Nu este deplo
 
 - RED complet: 42 failures / 35 passed / 0 errors.
 - RED D14/istoric: 5 failures, 77 deselected.
-- GREEN focalizat: 515 passed.
-- GREEN complet: 863 passed, 11 skipped pentru corpus local absent.
+- GREEN inițial: 515 passed focalizat și 863 passed/11 skipped complet.
+- După P1: 81 passed focalizat și 932 passed/11 skipped complet; un warning extern Starlette/httpx.
 - Evaluator R05 după D11: 19 cazuri, 10 constatări, zero pasaje omise, exit 1 intenționat.
 
 ## Limite

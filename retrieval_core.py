@@ -228,8 +228,8 @@ class ArticleParser:
             document_id
             for pattern, document_id in self._alias_patterns
             if (match := pattern.match(question, directive.end())) is not None
-            # Nu trata aliasul scurt drept identitate pentru un an/parte necunoscută.
-            and not re.match(r"[ \t]*[-/][ \t]*[0-9]", question[match.end():])
+            # Nu accepta un alias scurt înaintea unui sufix numeric separat ca în codurile oficiale.
+            and not re.match(rf"{_ALIAS_SEPARATOR}[0-9]", question[match.end():])
         )
 
     def _is_known_article(self, article: str, document_id: str | None) -> bool:
