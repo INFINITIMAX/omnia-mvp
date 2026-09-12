@@ -4,6 +4,11 @@ Acest fișier separă deciziile explicite ale lui Lucian de propunerile agențil
 
 ## Decizii active
 
+### D15 — preflight manual pentru un PDF, aprobat Lucian (11-09-2026)
+
+Lucian aprobă implementarea locală a preflight-ului din `docs/MANUAL_INGESTION_PREFLIGHT_SPEC.md`: un PDF indicat explicit din `documente_noi/_inbox` produce un raport local fără text normativ, după extracție, verificarea stabilității SHA-256, validarea chunking-ului și identificarea strictă a candidaților unici de metadata. Preflight-ul nu importă, nu citește/scrie Supabase, nu apelează Voyage/Anthropic, nu modifică statusuri și nu activează workerul/schedulerul. Un rezultat local nu aprobă DB + Voyage sau publicarea; acestea rămân aprobări separate ale lui Lucian.
+
+
 ### D14 — negația exactă „nu doar din”, aprobată Lucian (11-09-2026)
 
 Lucian alege opțiunea 1: expresia exactă **„nu doar din [cod]”** nu creează scope; ea păstrează căutarea multi-document globală implicită. Este un guard împotriva false scope-ului produs de subșirul „doar din”, nu un parser general de negații. Nu extindem automat regula la „nu numai”, „nu exclusiv”, alte poziții, case/spacing, negații multiple ori alte expresii; acestea rămân în afara lotului. Nu se schimbă schema, quota, DB sau providerii.

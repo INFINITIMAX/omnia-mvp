@@ -1,5 +1,17 @@
 # Gate-uri — refuz calcule/proiectare
 
+## MIP — preflight manual pentru un PDF (11-09-2026)
+
+**OWNS:** `manual_ingestion_preflight.py`, `tests/test_manual_ingestion_preflight.py`, `docs/MANUAL_INGESTION_PREFLIGHT_SPEC.md`, `TASKS.md`, `GATES.md`, `PLAN.md`, `docs/DECISIONS.md`, documentația de rulare nouă.
+
+- [ ] **MIP-RED:** testele mockuite demonstrează pe runtime absent că sunt refuzate calea din afara `_inbox`, extensia ne-PDF, PDF instabil, extracția/chunking-ul invalid și metadata candidat lipsă/ambiguă; nicio dependență externă nu este apelată.
+- [ ] **MIP-LOCAL:** un PDF fixture valid produce numai raport JSON local cu hash, număr de pagini/caractere/chunk-uri, candidați metadata și status; raportul nu conține text normativ/chunk-uri/embedding/secrete și nu se suprascrie.
+- [ ] **MIP-BOUNDARY:** codul nu importă sau apelează `psycopg2`, `voyageai`, `load_dotenv`, workerul automat ori `populare_db.py`; nu face operații DB/rețea/cost.
+- [ ] **MIP-REGRESSION:** host rulează testele dedicate, apoi `python -m pytest -q`; nu sunt slăbite testele existente.
+- [ ] **MIP-CHECKPOINT:** diff inspectat, `git diff --check` curat, documentația explică pașii pentru începător, iar progresul verificat este commit+push pe branchul de lucru.
+- [ ] **MIP-REVIEW:** QA și Reviewer read-only, în taskuri separate după checkpoint. Aprobarea locală nu este aprobare DB + Voyage sau publicare.
+
+
 ## Lot D11 / 2A — multi-document implicit (11-09-2026)
 
 **BLOCAT, 1/8 gate-uri îndeplinite:** Coderul a atins limita de utilizare înainte să salveze testele RED. Nu există schimbări de runtime D11, RED/GREEN sau review. Predarea [`HANDOFF.md`](HANDOFF.md) include pașii de reluare. Rerularea proaspătă a suitei vechi (761 passed/11 skipped) confirmă integritatea stării păstrate, nu îndeplinirea gate-urilor D11 rămase.

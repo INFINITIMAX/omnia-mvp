@@ -1,5 +1,12 @@
 # TASKS — Omnia
 
+## Task activ — preflight manual pentru un PDF (11-09-2026)
+
+**Obiectiv aprobat:** implementăm exclusiv raportul local fără cost din `docs/MANUAL_INGESTION_PREFLIGHT_SPEC.md`. Coderul poate modifica numai noul CLI de preflight, testele dedicate, documentația acestui flux și gate-urile aferente. Nu atinge workerul automat, `populare_db.py`, DB/migrări, providerii, statusurile, UI sau deploy-ul. PDF-urile, textele extrase și rapoartele locale rămân ignorate de Git.
+
+**Plan/gate înainte de cod:** testele RED trebuie să demonstreze refuzul căii din afara `_inbox`, PDF instabil, metadata lipsă/ambiguă și orice apel extern; GREEN trebuie să demonstreze raportul minim fără text normativ și chunking valid. După host verification urmează checkpoint GitHub; QA/Reviewer sunt taskuri separate.
+
+
 ## Predare verificată — 11-09-2026
 
 La cererea lui Lucian, situația completă și pașii executabili sunt în [`HANDOFF.md`](HANDOFF.md). Verificare proaspătă de host: **761 passed, 11 skipped**; diagnostic 19 cazuri, 10 afirmații nepublicabile acceptate, zero pasaje omise/erori. Toate fișierele Python sunt identice cu snapshotul pre-D11; zero staged și zero agenți activi. Predarea este finalizată, **implementarea D11 nu este finalizată**. Nu s-a relansat Coderul și nu s-a schimbat providerul pentru această predare. Dovezi în directorul temporar `normativai-stabilizare-237e11d/handoff-11-09-2026/`.

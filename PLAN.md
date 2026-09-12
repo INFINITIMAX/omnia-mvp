@@ -4,6 +4,10 @@
 
 Omnia devine o aplicație publică pentru normative tehnice românești: răspunsuri bazate exclusiv pe dovezi, cu citare oficială, căutare exactă de articol, costuri API controlate și teste automate.
 
+## MVP administrat manual — direcție aprobată, 11-09-2026
+
+Lucian a confirmat revenirea la obiectivul MVP: nu tratăm registrul complet de riscuri ca precondiție de produs. După D11–D14 acceptat local, următoarea etapă este preflight-ul manual fără cost pentru **un PDF**. Specificația aprobată este `docs/MANUAL_INGESTION_PREFLIGHT_SPEC.md`: PDF explicit din `_inbox` → raport local fără text normativ → aprobare separată DB + Voyage → import viitor numai pending → aprobare separată pentru `approved`. Workerul automat rămâne inactiv, iar `populare_db.py` nu este ruta sigură. Această etapă nu autorizează DB, Voyage, migrare, import, publicare sau deploy.
+
 ## Reluare și direcție aprobată — 11-09-2026
 
 R06 este verificat local. După discuție, Lucian aprobă **multi-document implicit**, cu restricții numai la solicitare explicită, apoi cere reluarea execuției. D12–D14 precizează inventarul strict „doar/numai/exclusiv din [cod]” pentru întrebarea curentă, cod necunoscut → `ambiguous_reference` fără dependențe dar cu quota/rate existente, și guard-ul exact „nu doar din [cod]” → global. Celelalte negații, scope-uri multiple, persistența și D02/D03 rămân în afara lotului. D11 în `docs/DECISIONS.md` înlocuiește scope-ul semantic automat bazat pe documente menționate/citate. Lucrul curent: specificație și regresii pentru recunoașterea codurilor oficiale, întrebări multi-document și context fără filtru ascuns, apoi implementare numai în contractul aprobat. Detaliile D01/D02 și istoricul UI se separă dacă cer alegeri noi; fără alegerea unor statusuri/quota implicit. Păstrăm R06, aprobarea documentelor și limitele de cost/context. Fără commit/push, DB, API plătit sau deploy. Pașii vechi de mai jos sunt istoric unde contrazic D11.
