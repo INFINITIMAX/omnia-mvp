@@ -25,7 +25,8 @@ Metadata locală conține exact `document_id`, `cod_oficial`, `titlu_oficial`, `
 5. Păstrează lock-urile în tranzacție pe durata embedding-urilor pentru a evita importuri/costuri duplicate concurente.
 6. Cere embeddings Voyage fără retry automat, verifică fiecare lot și revalidează SHA înainte de inserare.
 7. Face numai `INSERT` pentru `documente` și `documente_chunks`, cu status exact `indexed_pending_validation`; apoi commit.
-8. Orice eroare DB sau validare face rollback; o eroare Voyage face zero scrieri DB. Un apel Voyage deja acceptat poate rămâne facturabil chiar dacă importul nu este persistat.
+8. O eroare DB înainte de commit sau o eroare de validare face rollback; o eroare Voyage face zero scrieri DB. Un apel Voyage deja acceptat poate rămâne facturabil chiar dacă importul nu este persistat.
+9. Dacă apelul `connection.commit()` însuși eșuează, statusul este `commit_unknown`: nu declarăm rollback și nu reîncercăm. Se face obligatoriu reconciliere DB read-only după SHA/document/cod înainte de orice decizie ulterioară.
 
 ## Excluderi explicite
 
@@ -39,4 +40,5 @@ Metadata locală conține exact `document_id`, `cod_oficial`, `titlu_oficial`, `
 1. Implementare/testare mock-first.
 2. QA și review locale.
 3. Aprobarea explicită a lui Lucian pentru o comandă `--commit` concretă, cu PDF identificat, estimare de chunk-uri/cost și verificare DB prealabilă read-only.
-4. Aprobarea separată pentru trecerea documentului la `approved`.
+4. Dacă apare `commit_unknown`, reconciliere DB read-only obligatorie; nu se rerulează `--commit` fără decizie explicită ulterioară.
+5. Aprobarea separată pentru trecerea documentului la `approved`.

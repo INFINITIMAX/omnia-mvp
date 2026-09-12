@@ -4,6 +4,10 @@ Acest fișier separă deciziile explicite ale lui Lucian de propunerile agențil
 
 ## Decizii active
 
+### D17 — commit incert la importer, aprobat Lucian (11-09-2026)
+
+Dacă `connection.commit()` ridică o eroare, Lucian aprobă statusul local terminal `commit_unknown`. Importerul nu declară rollback garantat și nu reîncearcă automat sau manual același `--commit`. Operatorul păstrează PDF/report/metadata neschimbate și face obligatoriu o reconciliere DB **read-only**, după SHA/document/cod, înainte de orice decizie ulterioară. Un rezultat existent oprește reluarea; un rezultat absent necesită o nouă aprobare explicită de la Lucian pentru o nouă comandă `--commit`. Această decizie nu aprobă o conexiune DB reală, Voyage, `approved`, deploy sau migrare.
+
 ### D16 — importer persistent manual, aprobat Lucian (11-09-2026)
 
 Lucian aprobă contractul din `docs/MANUAL_INGESTION_IMPORT_SPEC.md`: metadata locală explicită, dry-run fără DB/Voyage implicit și `--commit` explicit pentru un document nou, insert-only, cu status exclusiv `indexed_pending_validation`. Importerul verifică reportul/SHA/metadata, refuză identități existente înainte de Voyage, păstrează lock DB în tranzacție pentru a evita costuri duplicate și nu face retry automat. La eșec, DB face rollback; un apel Voyage deja acceptat poate rămâne facturabil fără persistență. Nu se aprobă update/delete/reimport, migrare nouă/aplicare, worker/scheduler, `approved`, DB/Voyage real, deploy sau publicare prin această decizie.
