@@ -74,6 +74,14 @@ python manual_ingestion_preflight.py --pdf documente_noi/_inbox/un-document.pdf 
 
 This local-only step validates one explicit PDF before any import. It does not access Supabase, call Voyage or Anthropic, create embeddings, or approve a document. A `ready_for_human_metadata` report still requires a separate operator decision for a future DB + Voyage import and another decision for `approved` publication.
 
+## Manual persistent-import dry-run
+
+```powershell
+python manual_ingestion_import.py --pdf documente_noi/_inbox/un-document.pdf --report documente_noi/_reports/un-document.preflight.json --metadata documente_noi/_reports/un-document.metadata.json
+```
+
+This revalidates a reviewed preflight report and metadata locally. It does not open Supabase or call Voyage. `--commit` is deliberately omitted here: it requires a separate explicit operational approval.
+
 ## Legacy cost-free ingestion validation
 
 ```powershell

@@ -189,6 +189,8 @@ def test_dry_run_valid_revalideaza_local_si_nu_apeleaza_dependente(importer_modu
     ("report_override", "metadata_override"),
     [
         ({"source_sha256": "0" * 64}, None),
+        ({"page_count": 2}, None),
+        ({"character_count": len(TEXT_SINTETIC) + 1}, None),
         (None, {"cod_oficial": "NP 011-2026"}),
         (None, {"titlu_oficial": "Alt titlu"}),
         (None, {"an": 2025}),
@@ -341,7 +343,7 @@ def test_eroare_db_rollback_si_nu_publica_stare_partiala(importer_module, direct
     assert connection.closed and cursor.closed
 
 
-def test_cli_commit_este_opt_in_si_transmite_numai_caile_explicite(importer_module, diretoare, monkeypatch):
+def test_cli_commit_este_opt_in_si_transmite_numai_caile_explicite(importer_module, directoare, monkeypatch):
     inbox, rapoarte = directoare
     pdf = scrie_pdf(inbox)
     raport, metadata = scrie_intrari(rapoarte, pdf)
