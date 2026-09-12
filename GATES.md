@@ -25,7 +25,9 @@ Scope/decizie: `revizii.md` lot D11/2A și `docs/DECISIONS.md`. CWD pentru comen
 - [x] **MD-REGRESSIONS:** full suite verde, fără noi skip/xfail și cu maparea explicită a testelor politicii vechi adaptate la D11; fișierele din afara scope-ului neschimbate. P1 exact-article GREEN: **962 passed, 11 skipped, 0 failures/errors**, exit 0; un warning extern Starlette/httpx. R06/5A rămân protejate. Re-review P1 încă necesar.
   CHECK: python -m pytest -q
   EXPECT: exit 0; comparație de snapshot și diff pentru acest lot, testele și gold-urile R06/5A protejate.
-- [ ] **MD-REVIEW:** QA P1 **OK**; Reviewer a blocat P1 exact-article, acum remediat/GREEN (105 focused, 962 full). Urmează re-review P1 read-only, apoi verdict local D11–D14. D01/D02/R02–R04 rămase se raportează separat. MANUAL: Planner, fără merge/DB/API plătit/deploy.
+- [x] **MD-REVIEW:** QA P1 **OK** și re-review P1 **OK** pe `0f9540b`, fără findings. Dovezi host inspectate: 105 focused/962 full passed, 11 skip-uri; repro exact/no embedding și 2099 fail-closed. D11–D14 este acceptat **local**. D01/D02/R02–R04 rămase se raportează separat. Fără merge/DB/API plătit/deploy.
+
+**Închidere MD locală, 11-09-2026:** 8/8 gate-uri locale. Checkpointuri: implementare `bf9e16b`, P1 numeric `ee14516`, P1 exact-article `0f9540b`; QA P1 `c55719f`, review P1 final OK. Nu este gate de producție: R05, D02/D03, corpus/model/DB real, ingestie, operațiuni și deploy rămân deschise.
 
 ## Lot 5B — R06, verificat local și închis la 11-09-2026
 

@@ -5,7 +5,7 @@ Updated: **11-09-2026** (EET). This is a handoff, **not a claim that D11 or prod
 ## 1. The short version
 
 - **Completed locally:** the synthetic grounding evaluator (5A) and verified citation passages (R06). QA and Reviewer approved both local slices.
-- **P1 exact-article remediat local:** articolul nemarcat/marcat după cod complet ajunge din nou la exact lookup, iar anul 2099 rămâne fail-closed. Host: 105 focused și 962 full passed/11 skips. Re-review P1 este încă necesar.
+- **D11–D14 acceptat local:** P1 exact-article este reparat; QA și re-review P1 sunt OK. Articolul nemarcat/marcat după cod complet ajunge exact/no embedding, iar 2099 rămâne fail-closed. Host: 105 focused și 962 full passed/11 skips. Nu este acceptare de producție sau închidere R05/D02/D03.
 - **Fresh GREEN:** 515 focused passed; full suite 863 passed/11 corpus skips/0 failures. R05 diagnostic remains 19 cases/10 findings/exit 1 intentional.
 - **Still wrong:** authentic quotes can accompany unsupported claims. D11 fixes retrieval routing, not semantic claim truth.
 - **Last GitHub checkpoint:** `d0f457ee15a51111cfec9d691f84f14e6da6f406` contains RED tests. The GREEN runtime diff is currently uncommitted pending independent review.
