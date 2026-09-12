@@ -9,7 +9,7 @@ Omnia este numele intern al proiectului/repository-ului; brandul public al aplic
 1. Comunică în română, clar și concis.
 2. Explică orice cod nou sau modificat linie cu linie, la nivel de începător.
 3. Marchează explicit valoarea de CV a deciziilor relevante.
-4. Un singur obiectiv clar per task/sesiune.
+4. Un singur obiectiv clar per task/sesiune. **Regulă Lucian, 11-09-2026:** lucrăm strict secvențial — un singur task activ, un singur Coder când există cod, apoi verificare host și checkpoint GitHub înainte de următorul task. Nu pornim QA/Reviewer în paralel sau un nou task cât timp taskul precedent nu are o stare explicită (verificat, blocat sau predat).
 5. Nu accepta automat editări: prezintă planul și diff-ul înainte de schimbări importante.
 6. Nu expune sau tipări secrete, tokenuri, parole sau conținut din `.env`.
 7. Nu comite documente normative, PDF-uri, texte extrase sau chei API. `documente_noi/` rămâne exclus din Git.

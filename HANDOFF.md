@@ -5,7 +5,7 @@ Updated: **11-09-2026** (EET). This is a handoff, **not a claim that D11 or prod
 ## 1. The short version
 
 - **Completed locally:** the synthetic grounding evaluator (5A) and verified citation passages (R06). QA and Reviewer approved both local slices.
-- **Implemented locally, awaiting QA/Reviewer:** D11–D14 make multi-document search global by default and support only the explicitly approved scope phrases.
+- **D11–D14 blocked pending one P1 fix:** D13 poate selecta greșit aliasul scurt când anul necunoscut este separat prin whitespace. QA nu a finalizat din cauza limitei providerului; Reviewer a blocat candidatul.
 - **Fresh GREEN:** 515 focused passed; full suite 863 passed/11 corpus skips/0 failures. R05 diagnostic remains 19 cases/10 findings/exit 1 intentional.
 - **Still wrong:** authentic quotes can accompany unsupported claims. D11 fixes retrieval routing, not semantic claim truth.
 - **Last GitHub checkpoint:** `d0f457ee15a51111cfec9d691f84f14e6da6f406` contains RED tests. The GREEN runtime diff is currently uncommitted pending independent review.

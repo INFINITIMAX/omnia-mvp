@@ -16,13 +16,13 @@ Scope/decizie: `revizii.md` lot D11/2A și `docs/DECISIONS.md`. CWD pentru comen
 - [x] **MD-GLOBAL:** întrebări generale/comparații și context anterior fără filtre obligatorii după documentele menționate/citate; dovezi multi-sursă păstrate când sunt relevante și în limite. Host GREEN: 515 teste focalizate trecute; verifică global/scoped, dovezi și embedding. Nu promite relevanța semantică live/R05.
   CHECK: python -m pytest -q tests/test_multi_document_retrieval.py
   EXPECT: exit 0 după implementare; aserțiuni pe apelul global/scoped, dovezi și embedding.
-- [x] **MD-IDENTITY:** coduri slash/spații/ani/părți corecte, aliasuri realmente ambigue tratate distinct de două documente menționate; exact lookup și scope explicit fără substituție/fallback ascuns, conform scenariilor aprobate. Host GREEN focalizat: exit 0.
+- [ ] **MD-IDENTITY:** coduri slash/spații/ani/părți corecte, aliasuri realmente ambigue tratate distinct de două documente menționate; exact lookup și scope explicit fără substituție/fallback ascuns, conform scenariilor aprobate. Host GREEN istoric: exit 0. **Redeschis P1:** forma `NP 010 2099` poate selecta aliasul scurt pentru 2022; trebuie regresii și GREEN după fix.
   CHECK: python -m pytest -q tests/test_retrieval_core.py tests/test_multi_document_retrieval.py
   EXPECT: exit 0; controale pozitive și negative, fără relaxarea contractelor neaprobate.
-- [x] **MD-API:** schimbarea ajunge la API, metadata/citările R06 rămân corecte, quota/rate/buget și numărul de apeluri nu se schimbă implicit. Host GREEN focalizat: exit 0; D13 rămâne fără apel plătit, cu quota/rate verificate mockuit.
+- [ ] **MD-API:** schimbarea ajunge la API, metadata/citările R06 rămân corecte, quota/rate/buget și numărul de apeluri nu se schimbă implicit. Host GREEN istoric: exit 0; D13 rămâne fără apel plătit, cu quota/rate verificate mockuit. **Redeschis P1:** lipsește API regression pentru codul numeric separat prin whitespace.
   CHECK: python -m pytest -q tests/test_api_integration.py tests/test_citation_passages.py
   EXPECT: exit 0; numai mock-uri; zero adaptări de test care maschează defecte.
-- [x] **MD-REGRESSIONS:** full suite verde, fără noi skip/xfail și cu maparea explicită a testelor politicii vechi adaptate la D11; fișierele din afara scope-ului neschimbate. Host GREEN: **863 passed, 11 skipped, 0 failures/errors**, exit 0; aceeași 11 skip-uri de corpus absent. Snapshot Python verificat de host; R06/5A protejate.
+- [ ] **MD-REGRESSIONS:** full suite verde, fără noi skip/xfail și cu maparea explicită a testelor politicii vechi adaptate la D11; fișierele din afara scope-ului neschimbate. Host GREEN istoric: **863 passed, 11 skipped, 0 failures/errors**, exit 0; aceeași 11 skip-uri de corpus absent. **Redeschis P1:** rerulăm după corecție. Snapshot Python a protejat R06/5A; acceptarea nu este finală.
   CHECK: python -m pytest -q
   EXPECT: exit 0; comparație de snapshot și diff pentru acest lot, testele și gold-urile R06/5A protejate.
 - [ ] **MD-REVIEW:** QA și Reviewer independenți OK pe snapshotul final; handoff și explicația codului; D01/D02/R02–R04 rămase se raportează separat. MANUAL: Planner, fără commit/push/DB/API plătit/deploy.
