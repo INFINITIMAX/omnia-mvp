@@ -1,5 +1,16 @@
 # Gate-uri — refuz calcule/proiectare
 
+## MMO — metadata operator-confirmed pentru preflight (13-09-2026)
+
+**OWNS:** `manual_ingestion_preflight.py`, `manual_ingestion_import.py`, testele manuale dedicate, `docs/MANUAL_METADATA_OVERRIDE_SPEC.md`, `docs/DECISIONS.md`, `TASKS.md`, `GATES.md`, documentația de rulare.
+
+- [ ] **MMO-RED:** testele sintetice eșuează fără runtime pentru metadata confirmată, binding în importer și virgula delimitatoare; slash/virgulă ne-delimitatoare sunt negative.
+- [ ] **MMO-LOCAL:** fără metadata explicită, ambiguitatea rămâne blocată; cu metadata validă, raportul spune `operator_confirmed` fără text/chunk/secrete și importerul cere identitate identică.
+- [ ] **MMO-BOUNDARY:** virgula este eliminată numai dacă este delimitator; nu extinde ASCII-ul acceptat și nu schimbă DB/Voyage/approved/worker.
+- [ ] **MMO-REGRESSION:** host rulează testele dedicate și suita completă, fără servicii externe.
+- [ ] **MMO-CHECKPOINT:** GREEN verificat, diff inspectat și push GitHub.
+- [ ] **MMO-REVIEW:** QA și Reviewer read-only, separat. Niciun verdict nu autorizează DB/Voyage real.
+
 ## MII — importer persistent manual pentru un PDF (11-09-2026)
 
 **OWNS:** `manual_ingestion_import.py`, `tests/test_manual_ingestion_import.py`, `docs/MANUAL_INGESTION_IMPORT_SPEC.md`, documentația de rulare, `TASKS.md`, `GATES.md`, `PLAN.md`, `docs/DECISIONS.md`.

@@ -1,5 +1,11 @@
 # TASKS — Omnia
 
+## Task activ — metadata operator-confirmed pentru NP 015-2022 (13-09-2026)
+
+**Contract aprobat:** `docs/MANUAL_METADATA_OVERRIDE_SPEC.md` / D18. Preflight-ul poate primi opțional metadata locală confirmată de Lucian, marcată explicit `operator_confirmed`; fără ea, blocarea automată rămâne. Parserul elimină numai virgula delimitatoare după articol valid; slash-ul rămâne blocat. Scope: preflight, importerul care verifică raportul, teste mockuite și documentație. Fără DB/Voyage/`approved`/worker/deploy.
+
+**Gates:** RED pentru metadata ambiguă fără override, metadata confirmată raportată corect și refuzuri de valori neconcordante; RED/GREEN pentru virgulă delimitatoare versus slash/virgulă ne-delimitatoare; host, checkpoint, QA și Reviewer secvențiale.
+
 ## Deploy production verificat — 13-09-2026
 
 - [x] `main` publicat manual în Railway din SHA `4bc4973e9335f8abd5f59be4b6030f7f1b301275`; deployment Railway `SUCCESS`, serviciul `normativai`, environment `production`.
