@@ -317,8 +317,17 @@ def _creeaza_chunkuri_locale(text: str) -> list[dict[str, str]]:
         # Dacă un caracter ne-separator urmează imediat identificatorului, îl
         # păstrăm pentru validator. Astfel `1.1./` nu devine tăcut `1.1.`.
         sufix = re.match(r"[^\s]+", sursa[potrivire.end(1) :])
-        if sufix is not None and sufix.group(0) != ",":
-            articol += sufix.group(0)
+        if sufix is not None:
+            candidat = articol + sufix.group(0)
+            if candidat.endswith(","):
+                try:
+                    _normalizeaza_articol(candidat[:-1])
+                except ValueError:
+                    articol = candidat
+                else:
+                    articol = candidat[:-1]
+            else:
+                articol = candidat
         inceput_text = potrivire.end()
         sfarsit_text = potriviri[index + 1].start() if index + 1 < len(potriviri) else len(sursa)
         text_articol = sursa[inceput_text:sfarsit_text].strip()

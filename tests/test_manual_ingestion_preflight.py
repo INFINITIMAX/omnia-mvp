@@ -212,6 +212,14 @@ def test_pipeline_implicit_valideaza_articolul_si_refuza_caractere_neacceptate(p
     )
     assert rezultat_cu_virgula["chunk_count"] == 1
 
+    text_articol_parentetic_cu_virgula = text_valid.replace("1.1.\n", "1.1.(1),\n")
+    rezultat_parentetic_cu_virgula = preflight_module.preflight_pdf(
+        pdf,
+        rapoarte / "implicit-parentetic-virgula-delimitatoare.json",
+        extract_pdf=lambda _pdf: (text_articol_parentetic_cu_virgula, 1),
+    )
+    assert rezultat_parentetic_cu_virgula["chunk_count"] == 1
+
     for nume, sufix in (("slash", "/"), ("virgula-ne-delimitatoare", ",text")):
         text_articol_neacceptat = text_valid.replace("1.1.\n", f"1.1.{sufix}\n")
         with pytest.raises(preflight_module.PreflightError, match="invalid_chunks"):
