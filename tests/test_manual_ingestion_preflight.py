@@ -212,7 +212,7 @@ def test_pipeline_implicit_valideaza_articolul_si_refuza_caractere_neacceptate(p
     )
     assert rezultat_cu_virgula["chunk_count"] == 1
 
-    text_articol_parentetic_cu_virgula = text_valid.replace("1.1.\n", "1.1(1),\n")
+    text_articol_parentetic_cu_virgula = text_valid.replace("1.1.\n", "1.1.(1),\n")
     rezultat_parentetic_cu_virgula = preflight_module.preflight_pdf(
         pdf,
         rapoarte / "implicit-parentetic-virgula-delimitatoare.json",
