@@ -388,3 +388,23 @@ def test_cli_transmite_numai_caile_explicite(preflight_module, directoare, monke
     metadata = scrie_metadata_confirmata(rapoarte)
     assert preflight_module.main(["--pdf", str(pdf), "--report", str(raport), "--metadata", str(metadata)]) == 0
     assert apeluri[-1] == (pdf, raport, metadata)
+
+
+def test_cli_emite_json_ascii_portabil_pentru_metadata_cu_diacritice(
+    preflight_module, directoare, monkeypatch, capsys
+):
+    inbox, rapoarte = directoare
+    pdf = scrie_pdf_sintetic(inbox)
+    raport = rapoarte / "cli-unicode.json"
+    rezultat_cu_diacritice = {
+        "status": "ready_for_human_metadata",
+        "metadata_confirmation": {"titlu_oficial": "Construcții spitalicești"},
+    }
+
+    monkeypatch.setattr(preflight_module, "preflight_pdf", lambda *_args, **_kwargs: rezultat_cu_diacritice)
+
+    assert preflight_module.main(["--pdf", str(pdf), "--report", str(raport)]) == 0
+    stdout = capsys.readouterr().out
+
+    assert "\\u021b" in stdout
+    assert json.loads(stdout) == rezultat_cu_diacritice
