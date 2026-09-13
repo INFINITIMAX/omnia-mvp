@@ -135,6 +135,46 @@ def _metadata_unica(candidati: Mapping[str, Sequence[object]]) -> dict[str, obje
     return {"cod_oficial": coduri[0], "titlu_oficial": titluri[0], "an": ani[0]}
 
 
+def _metadata_confirmata(cale_metadata: Path) -> dict[str, object]:
+    """Citește numai manifestul operatorului din `_reports`, fără a ghici identitatea PDF-ului."""
+    cale_metadata = _cale_directa(
+        Path(cale_metadata), FOLDER_RAPOARTE, "outside_reports", trebuie_sa_existe=True
+    )
+    if cale_metadata.suffix.casefold() != ".json":
+        raise PreflightError("invalid_metadata")
+    try:
+        metadata = json.loads(cale_metadata.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise PreflightError("invalid_metadata") from error
+    if not isinstance(metadata, dict) or set(metadata) != {
+        "document_id", "cod_oficial", "titlu_oficial", "an"
+    }:
+        raise PreflightError("invalid_metadata")
+
+    document_id = metadata["document_id"]
+    cod = metadata["cod_oficial"]
+    titlu = metadata["titlu_oficial"]
+    an = metadata["an"]
+    if (
+        not isinstance(document_id, str)
+        or not document_id.strip()
+        or not isinstance(cod, str)
+        or not cod.strip()
+        or not isinstance(titlu, str)
+        or not titlu.strip()
+        or isinstance(an, bool)
+        or not isinstance(an, int)
+        or not 1800 <= an <= 9999
+    ):
+        raise PreflightError("invalid_metadata")
+    return {
+        "document_id": document_id.strip(),
+        "cod_oficial": cod.strip(),
+        "titlu_oficial": titlu.strip(),
+        "an": an,
+    }
+
+
 def _cale_lock_raport(cale_raport: Path) -> Path:
     """Dă un nume separat pentru lock; raportul final rămâne invizibil până la replace."""
     return cale_raport.with_name(f".{cale_raport.name}.lock")
@@ -191,6 +231,7 @@ def preflight_pdf(
     create_chunks: Callable[[str], Sequence[object]] | None = None,
     validate_chunks: Callable[[Sequence[object]], Sequence[object]] | None = None,
     find_metadata_candidates: Callable[[str], Mapping[str, Sequence[object]]] = find_metadata_candidates,
+    metadata_path: Path | None = None,
 ) -> dict[str, object]:
     """Verifică un PDF local și returnează exact conținutul raportului publicat local.
 
@@ -227,15 +268,18 @@ def preflight_pdf(
     if not isinstance(chunkuri_validate, Sequence) or isinstance(chunkuri_validate, (str, bytes)) or not chunkuri_validate:
         raise PreflightError("invalid_chunks")
 
-    metadata = _metadata_unica(find_metadata_candidates(text))
     rezultat: dict[str, object] = {
         "status": "ready_for_human_metadata",
         "source_sha256": hash_inainte,
         "page_count": pagini,
         "character_count": len(text),
         "chunk_count": len(chunkuri_validate),
-        "metadata_candidates": metadata,
     }
+    if metadata_path is None:
+        rezultat["metadata_candidates"] = _metadata_unica(find_metadata_candidates(text))
+    else:
+        rezultat["metadata_source"] = "operator_confirmed"
+        rezultat["metadata_confirmation"] = _metadata_confirmata(metadata_path)
     _scrie_raport_atomic(raport, rezultat)
     return rezultat
 
@@ -273,7 +317,7 @@ def _creeaza_chunkuri_locale(text: str) -> list[dict[str, str]]:
         # Dacă un caracter ne-separator urmează imediat identificatorului, îl
         # păstrăm pentru validator. Astfel `1.1./` nu devine tăcut `1.1.`.
         sufix = re.match(r"[^\s]+", sursa[potrivire.end(1) :])
-        if sufix is not None:
+        if sufix is not None and sufix.group(0) != ",":
             articol += sufix.group(0)
         inceput_text = potrivire.end()
         sfarsit_text = potriviri[index + 1].start() if index + 1 < len(potriviri) else len(sursa)
@@ -316,14 +360,22 @@ def _valideaza_chunkuri_locale(chunkuri: Sequence[object]) -> Sequence[object]:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """Primește numai două căi explicite; nu scanează directoare și nu pornește importuri."""
+    """Primește numai căi explicite; nu scanează directoare și nu pornește importuri."""
     parser = argparse.ArgumentParser(description="Verifică local un singur PDF înainte de import.")
     parser.add_argument("--pdf", required=True, help="PDF direct din documente_noi/_inbox")
     parser.add_argument("--report", required=True, help="Raport JSON direct în documente_noi/_reports")
+    parser.add_argument(
+        "--metadata",
+        help="Manifest JSON confirmat de operator, direct în documente_noi/_reports",
+    )
     arguments = parser.parse_args(argv)
 
     try:
-        rezultat = preflight_pdf(Path(arguments.pdf), Path(arguments.report))
+        rezultat = preflight_pdf(
+            Path(arguments.pdf),
+            Path(arguments.report),
+            metadata_path=Path(arguments.metadata) if arguments.metadata else None,
+        )
     except PreflightError as error:
         print(str(error), file=sys.stderr)
         return 2

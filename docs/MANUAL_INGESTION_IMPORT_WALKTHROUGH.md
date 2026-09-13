@@ -6,7 +6,7 @@
 2. `ImportError` expune numai tokenuri locale controlate, nu textul PDF, SQL sau secrete.
 3. Validarea de cale acceptă PDF-ul doar direct din `_inbox`, iar reportul și metadata doar direct din `_reports`.
 4. Metadata cere `document_id`, cod, titlu și an. `source_key` nu vine de la operator: este derivat din SHA ca `pdf_<hash>`.
-5. Reportul trebuie să fie `ready_for_human_metadata`, să aibă același SHA și aceiași candidați cod/titlu/an.
+5. Reportul trebuie să fie `ready_for_human_metadata` și să aibă același SHA. Pentru ruta automată, candidații cod/titlu/an trebuie să coincidă. Pentru `metadata_source: "operator_confirmed"`, toate cele patru valori din `metadata_confirmation` (`document_id`, cod, titlu, an) trebuie să coincidă exact cu fișierul metadata de import.
 6. Importerul reextrage textul și compară paginile, caracterele și numărul de chunk-uri cu reportul. Un PDF schimbat este refuzat.
 7. În dry-run rezultatul conține numai status, SHA, document ID și număr de chunk-uri; nu conține text, chunk-uri, embedding-uri sau chei.
 8. Numai `--commit` încarcă configurarea, deschide PostgreSQL TLS cu timeout și aplică lock-uri pe SHA/document/cod.

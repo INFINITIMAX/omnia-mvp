@@ -130,12 +130,23 @@ def _valideaza_report(report: Mapping[str, object], metadata: Mapping[str, objec
     sha_report = report.get("source_sha256")
     if not isinstance(sha_report, str) or not _PATTERN_SHA256.fullmatch(sha_report) or sha_report != source_sha256:
         raise ImportError("preflight_mismatch")
-    candidati = report.get("metadata_candidates")
-    if not isinstance(candidati, Mapping):
+    sursa_metadata = report.get("metadata_source")
+    if sursa_metadata == "operator_confirmed":
+        confirmare = report.get("metadata_confirmation")
+        if "metadata_candidates" in report or not isinstance(confirmare, Mapping):
+            raise ImportError("preflight_mismatch")
+        for camp in ("document_id", "cod_oficial", "titlu_oficial", "an"):
+            if confirmare.get(camp) != metadata[camp]:
+                raise ImportError("metadata_mismatch")
+    elif sursa_metadata is None:
+        candidati = report.get("metadata_candidates")
+        if not isinstance(candidati, Mapping):
+            raise ImportError("preflight_mismatch")
+        for camp in ("cod_oficial", "titlu_oficial", "an"):
+            if candidati.get(camp) != metadata[camp]:
+                raise ImportError("metadata_mismatch")
+    else:
         raise ImportError("preflight_mismatch")
-    for camp in ("cod_oficial", "titlu_oficial", "an"):
-        if candidati.get(camp) != metadata[camp]:
-            raise ImportError("metadata_mismatch")
     for camp, minimum in (("page_count", 1), ("character_count", 1), ("chunk_count", 1)):
         valoare = report.get(camp)
         if isinstance(valoare, bool) or not isinstance(valoare, int) or valoare < minimum:
