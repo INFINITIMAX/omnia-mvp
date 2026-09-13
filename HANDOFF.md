@@ -32,7 +32,7 @@ Updated: **11-09-2026** (EET). This is a handoff, **not a claim that D11 or prod
 
 FastAPI/Python, PostgreSQL/pgvector retrieval, approved-document filtering, official citations, calculation refusal, anonymous quota/rate limiting and provider-call budgeting. Keep the architecture; no rewrite or new orchestration framework is approved.
 
-The importer status-reconciliation fix and automatic-worker code are already in the repository base. **The worker stays inactive:** no permanent worker or logon task. The worker SHA migration remains unapplied according to the recorded handoff. The local one-PDF preflight is now accepted locally at `5d26366`: it validates and reports only; a safe persistent DB/Voyage importer is still missing.
+The importer status-reconciliation fix and automatic-worker code are already in the repository base. **The worker stays inactive:** no permanent worker or logon task. The worker SHA migration remains unapplied according to the recorded handoff. The one-PDF preflight and persistent importer are accepted locally: the importer has dry-run by default and explicit insert-only `--commit` to pending, but has never used real DB/Voyage. `commit_unknown` requires read-only reconciliation before retry; `approved` remains separate.
 
 ### Completed local stabilization
 

@@ -86,7 +86,7 @@ Lucian a cerut începerea cu problemele cele mai complicate: 5A/R05–R06 din `r
 - `main.py` — FastAPI: `GET /` și `POST /intreaba`, integrează Retrieval Core, Generation Core și controalele anonime.
 - `retrieval_core.py` — parser, repository PostgreSQL și serviciul de retrieval.
 - `manual_ingestion_preflight.py` — preflight local, fără DB/cost, pentru un PDF; explicație în `docs/MANUAL_INGESTION_PREFLIGHT_WALKTHROUGH.md`.
-- `manual_ingestion_import.py` — importer manual mock-first, insert-only, cu dry-run local și `--commit` explicit; nu a fost executat pe DB/Voyage real. Explicație în `docs/MANUAL_INGESTION_IMPORT_WALKTHROUGH.md`.
+- `manual_ingestion_import.py` — importer manual acceptat local, insert-only, cu dry-run local și `--commit` explicit; nu a fost executat pe DB/Voyage real. `commit_unknown` oprește retry-ul până la reconciliere DB read-only. Explicație în `docs/MANUAL_INGESTION_IMPORT_WALKTHROUGH.md`.
 - `populare_db.py` — ingestion existent, nu insert-only și nu livrarea importului manual sigur punctual.
 - `auto_ingestion_worker.py` — worker automat integrat, păstrat **inactiv**; runbook istoric în `docs/AUTO_INGESTION_WORKER.md`.
 - `supabase/migrations/` — schema reproductibilă și metadata.

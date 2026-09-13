@@ -10,7 +10,9 @@
 - [x] **MII-SECURITY:** conexiune TLS/timeout, SQL parametrizat/advisory locks, fără rezultat cu text/chunk/secrete; fără update/delete/approved/migrare/worker.
 - [x] **MII-REGRESSION:** host: focused `tests/test_manual_ingestion_import.py` → 15 passed; `python -m pytest -q` → 991 passed, 11 skipped, 1 warning extern TestClient, exit 0. Fără DB/Voyage real. Dovezi `manual-ingestion-import/mii-focused-recheck.*`, `mii-full.*`.
 - [x] **MII-CHECKPOINT:** diff verificat și GREEN este checkpointat pe branchul de lucru; SHA remote este consemnat în predare.
-- [ ] **MII-REVIEW:** QA este OK mock-first. Reviewer a blocat D17 și apoi a reconfirmat codul; a găsit contradicția de documentație, corectată aici și în walkthrough. `commit_unknown` nu are rollback/retry; PDF/report/metadata se păstrează, apoi reconciliere DB read-only după SHA/document/cod înainte de orice nouă aprobare. Urmează re-review strict al documentației. Niciun verdict local nu este aprobare pentru comandă reală `--commit`.
+- [x] **MII-REVIEW:** QA mock-first este OK. Reviewer final D17/docs este **LOCAL OK**, fără finding-uri, pe `a147936`: `commit_unknown` nu are rollback/retry; PDF/report/metadata se păstrează, apoi reconciliere DB read-only după SHA/document/cod înainte de orice nouă aprobare. MII este acceptat **local**. Nu este aprobare pentru comandă reală `--commit`, DB/Voyage real, `approved`, deploy sau producție.
+
+**Închidere MII locală, 13-09-2026:** 7/7 gate-uri locale. Checkpointuri: spec `245d26a`, RED `eb752f4`, runtime `4cce49a`, D17 code `21c03c6`, D17 docs `a147936`; QA și Reviewer final OK. Urmează merge autorizat separat; validarea reală DB/Voyage și prima comandă `--commit` rămân gate-uri operaționale.
 
 ## MIP — preflight manual pentru un PDF (11-09-2026)
 
