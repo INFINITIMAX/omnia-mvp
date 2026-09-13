@@ -52,7 +52,9 @@ def scrie_pdf(inbox: Path, continut: bytes = b"%PDF-1.7\nsintetic") -> Path:
     return cale
 
 
-def scrie_intrari(rapoarte: Path, pdf: Path, *, report_override=None, metadata_override=None):
+def scrie_intrari(
+    rapoarte: Path, pdf: Path, *, report_override=None, metadata_override=None, operator_confirmed=False
+):
     report = {
         "status": "ready_for_human_metadata",
         "source_sha256": hashlib.sha256(pdf.read_bytes()).hexdigest(),
@@ -61,6 +63,10 @@ def scrie_intrari(rapoarte: Path, pdf: Path, *, report_override=None, metadata_o
         "chunk_count": 1,
         "metadata_candidates": CANDIDATI_VALIZI,
     }
+    if operator_confirmed:
+        report.pop("metadata_candidates")
+        report["metadata_source"] = "operator_confirmed"
+        report["metadata_confirmation"] = dict(METADATA_VALIDA)
     if report_override:
         report.update(report_override)
     metadata = dict(METADATA_VALIDA)
@@ -207,6 +213,26 @@ def test_report_sau_metadata_nepotrivite_opresc_inainte_de_dependente(
 
     with pytest.raises(importer_module.ImportError, match="preflight_mismatch|metadata_mismatch"):
         ruleaza(importer_module, pdf, raport, metadata, commit=True)
+
+
+def test_raport_operator_confirmed_accepta_numai_metadata_identica(importer_module, directoare):
+    inbox, rapoarte = directoare
+    pdf = scrie_pdf(inbox)
+    raport, metadata = scrie_intrari(rapoarte, pdf, operator_confirmed=True)
+
+    rezultat = ruleaza(importer_module, pdf, raport, metadata)
+    assert rezultat["status"] == "validated"
+
+    raport.unlink()
+    metadata.unlink()
+    raport, metadata = scrie_intrari(
+        rapoarte,
+        pdf,
+        operator_confirmed=True,
+        metadata_override={"cod_oficial": "NP 011-2026"},
+    )
+    with pytest.raises(importer_module.ImportError, match="metadata_mismatch"):
+        ruleaza(importer_module, pdf, raport, metadata)
 
 
 def test_pdf_instabil_opreste_inainte_de_dependente(importer_module, directoare):

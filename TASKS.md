@@ -1,5 +1,11 @@
 # TASKS — Omnia
 
+## Task activ — metadata operator-confirmed pentru NP 015-2022 (13-09-2026)
+
+**MMO ACCEPTAT LOCAL:** Contractul D18 este implementat pe `fix/manual-metadata-preflight`: preflight-ul poate primi opțional metadata locală confirmată de Lucian, marcată explicit `operator_confirmed`; fără ea, blocarea automată rămâne. Parserul elimină numai virgula delimitatoare după articol valid; slash-ul rămâne blocat. Host: 32 țintite trec; **994 passed, 11 skipped, 1 warning** complet. QA și Reviewer read-only: LOCAL OK, fără finding de cod. Fără DB/Voyage/`approved`/worker/deploy.
+
+**Următorul gate:** merge explicit aprobat în `main`; după merge, se creează manifestul local pentru NP 015-2022 și se rerulează preflight local. `--commit` DB+Voyage și `approved` rămân aprobări operaționale distincte.
+
 ## Deploy production verificat — 13-09-2026
 
 - [x] `main` publicat manual în Railway din SHA `4bc4973e9335f8abd5f59be4b6030f7f1b301275`; deployment Railway `SUCCESS`, serviciul `normativai`, environment `production`.

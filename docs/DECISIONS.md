@@ -4,6 +4,10 @@ Acest fișier separă deciziile explicite ale lui Lucian de propunerile agențil
 
 ## Decizii active
 
+### D18 — metadata confirmată de operator și virgulă delimitatoare, aprobat Lucian (13-09-2026)
+
+Pentru PDF-uri unde codul nu poate fi extras sigur, Lucian aprobă metadata locală explicită în preflight, marcată `operator_confirmed`, nu ca metadata extrasă automat. Câmpurile sunt `document_id`, `cod_oficial`, `titlu_oficial`, `an`; fără această metadata, ambiguitatea rămâne blocată. Importerul acceptă numai metadata identică cu confirmarea din raport. Lucian aprobă și excepția îngustă pentru virgulă urmată de whitespace/sfârșit imediat după un articol deja recunoscut; ea este punctuație, nu parte din identificator. Slash-ul și alte caractere rămân refuzate. Nu se aprobă DB/Voyage real, `approved`, deploy sau schimbarea workerului.
+
 ### D17 — commit incert la importer, aprobat Lucian (11-09-2026)
 
 Dacă `connection.commit()` ridică o eroare, Lucian aprobă statusul local terminal `commit_unknown`. Importerul nu declară rollback garantat și nu reîncearcă automat sau manual același `--commit`. Operatorul păstrează PDF/report/metadata neschimbate și face obligatoriu o reconciliere DB **read-only**, după SHA/document/cod, înainte de orice decizie ulterioară. Un rezultat existent oprește reluarea; un rezultat absent necesită o nouă aprobare explicită de la Lucian pentru o nouă comandă `--commit`. Această decizie nu aprobă o conexiune DB reală, Voyage, `approved`, deploy sau migrare.

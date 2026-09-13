@@ -17,14 +17,20 @@ Preflight-ul:
 3. extrage local textul cu calea existentă PyMuPDF/glife/diacritice;
 4. măsoară numărul de pagini și caractere, creează și validează chunk-uri local;
 5. identifică doar candidați unici pentru cod, titlu și an; nu inventează metadata;
-6. produce un raport fără text normativ, chunk-uri, embedding-uri, secrete sau conținutul PDF-ului.
+6. poate primi opțional un manifest JSON cu exact `document_id`, `cod_oficial`, `titlu_oficial` și `an`, confirmat de Lucian, numai direct din `_reports`;
+7. produce un raport fără text normativ, chunk-uri, embedding-uri, secrete sau conținutul PDF-ului.
 
-Un raport `ready_for_human_metadata` arată numai că verificările locale au trecut și candidatul de identitate este unic. Lucian verifică manual identitatea și metadata înainte de orice pas următor. Orice candidat lipsă sau ambiguu este `blocked`, nu o permisiune de import.
+Fără manifest, un raport `ready_for_human_metadata` arată numai că verificările locale au trecut și candidatul de identitate este unic. Orice candidat lipsă sau ambiguu este `blocked`, nu o permisiune de import. Cu manifest valid, raportul spune explicit `metadata_source: "operator_confirmed"` și include `metadata_confirmation`; nu pretinde că metadata a fost extrasă din PDF.
 
 ## Interfață propusă
 
 ```powershell
+# Calea automată: metadata trebuie să fie unică în PDF.
 python manual_ingestion_preflight.py --pdf documente_noi/_inbox/un-document.pdf --report documente_noi/_reports/un-document.preflight.json
+
+# Numai după confirmarea operatorului pentru un PDF cu metadata neextractabilă.
+# Manifestul este JSON strict, direct în _reports, cu document_id/cod_oficial/titlu_oficial/an.
+python manual_ingestion_preflight.py --pdf documente_noi/_inbox/un-document.pdf --report documente_noi/_reports/un-document.preflight.json --metadata documente_noi/_reports/un-document.metadata.json
 ```
 
 Ambele căi sunt validate. Raportul nu se suprascrie; un nume nou este necesar pentru o rulare nouă.
