@@ -325,6 +325,7 @@ def import_document(
     source_key = f"pdf_{sha_initial}"
     connection: object | None = None
     cursor: object | None = None
+    commit_incert = False
     try:
         connection = connection_factory()
         cursor = connection.cursor()
@@ -373,9 +374,15 @@ def import_document(
                     source_key,
                 ),
             )
-        connection.commit()
+        try:
+            connection.commit()
+        except Exception as error:
+            # După un eșec de commit nu știm dacă serverul a persistat deja
+            # tranzacția. Un rollback ulterior ar masca această stare incertă.
+            commit_incert = True
+            raise ImportError("commit_unknown") from error
     except ImportError:
-        if connection is not None:
+        if connection is not None and not commit_incert:
             _inchide_sigur(connection, "rollback")
         raise
     except Exception as error:
