@@ -1,5 +1,9 @@
 # NormativAI — vedere completă a proiectului
 
+## Stare live verificată — 13-09-2026
+
+`main` SHA `4bc4973` este publicat manual în Railway. Deploymentul este `SUCCESS`; `https://normativai.ro/health` și rădăcina au răspuns 200, iar antetele HSTS/CSP/nosniff/frame deny sunt prezente. Smoke-ul nu a trimis `POST /intreaba`, deci nu a consumat Voyage/Anthropic și nu a importat date. Importerul manual rămâne validat numai mock-first/local: prima comandă DB + Voyage și orice `approved` cer aprobare operațională separată.
+
 ## Predare D11 — aprobat, implementare blocată (11-09-2026)
 
 Rezumat complet și pași următori: [`HANDOFF.md`](../HANDOFF.md). Coderul a eșuat la limita de utilizare înainte să salveze fișierul de teste D11; implementarea/QA/Reviewer nu au fost lansate. Rerularea de predare confirmă 761 passed/11 skipped, diagnostic 19 cazuri/10 afirmații nepublicabile acceptate/zero pasaje omise și toate fișierele Python identice cu snapshotul pre-D11. Fără agenți activi, DB/API real sau deploy. Checkpoint-ul GitHub `8ca650ec21d01142c1936712097b86ec81733188` este împins pe `origin/fix/stabilizare-coduri-normative`; păstrează R06/5A locale și testele RED D11–D13, nu reprezintă merge sau producție. D11–D14 sunt acceptate local: după P1, 105 teste focalizate și 962 complete trec/11 skip-uri corpus absent; QA P1 și Reviewer P1 OK. R05 rămâne deschis: diagnosticul are încă 10 afirmații nepublicabile acceptate. Nicio producție/DB/API plătit nu este schimbată. Actualizare: D12 aprobă „doar/numai/exclusiv din [cod]” numai pentru întrebarea curentă; codul necunoscut cere clarificare fără global fallback, însă statusul/quota rămân decizie D01. La verificarea GitHub din 11-09-2026, `origin/main` este același `237e11d` ca baza locală; nu există remote de integrat și nu s-a făcut pull/rebase/merge/push.

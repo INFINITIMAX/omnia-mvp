@@ -1,5 +1,13 @@
 # TASKS — Omnia
 
+## Deploy production verificat — 13-09-2026
+
+- [x] `main` publicat manual în Railway din SHA `4bc4973e9335f8abd5f59be4b6030f7f1b301275`; deployment Railway `SUCCESS`, serviciul `normativai`, environment `production`.
+- [x] Smoke fără provider: `GET https://normativai.ro/health` → 200 `{"status":"ok"}`; rădăcina → 200; HSTS, CSP, `nosniff` și `X-Frame-Options: DENY` prezente.
+- [x] Nu s-a trimis `POST /intreaba`, deci smoke-ul nu a apelat Voyage/Anthropic și nu a făcut import DB.
+- [ ] Nu este validare reală pentru importerul `--commit`, corpus/model sau statut `approved`; acestea cer operațiuni aprobate separat.
+
+
 ## Task activ — importer persistent manual pentru un PDF (11-09-2026)
 
 **Contract aprobat:** `docs/MANUAL_INGESTION_IMPORT_SPEC.md` / D16. Se construiește mock-first un CLI separat cu metadata explicită, dry-run fără DB/Voyage și `--commit` pentru document nou insert-only, numai `indexed_pending_validation`. Nu modifică workerul automat sau `populare_db.py`, nu updatează/șterge/reimportă, nu aplică migrare și nu acordă `approved`.
