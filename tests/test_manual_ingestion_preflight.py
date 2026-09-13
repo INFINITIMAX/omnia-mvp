@@ -23,6 +23,12 @@ CANDIDATI_VALIZI = {
     "titlu_oficial": ("Normativ sintetic pentru testare locală",),
     "an": (2026,),
 }
+METADATA_CONFIRMATA = {
+    "document_id": "np015_2022",
+    "cod_oficial": "NP 015-2022",
+    "titlu_oficial": "Normativ sintetic confirmat de operator",
+    "an": 2022,
+}
 
 
 @pytest.fixture
@@ -65,6 +71,12 @@ def validator_valid(chunkuri: list[dict[str, str]]) -> list[dict[str, str]]:
 
 def candidati_valizi(_text: str) -> dict[str, tuple[object, ...]]:
     return CANDIDATI_VALIZI
+
+
+def scrie_metadata_confirmata(rapoarte: Path, values=None) -> Path:
+    cale = rapoarte / "metadata-confirmata.json"
+    cale.write_text(json.dumps(values or METADATA_CONFIRMATA), encoding="utf-8")
+    return cale
 
 
 def ruleaza_valid(preflight_module, pdf: Path, raport: Path, **overrides):
@@ -128,6 +140,50 @@ def test_publicarea_atomica_nu_expune_raport_final_gol(preflight_module, directo
     assert not preflight_module._cale_lock_raport(raport).exists()
 
 
+def test_metadata_confirmata_de_operator_pastreaza_ambiguitatea_automata_fara_a_publica_text(
+    preflight_module, directoare
+):
+    inbox, rapoarte = directoare
+    pdf = scrie_pdf_sintetic(inbox)
+    raport = rapoarte / "operator-confirmed.json"
+    metadata = scrie_metadata_confirmata(rapoarte)
+    candidati_ambigui = {
+        "cod_oficial": ("NP 015-2022", "NP 999-2022"),
+        "titlu_oficial": ("Titlu A", "Titlu B"),
+        "an": (2022, 2023),
+    }
+
+    rezultat = ruleaza_valid(
+        preflight_module,
+        pdf,
+        raport,
+        metadata_path=metadata,
+        find_metadata_candidates=lambda _text: candidati_ambigui,
+    )
+
+    assert rezultat["status"] == "ready_for_human_metadata"
+    assert rezultat["metadata_source"] == "operator_confirmed"
+    assert rezultat["metadata_confirmation"] == METADATA_CONFIRMATA
+    assert "metadata_candidates" not in rezultat
+    serializat = json.dumps(rezultat, ensure_ascii=False)
+    assert TEXT_NORMATIV_SINTETIC not in serializat
+    assert '"text"' not in serializat
+    assert '"chunks"' not in serializat
+
+
+def test_metadata_confirmata_invalida_sau_externa_este_refuzata(preflight_module, directoare, tmp_path):
+    inbox, rapoarte = directoare
+    pdf = scrie_pdf_sintetic(inbox)
+    invalid = scrie_metadata_confirmata(rapoarte, {"cod_oficial": "NP 015-2022"})
+    with pytest.raises(preflight_module.PreflightError, match="invalid_metadata"):
+        ruleaza_valid(preflight_module, pdf, rapoarte / "invalid.json", metadata_path=invalid)
+
+    externa = tmp_path / "metadata.json"
+    externa.write_text(json.dumps(METADATA_CONFIRMATA), encoding="utf-8")
+    with pytest.raises(preflight_module.PreflightError, match="outside_reports"):
+        ruleaza_valid(preflight_module, pdf, rapoarte / "extern.json", metadata_path=externa)
+
+
 def test_pipeline_implicit_valideaza_articolul_si_refuza_caractere_neacceptate(preflight_module, directoare):
     inbox, rapoarte = directoare
     pdf = scrie_pdf_sintetic(inbox)
@@ -148,13 +204,22 @@ def test_pipeline_implicit_valideaza_articolul_si_refuza_caractere_neacceptate(p
     assert rezultat["chunk_count"] == 1
     assert rezultat["metadata_candidates"]["cod_oficial"] == "NP 010-2026"
 
-    text_articol_neacceptat = text_valid.replace("1.1.\n", "1.1./\n")
-    with pytest.raises(preflight_module.PreflightError, match="invalid_chunks"):
-        preflight_module.preflight_pdf(
-            pdf,
-            rapoarte / "implicit-articol-neacceptat.json",
-            extract_pdf=lambda _pdf: (text_articol_neacceptat, 1),
-        )
+    text_articol_cu_virgula_delimitatoare = text_valid.replace("1.1.\n", "1.1.,\n")
+    rezultat_cu_virgula = preflight_module.preflight_pdf(
+        pdf,
+        rapoarte / "implicit-virgula-delimitatoare.json",
+        extract_pdf=lambda _pdf: (text_articol_cu_virgula_delimitatoare, 1),
+    )
+    assert rezultat_cu_virgula["chunk_count"] == 1
+
+    for nume, sufix in (("slash", "/"), ("virgula-ne-delimitatoare", ",text")):
+        text_articol_neacceptat = text_valid.replace("1.1.\n", f"1.1.{sufix}\n")
+        with pytest.raises(preflight_module.PreflightError, match="invalid_chunks"):
+            preflight_module.preflight_pdf(
+                pdf,
+                rapoarte / f"implicit-{nume}.json",
+                extract_pdf=lambda _pdf, text=text_articol_neacceptat: (text, 1),
+            )
 
 
 def test_refuza_pdf_din_afara_inbox_inainte_de_extragere(preflight_module, directoare, tmp_path):
@@ -303,11 +368,15 @@ def test_cli_transmite_numai_caile_explicite(preflight_module, directoare, monke
     raport = rapoarte / "cli.json"
     apeluri = []
 
-    def preflight_fals(cale_pdf: Path, cale_raport: Path):
-        apeluri.append((cale_pdf, cale_raport))
+    def preflight_fals(cale_pdf: Path, cale_raport: Path, *, metadata_path=None):
+        apeluri.append((cale_pdf, cale_raport, metadata_path))
         return {"status": "ready_for_human_metadata"}
 
     monkeypatch.setattr(preflight_module, "preflight_pdf", preflight_fals)
 
     assert preflight_module.main(["--pdf", str(pdf), "--report", str(raport)]) == 0
-    assert apeluri == [(pdf, raport)]
+    assert apeluri == [(pdf, raport, None)]
+
+    metadata = scrie_metadata_confirmata(rapoarte)
+    assert preflight_module.main(["--pdf", str(pdf), "--report", str(raport), "--metadata", str(metadata)]) == 0
+    assert apeluri[-1] == (pdf, raport, metadata)
