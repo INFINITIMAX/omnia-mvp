@@ -9,12 +9,12 @@ Omnia este numele intern al proiectului/repository-ului; brandul public al aplic
 1. Comunică în română, clar și concis.
 2. Explică orice cod nou sau modificat linie cu linie, la nivel de începător.
 3. Marchează explicit valoarea de CV a deciziilor relevante.
-4. Un singur obiectiv clar per task/sesiune.
+4. Un singur obiectiv clar per task/sesiune. **Regulă Lucian, 11-09-2026:** lucrăm strict secvențial — un singur task activ, un singur Coder când există cod, apoi verificare host și checkpoint GitHub înainte de următorul task. Nu pornim QA/Reviewer în paralel sau un nou task cât timp taskul precedent nu are o stare explicită (verificat, blocat sau predat).
 5. Nu accepta automat editări: prezintă planul și diff-ul înainte de schimbări importante.
 6. Nu expune sau tipări secrete, tokenuri, parole sau conținut din `.env`.
 7. Nu comite documente normative, PDF-uri, texte extrase sau chei API. `documente_noi/` rămâne exclus din Git.
-8. Nu face `git push`, deploy, migrare Supabase sau apeluri API plătite fără aprobarea explicită a lui Lucian.
-9. Pe branch-ul de lucru, creează checkpoint prin commit + push la maximum 25 de minute; nu lucra direct pe `main` și nu folosi force, merge sau deploy.
+8. Nu face deploy, migrare Supabase, apeluri API plătite, `git push --force`, merge sau push direct pe `main` fără aprobarea explicită a lui Lucian. **Excepție aprobată permanent de Lucian pentru trasabilitate:** pe branch-ul de lucru, fiecare progres verificabil (inclusiv un lot RED/GREEN, o decizie documentată sau o predare) se înregistrează prin commit + push după verificarea relevantă. Nu se împing secrete, corpus/PDF-uri, texte normative extrase, artefacte temporare sau muncă incompletă a unui Coder activ.
+9. Checkpoint-ul GitHub se face imediat după fiecare progres verificabil și, în orice caz, înainte de 25 de minute de lucru continuu. Nu lucra direct pe `main` și nu folosi force, merge sau deploy. Înainte de checkpoint inspectează diff-ul, testele/dovezile și staged files; după push verifică SHA-ul remote. Dacă un agent este încă editorul activ al acelui fișier, așteaptă predarea lui înainte de staging/commit/push.
 10. Nu slăbi, șterge sau restrânge teste doar pentru a le face să treacă.
 11. Actualizează `TASKS.md` la predarea unui task și `PLAN.md` numai când se schimbă o decizie de produs/tehnică aprobată.
 12. Nu introduce implicit comportamente de produs privind eligibilitatea documentelor, statusuri, acces, costuri, quota, fallback-uri sau date publice. Prezintă impactul în limbaj simplu și cere aprobarea explicită a lui Lucian înainte de implementare.

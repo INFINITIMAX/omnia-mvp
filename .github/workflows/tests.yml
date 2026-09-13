@@ -16,7 +16,7 @@ jobs:
       - name: Instalează Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.13"
 
       - name: Instalează dependențele
         run: pip install -r requirements.txt
@@ -33,7 +33,7 @@ jobs:
       - name: Instalează Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.13"
 
       - name: Instalează dependențele + pip-audit
         run: |

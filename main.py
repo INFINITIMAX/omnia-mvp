@@ -325,7 +325,7 @@ app.mount(
 # niciuna dintre pagini nu încarcă altceva decât fonturile self-hostate din /assets și
 # fetch('/intreaba') same-origin). O modificare a acelor blocuri inline cere hash-uri noi aici,
 # altfel pagina se rupe silențios sub CSP.
-_CSP_SCRIPT_HASHES = ("'sha256-yC4GqvuErJ6rHG+9oI5kZ8XsIqe+GaFr4bPxtmGCv9c='",)  # static/index.html <script>
+_CSP_SCRIPT_HASHES = ("'sha256-8trw/Lh6/yPRHJ4Uoq4ratjcq/670ki+KN/vGlhTwZw='",)  # static/index.html <script>
 _CSP_STYLE_HASHES = (
     "'sha256-dfnnV1ZV1nbrift6WtGU2XVQX0ahuMXiVhWB2qwuVPI='",  # static/index.html <style>
     "'sha256-kUyxp8kcWn+qR+O4JbENkEzXFLSQLF+bM6N26VjKs0c='",  # static/termeni.html <style>

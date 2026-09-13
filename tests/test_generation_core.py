@@ -15,6 +15,7 @@ from generation_core import (
     UnknownCitationError,
 )
 from retrieval_core import Evidence
+from generation_fixture_helpers import RawGeneratorFake, simulated_provider_payload
 
 
 QUESTION = "Întrebare sintetică?"
@@ -35,7 +36,9 @@ def evidence(index=1, content="fragment sintetic", cod_document=None):
 
 @dataclass
 class GeneratorFake:
-    answer: str
+    """Simulare provider JSON pentru contractele vechi; cazurile invalide sunt RAW."""
+
+    answer: str | GeneratedText
     calls: int = 0
     prompt: str | None = None
     max_tokens: int | None = None
@@ -44,7 +47,7 @@ class GeneratorFake:
         self.calls += 1
         self.prompt = prompt
         self.max_tokens = max_tokens
-        return self.answer
+        return simulated_provider_payload(self.answer, prompt)
 
 
 @dataclass
@@ -62,7 +65,7 @@ class GeneratorSequenceFake:
         self.calls += 1
         if self.calls > len(self.answers):
             raise AssertionError(f"generatorul a fost apelat de {self.calls} ori (buclă)")
-        return self.answers[self.calls - 1]
+        return simulated_provider_payload(self.answers[self.calls - 1], prompt)
 
 
 @pytest.mark.parametrize("max_answer_tokens", [0, -1, True, "1200", 1201])
@@ -109,23 +112,32 @@ def test_citarea_repetata_este_deduplicata():
 
 def test_id_inventat_este_eroare_tipata_fail_safe():
     with pytest.raises(UnknownCitationError):
-        GenerationService(GeneratorFake("Afirmație [C9]")).generate(QUESTION, (evidence(),))
+        GenerationService(RawGeneratorFake(json.dumps({
+            "raspuns": "Afirmație [C9]", "pasaje": [{"id": "C9", "citat": "fragment sintetic"}],
+        }))).generate(QUESTION, (evidence(),))
 
 
 def test_lipsa_citarii_este_eroare_tipata_fail_safe():
     with pytest.raises(MissingCitationError):
-        GenerationService(GeneratorFake("Afirmație fără suport")).generate(QUESTION, (evidence(),))
+        GenerationService(RawGeneratorFake(json.dumps({
+            "raspuns": "Afirmație fără suport", "pasaje": [],
+        }))).generate(QUESTION, (evidence(),))
 
 
 def test_raspunsul_gol_este_eroare_tipata_fail_safe():
     with pytest.raises(EmptyGeneratedAnswerError):
-        GenerationService(GeneratorFake("   ")).generate(QUESTION, (evidence(),))
+        GenerationService(RawGeneratorFake("   ")).generate(QUESTION, (evidence(),))
 
 
 def test_citatul_public_este_limitat_la_600_caractere():
-    result = GenerationService(GeneratorFake("[C1]")).generate(QUESTION, (evidence(content="x" * 601),))
+    # R06: providerul alege explicit 600; backendul nu mai taie automat 601.
+    generator = RawGeneratorFake(json.dumps({
+        "raspuns": "[C1]", "pasaje": [{"id": "C1", "citat": "x" * 600}],
+    }))
+    result = GenerationService(generator).generate(QUESTION, (evidence(content="x" * 601),))
 
     assert len(result.citari[0].citat) == 600
+    assert result.citari[0].citat == "x" * 600
 
 
 def test_prompt_injection_ramane_data_json_neincredibila_si_nu_poate_inchide_delimitatorii():
@@ -305,6 +317,7 @@ def test_reincercarea_nu_se_declanseaza_a_doua_oara_cand_a_doua_incercare_e_cura
 
 
 def test_raspunsul_trunchiat_primeste_marcajul_vizibil_la_final():
+    """Text parțial în pachet JSON complet valid; JSON incomplet este testat separat."""
     generator = GeneratorFake(GeneratedText("Bilanțul de căldură global [C1] se face pe", truncated=True))
 
     result = GenerationService(generator).generate(QUESTION, (DOVADA_I5,))
@@ -318,7 +331,7 @@ def test_raspunsul_trunchiat_primeste_marcajul_vizibil_la_final():
     [GeneratedText("Bilanțul de căldură global [C1].", truncated=False), "Bilanțul de căldură global [C1]."],
 )
 def test_raspunsul_netrunchiat_nu_primeste_marcaj(answer):
-    """Inclusiv generatoarele care întorc `str` simplu rămân valide, fără marcaj."""
+    """Pachetul JSON poate fi transportat ca `str` sau `GeneratedText`, fără marcaj."""
     result = GenerationService(GeneratorFake(answer)).generate(QUESTION, (DOVADA_I5,))
 
     assert result.raspuns == "Bilanțul de căldură global [C1]."
@@ -338,6 +351,12 @@ def test_promptul_contine_regulile_de_ancorare_si_de_concizie():
     assert "Fii concis" in generator.prompt
     # Cerințele vechi de citare rămân neatinse.
     assert "exact în forma [C1]" in generator.prompt
+    assert '"raspuns"' in generator.prompt and '"pasaje"' in generator.prompt
+    assert "JSON strict" in generator.prompt
+    assert "subșir literal" in generator.prompt
+    assert "maximum 600 caractere" in generator.prompt
+    assert "fără duplicate" in generator.prompt
+    assert "nu duplica chei JSON" in generator.prompt
 
 
 def test_promptul_nu_contine_identificatori_tehnici_sau_nume_de_sursa():
