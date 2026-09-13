@@ -5,12 +5,12 @@
 **OWNS:** `manual_ingestion_import.py`, `tests/test_manual_ingestion_import.py`, `docs/MANUAL_INGESTION_IMPORT_SPEC.md`, documentația de rulare, `TASKS.md`, `GATES.md`, `PLAN.md`, `docs/DECISIONS.md`.
 
 - [x] **MII-RED:** host: `python -m pytest -q tests/test_manual_ingestion_import.py` → 13 errors, exit 1, toate `ModuleNotFoundError: manual_ingestion_import`; runtime-ul lipsește intenționat. Testele mockuite fixează report/metadata/SHA, document nou insert-only, dry-run fără servicii și commit fail-closed. Dovezi: `manual-ingestion-import/mii-red.*`.
-- [x] **MII-LOCAL:** dry-run revalidează PDF/report/metadata/chunking fără DB/Voyage; proba host a exercitat chunking-ul implicit și a rămas locală. `--commit` simulat folosește numai INSERT, status exact pending și rollback la orice eșec.
+- [x] **MII-LOCAL:** dry-run revalidează PDF/report/metadata/chunking fără DB/Voyage; proba host a exercitat chunking-ul implicit și a rămas locală. `--commit` simulat folosește numai INSERT și status exact pending; erorile înainte de commit fac rollback. Excepția D17 `commit_unknown` nu face rollback sau retry și impune reconciliere DB read-only înainte de orice rerulare.
 - [x] **MII-COST:** duplicate/conflict sunt oprite înainte de clientul Voyage; loturile verifică numărul embedding-urilor, niciun retry automat; testele nu cheamă provider real.
 - [x] **MII-SECURITY:** conexiune TLS/timeout, SQL parametrizat/advisory locks, fără rezultat cu text/chunk/secrete; fără update/delete/approved/migrare/worker.
 - [x] **MII-REGRESSION:** host: focused `tests/test_manual_ingestion_import.py` → 15 passed; `python -m pytest -q` → 991 passed, 11 skipped, 1 warning extern TestClient, exit 0. Fără DB/Voyage real. Dovezi `manual-ingestion-import/mii-focused-recheck.*`, `mii-full.*`.
 - [x] **MII-CHECKPOINT:** diff verificat și GREEN este checkpointat pe branchul de lucru; SHA remote este consemnat în predare.
-- [ ] **MII-REVIEW:** QA este OK mock-first. Reviewer a blocat acceptarea operațională: commitul incert trebuie `commit_unknown`, fără rollback/retry, cu reconciliere DB read-only obligatorie. D17 este aprobat; RED host: 1 failed/14 passed, runtime actual întoarce `database_error`. Dovezi `manual-ingestion-import/mii-d17-red.*`. Urmează fix/GREEN/re-review. Niciun verdict local nu este aprobare pentru comandă reală `--commit`.
+- [ ] **MII-REVIEW:** QA este OK mock-first. Reviewer a blocat D17 și apoi a reconfirmat codul; a găsit contradicția de documentație, corectată aici și în walkthrough. `commit_unknown` nu are rollback/retry; PDF/report/metadata se păstrează, apoi reconciliere DB read-only după SHA/document/cod înainte de orice nouă aprobare. Urmează re-review strict al documentației. Niciun verdict local nu este aprobare pentru comandă reală `--commit`.
 
 ## MIP — preflight manual pentru un PDF (11-09-2026)
 

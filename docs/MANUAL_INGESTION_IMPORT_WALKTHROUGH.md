@@ -12,8 +12,8 @@
 8. Numai `--commit` încarcă configurarea, deschide PostgreSQL TLS cu timeout și aplică lock-uri pe SHA/document/cod.
 9. Identitățile existente sunt refuzate înainte de construirea clientului Voyage. Embedding-urile sunt cerute fără retry automat și sunt verificate ca număr.
 10. Inserările sunt doar `INSERT`: un document nou primește exact `indexed_pending_validation`, apoi chunk-urile lui. Nu există update, delete sau `approved`.
-11. La orice eroare se face rollback. Dacă Voyage a acceptat deja un apel iar DB eșuează ulterior, costul acelui apel poate exista fără document persistent.
+11. O eroare înainte de `connection.commit()` face rollback. Dacă Voyage a acceptat deja un apel iar DB eșuează ulterior, costul acelui apel poate exista fără document persistent. **Excepție D17:** dacă `connection.commit()` însuși dă eroare, statusul este `commit_unknown`; nu se face rollback și nu se reia importul.
 
 ## Limită operațională
 
-Codul și testele locale nu autorizează o comandă reală `--commit`. Pentru prima rulare este necesară aprobarea explicită a lui Lucian, cu PDF identificat, report/metadata, estimare de chunk-uri/cost și verificare DB read-only. `approved` cere o aprobare distinctă.
+Codul și testele locale nu autorizează o comandă reală `--commit`. Pentru prima rulare este necesară aprobarea explicită a lui Lucian, cu PDF identificat, report/metadata, estimare de chunk-uri/cost și verificare DB read-only. La `commit_unknown`, păstrezi PDF-ul, reportul și metadata neschimbate; faci obligatoriu reconciliere DB **read-only** după SHA/document/cod și nu rerulezi `--commit` fără o nouă aprobare explicită. `approved` cere o aprobare distinctă.
