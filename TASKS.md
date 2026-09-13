@@ -2,9 +2,9 @@
 
 ## Task activ — metadata operator-confirmed pentru NP 015-2022 (13-09-2026)
 
-**Contract aprobat:** `docs/MANUAL_METADATA_OVERRIDE_SPEC.md` / D18. Preflight-ul poate primi opțional metadata locală confirmată de Lucian, marcată explicit `operator_confirmed`; fără ea, blocarea automată rămâne. Parserul elimină numai virgula delimitatoare după articol valid; slash-ul rămâne blocat. Scope: preflight, importerul care verifică raportul, teste mockuite și documentație. Fără DB/Voyage/`approved`/worker/deploy.
+**MMO ACCEPTAT LOCAL:** Contractul D18 este implementat pe `fix/manual-metadata-preflight`: preflight-ul poate primi opțional metadata locală confirmată de Lucian, marcată explicit `operator_confirmed`; fără ea, blocarea automată rămâne. Parserul elimină numai virgula delimitatoare după articol valid; slash-ul rămâne blocat. Host: 32 țintite trec; **994 passed, 11 skipped, 1 warning** complet. QA și Reviewer read-only: LOCAL OK, fără finding de cod. Fără DB/Voyage/`approved`/worker/deploy.
 
-**Gates:** RED pentru metadata ambiguă fără override, metadata confirmată raportată corect și refuzuri de valori neconcordante; RED/GREEN pentru virgulă delimitatoare versus slash/virgulă ne-delimitatoare; host, checkpoint, QA și Reviewer secvențiale.
+**Următorul gate:** merge explicit aprobat în `main`; după merge, se creează manifestul local pentru NP 015-2022 și se rerulează preflight local. `--commit` DB+Voyage și `approved` rămân aprobări operaționale distincte.
 
 ## Deploy production verificat — 13-09-2026
 

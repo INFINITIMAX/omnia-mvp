@@ -1,5 +1,9 @@
 # NormativAI — vedere completă a proiectului
 
+## D18 acceptat local — metadata operator-confirmed (13-09-2026)
+
+Branchul `fix/manual-metadata-preflight` implementează preflight cu manifest local explicit pentru PDF-uri al căror cod nu poate fi extras sigur. Raportul distinge `operator_confirmed` de metadata extrasă automat, iar importerul compară identic toate cele patru câmpuri. Virgula delimitatoare după articol valid este acceptată; slash-ul și virgula ne-delimitatoare rămân blocate. Host: 32 teste țintite și 994 complete trec (11 skip-uri, 1 warning); QA și Reviewer fără finding-uri. Nu este încă integrat în `main`, iar DB/Voyage/`approved` și deploy nu sunt autorizate.
+
 ## Stare live verificată — 13-09-2026
 
 `main` SHA `4bc4973` este publicat manual în Railway. Deploymentul este `SUCCESS`; `https://normativai.ro/health` și rădăcina au răspuns 200, iar antetele HSTS/CSP/nosniff/frame deny sunt prezente. Smoke-ul nu a trimis `POST /intreaba`, deci nu a consumat Voyage/Anthropic și nu a importat date. Importerul manual rămâne validat numai mock-first/local: prima comandă DB + Voyage și orice `approved` cer aprobare operațională separată.
