@@ -229,7 +229,7 @@ def executor_real_controlat(result, embedder, generator):
 def test_adaptor_real_numara_apelurile_din_wrapuri_si_publica_numai_citarea_publica():
     embedder = EmbedderCounter()
     generator = GeneratorCounter()
-    executor = executor_real_controlat(SimpleNamespace(status="answered", evidence=(object(),)), embedder, generator)
+    executor = executor_real_controlat(SimpleNamespace(status="found", evidence=(object(),)), embedder, generator)
 
     rezultat = executor(evaluation.RealEvaluationCase("S01", "semantic", "semantic controlat?"), ConnectionFake())
 
