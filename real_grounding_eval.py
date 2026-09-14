@@ -10,8 +10,11 @@ from pathlib import Path
 import sys
 from typing import Callable, Mapping, Sequence
 
-from generation_core import GenerationService
-from main import AnthropicTextGenerator, VoyageQueryEmbedder, _open_db_connection
+from anthropic import Anthropic as AnthropicClient
+from voyageai import Client as VoyageClient
+
+from generation_core import GeneratedText, GenerationService
+from main import _open_db_connection
 from retrieval_core import (
     PostgresApprovedCatalogRepository,
     PostgresRetrievalRepository,
@@ -113,27 +116,96 @@ def _write_report_atomically(report_path: Path, report: Mapping[str, object]) ->
 
 
 class _CountingEmbedder:
-    """Numără doar apelurile acestui runner și delegă embedding-ul real sau fake."""
+    """Blochează apelul al nouălea înainte ca el să poată ajunge la Voyage."""
 
     def __init__(self, delegate: object) -> None:
         self._delegate = delegate
         self.calls = 0
 
     def embed_query(self, question: str) -> object:
+        if self.calls >= MAX_EMBEDDING_CALLS:
+            raise RealEvaluationError("cost_limit")
         self.calls += 1
         return self._delegate.embed_query(question)
 
 
 class _CountingGenerator:
-    """Numără doar generările acestui runner și delegă contractul generatorului."""
+    """Blochează generarea a șaptesprezecea înainte ca ea să poată ajunge la Anthropic."""
 
     def __init__(self, delegate: object) -> None:
         self._delegate = delegate
         self.calls = 0
 
     def generate(self, prompt: str, *, max_tokens: int) -> object:
+        if self.calls >= MAX_GENERATION_CALLS:
+            raise RealEvaluationError("cost_limit")
         self.calls += 1
         return self._delegate.generate(prompt, max_tokens=max_tokens)
+
+
+def _required_environment(name: str) -> str:
+    """Citește o cheie numai când rularea reală a fost confirmată explicit."""
+    value = os.getenv(name)
+    if not value:
+        raise RealEvaluationError("missing_environment")
+    return value
+
+
+class _RuntimeEmbedder:
+    """Adaptor Voyage local: un singur embedding validat pentru întrebarea curentă."""
+
+    model = "voyage-3.5"
+
+    def __init__(self, client: object) -> None:
+        self._client = client
+
+    def embed_query(self, question: str) -> tuple[float, ...]:
+        response = self._client.embed([question], model=self.model, input_type="query")
+        embeddings = getattr(response, "embeddings", None)
+        if not isinstance(embeddings, Sequence) or isinstance(embeddings, (str, bytes)) or len(embeddings) != 1:
+            raise RealEvaluationError("invalid_embedding")
+        vector = embeddings[0]
+        if not isinstance(vector, Sequence) or isinstance(vector, (str, bytes)) or not vector:
+            raise RealEvaluationError("invalid_embedding")
+        try:
+            return tuple(float(value) for value in vector)
+        except (TypeError, ValueError) as error:
+            raise RealEvaluationError("invalid_embedding") from error
+
+
+class _RuntimeGenerator:
+    """Adaptor Anthropic local care păstrează contractul `GeneratedText` al generatorului."""
+
+    model = "claude-sonnet-4-6"
+
+    def __init__(self, client: object) -> None:
+        self._client = client
+
+    def generate(self, prompt: str, *, max_tokens: int) -> GeneratedText:
+        response = self._client.messages.create(
+            model=self.model, max_tokens=max_tokens, messages=[{"role": "user", "content": prompt}]
+        )
+        content = getattr(response, "content", None)
+        if not isinstance(content, Sequence) or isinstance(content, (str, bytes)):
+            raise RealEvaluationError("invalid_generation")
+        texts = [
+            block.text
+            for block in content
+            if getattr(block, "type", None) == "text" and isinstance(getattr(block, "text", None), str) and block.text.strip()
+        ]
+        if not texts:
+            raise RealEvaluationError("invalid_generation")
+        return GeneratedText("\n".join(texts), truncated=getattr(response, "stop_reason", None) == "max_tokens")
+
+
+def _build_runtime_embedder() -> _RuntimeEmbedder:
+    """Construiește clientul Voyage fără retry, doar după opt-in-ul `--run`."""
+    return _RuntimeEmbedder(VoyageClient(api_key=_required_environment("VOYAGE_API_KEY"), timeout=30, max_retries=0))
+
+
+def _build_runtime_generator() -> _RuntimeGenerator:
+    """Construiește clientul Anthropic fără retry, doar după opt-in-ul `--run`."""
+    return _RuntimeGenerator(AnthropicClient(api_key=_required_environment("ANTHROPIC_API_KEY"), timeout=30, max_retries=0))
 
 
 def _citation_publica(citation: object) -> dict[str, str]:
@@ -150,8 +222,8 @@ def build_real_case_executor(
     catalog_factory: Callable[[object], object] = PostgresApprovedCatalogRepository,
     repository_factory: Callable[[object], object] = PostgresRetrievalRepository,
     retrieval_service_factory: Callable[[object, object, object], object] = RetrievalService,
-    embedder_factory: Callable[[], object] = VoyageQueryEmbedder,
-    generator_factory: Callable[[], object] = AnthropicTextGenerator,
+    embedder_factory: Callable[[], object] = _build_runtime_embedder,
+    generator_factory: Callable[[], object] = _build_runtime_generator,
     generation_service_factory: Callable[[object], object] = GenerationService,
 ) -> Callable[[RealEvaluationCase, object], Mapping[str, object]]:
     """Compune retrieval/generare direct, fără a folosi ruta publică sau contoare live."""
@@ -197,7 +269,7 @@ def build_real_case_executor(
 
 def build_runtime_executor() -> Callable[[RealEvaluationCase, object], Mapping[str, object]]:
     """Construiește adaptorii cu cheile încărcate lazy numai după `--run` explicit."""
-    return build_real_case_executor()
+    return build_real_case_executor(embedder_factory=_build_runtime_embedder, generator_factory=_build_runtime_generator)
 
 
 def run_isolated_evaluation(
