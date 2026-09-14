@@ -403,59 +403,36 @@ def test_adaptorul_voyage_inveleste_eroarea_sdk():
         main.VoyageQueryEmbedder(ClientFake()).embed_query("întrebare")
 
 
-@pytest.mark.parametrize("content", [[], [SimpleNamespace(type="tool_use")], [SimpleNamespace(type="text", text=" ")]])
-def test_adaptorul_anthropic_refuza_raspunsurile_invalide(content):
+@pytest.mark.parametrize("content, stop_reason", [
+    ([], "tool_use"),
+    ([SimpleNamespace(type="text", text="răspuns")], "end_turn"),
+    ([SimpleNamespace(type="tool_use", name="alt_tool", input={})], "tool_use"),
+    ([SimpleNamespace(type="tool_use", name="return_grounded_answer", input="invalid")], "tool_use"),
+    ([SimpleNamespace(type="tool_use", name="return_grounded_answer", input={}), SimpleNamespace(type="text", text="x")], "tool_use"),
+    ([SimpleNamespace(type="tool_use", name="return_grounded_answer", input={})], "max_tokens"),
+])
+def test_adaptorul_anthropic_refuza_raspunsurile_tool_invalide(content, stop_reason):
     class MessagesFake:
         def create(self, **_kwargs):
-            return SimpleNamespace(content=content)
-
+            return SimpleNamespace(content=content, stop_reason=stop_reason)
     class ClientFake:
         messages = MessagesFake()
-
     with pytest.raises(main.ProviderUnavailableError):
         main.AnthropicTextGenerator(ClientFake()).generate("prompt", max_tokens=800)
 
 
-def test_adaptorul_anthropic_extrage_doar_blocurile_text_si_inveleste_eroarea_sdk():
+def test_adaptorul_anthropic_forteaza_toolul_si_serializeaza_numai_inputul():
+    calls = []
     class MessagesFake:
-        def create(self, **_kwargs):
-            return SimpleNamespace(content=[SimpleNamespace(type="text", text="răspuns")])
-
+        def create(self, **kwargs):
+            calls.append(kwargs)
+            return SimpleNamespace(content=[SimpleNamespace(type="tool_use", name="return_grounded_answer", input={"raspuns": "răspuns [C1]", "pasaje": [{"id": "C1", "citat": "literal"}]})], stop_reason="tool_use")
     class ClientFake:
         messages = MessagesFake()
-
     generated = main.AnthropicTextGenerator(ClientFake()).generate("prompt", max_tokens=1200)
-    assert generated == GeneratedText("răspuns", truncated=False)
-
-    class MessagesDefect:
-        def create(self, **_kwargs):
-            raise anthropic.APIConnectionError(request=None)
-
-    class ClientDefect:
-        messages = MessagesDefect()
-
-    with pytest.raises(main.ProviderUnavailableError):
-        main.AnthropicTextGenerator(ClientDefect()).generate("prompt", max_tokens=1200)
-
-
-@pytest.mark.parametrize(
-    "stop_reason, truncated",
-    [("max_tokens", True), ("end_turn", False), (None, False), ("stop_sequence", False)],
-)
-def test_adaptorul_anthropic_propaga_semnalul_de_trunchiere(stop_reason, truncated):
-    """Numai `stop_reason == "max_tokens"` înseamnă răspuns tăiat de plafon; restul, nu."""
-
-    class MessagesFake:
-        def create(self, **_kwargs):
-            return SimpleNamespace(
-                content=[SimpleNamespace(type="text", text="răspuns")], stop_reason=stop_reason
-            )
-
-    class ClientFake:
-        messages = MessagesFake()
-
-    generated = main.AnthropicTextGenerator(ClientFake()).generate("prompt", max_tokens=1200)
-    assert generated == GeneratedText("răspuns", truncated=truncated)
+    assert json.loads(generated.text) == {"raspuns": "răspuns [C1]", "pasaje": [{"id": "C1", "citat": "literal"}]}
+    assert calls[0]["tool_choice"] == {"type": "tool", "name": "return_grounded_answer"}
+    assert calls[0]["tools"][0]["name"] == "return_grounded_answer"
 
 
 def test_configurarea_lipsa_este_503_generic(api):

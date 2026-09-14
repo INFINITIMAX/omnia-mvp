@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ipaddress
+import json
 import logging
 import math
 import os
@@ -150,9 +151,30 @@ class VoyageQueryEmbedder:
 
 
 class AnthropicTextGenerator:
-    """Adaptor lazy pentru Anthropic; clientul HTTP apare numai când există dovezi."""
+    """Adaptor Anthropic: acceptă exclusiv obiectul structurat al toolului forțat."""
 
     model = "claude-sonnet-4-6"
+    _TOOL_NAME = "return_grounded_answer"
+    _TOOL = {
+        "name": _TOOL_NAME,
+        "description": "Returnează exclusiv răspunsul fundamentat și citatele sale.",
+        "input_schema": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["raspuns", "pasaje"],
+            "properties": {
+                "raspuns": {"type": "string"},
+                "pasaje": {
+                    "type": "array",
+                    "items": {
+                        "type": "object", "additionalProperties": False,
+                        "required": ["id", "citat"],
+                        "properties": {"id": {"type": "string"}, "citat": {"type": "string"}},
+                    },
+                },
+            },
+        },
+    }
 
     def __init__(self, client: object | None = None) -> None:
         self._client = client
@@ -162,32 +184,25 @@ class AnthropicTextGenerator:
             if self._client is None:
                 self._client = Anthropic(api_key=_required_environment("ANTHROPIC_API_KEY"))
             response = self._client.messages.create(
-                model=self.model,
-                max_tokens=max_tokens,
-                messages=[{"role": "user", "content": prompt}],
+                model=self.model, max_tokens=max_tokens, messages=[{"role": "user", "content": prompt}],
+                tools=[self._TOOL], tool_choice={"type": "tool", "name": self._TOOL_NAME},
             )
         except AnthropicError as error:
             raise ProviderUnavailableError("Anthropic indisponibil") from error
-        return self._validated_text(response)
+        return self._validated_tool_response(response)
 
-    @staticmethod
-    def _validated_text(response: object) -> GeneratedText:
+    @classmethod
+    def _validated_tool_response(cls, response: object) -> GeneratedText:
         content = getattr(response, "content", None)
-        if not isinstance(content, Sequence) or isinstance(content, (str, bytes)) or not content:
+        if getattr(response, "stop_reason", None) == "max_tokens":
             raise ProviderUnavailableError("răspuns Anthropic invalid")
-        texts = [
-            block.text
-            for block in content
-            if getattr(block, "type", None) == "text"
-            and isinstance(getattr(block, "text", None), str)
-            and block.text.strip()
-        ]
-        if not texts:
+        if not isinstance(content, Sequence) or isinstance(content, (str, bytes)) or len(content) != 1:
             raise ProviderUnavailableError("răspuns Anthropic invalid")
-        # `stop_reason == "max_tokens"` e singurul caz în care Anthropic a tăiat răspunsul
-        # la plafon; orice altă valoare (sau lipsa câmpului) înseamnă răspuns netrunchiat.
-        truncated = getattr(response, "stop_reason", None) == "max_tokens"
-        return GeneratedText("\n".join(texts), truncated=truncated)
+        block = content[0]
+        tool_input = getattr(block, "input", None)
+        if getattr(block, "type", None) != "tool_use" or getattr(block, "name", None) != cls._TOOL_NAME or not isinstance(tool_input, dict):
+            raise ProviderUnavailableError("răspuns Anthropic invalid")
+        return GeneratedText(json.dumps(tool_input, ensure_ascii=False), truncated=False)
 
 
 class _PaidCallBudgetGuard:
