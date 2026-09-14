@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -154,3 +155,118 @@ def test_runner_nu_importa_sau_apeleaza_ruta_fastapi_si_nu_cunoaste_bugete_live(
 
     forbidden = ("FastAPI", "TestClient", "POST /intreaba", "paid_call_budget", "reserve_paid_call")
     assert all(value not in source for value in forbidden)
+
+
+class EmbedderCounter:
+    def __init__(self):
+        self.calls = 0
+
+    def embed_query(self, _question):
+        self.calls += 1
+        return (0.1, 0.2)
+
+
+class GeneratorCounter:
+    def __init__(self):
+        self.calls = 0
+
+    def generate(self, _prompt, *, max_tokens):
+        self.calls += 1
+        assert max_tokens == 1200
+        return '{"raspuns":"pachet controlat","pasaje":[]}'
+
+
+class CatalogFake:
+    def create_parser(self):
+        return "parser-controlat"
+
+
+class RetrievalFake:
+    def __init__(self, _parser, _repository, embedder, result):
+        self.embedder = embedder
+        self.result = result
+
+    def retrieve(self, question, _context=()):
+        if question.startswith("semantic"):
+            self.embedder.embed_query(question)
+        return self.result
+
+
+class GenerationServiceFake:
+    def __init__(self, generator):
+        self.generator = generator
+
+    def generate(self, _question, _evidence):
+        self.generator.generate("prompt-controlat", max_tokens=1200)
+        return SimpleNamespace(
+            raspuns="Răspuns real controlat.",
+            citari=(
+                SimpleNamespace(
+                    id="C1",
+                    cod_document="NP TEST-1",
+                    titlu_document="Titlu public",
+                    articol="1.1.",
+                    citat="Pasaj public controlat.",
+                    source_key="nu-este-public",
+                ),
+            ),
+        )
+
+
+def executor_real_controlat(result, embedder, generator):
+    return evaluation.build_real_case_executor(
+        catalog_factory=lambda _connection: CatalogFake(),
+        repository_factory=lambda _connection: object(),
+        retrieval_service_factory=lambda parser, repository, injected_embedder: RetrievalFake(
+            parser, repository, injected_embedder, result
+        ),
+        embedder_factory=lambda: embedder,
+        generator_factory=lambda: generator,
+        generation_service_factory=GenerationServiceFake,
+    )
+
+
+def test_adaptor_real_numara_apelurile_din_wrapuri_si_publica_numai_citarea_publica():
+    embedder = EmbedderCounter()
+    generator = GeneratorCounter()
+    executor = executor_real_controlat(SimpleNamespace(status="answered", evidence=(object(),)), embedder, generator)
+
+    rezultat = executor(evaluation.RealEvaluationCase("S01", "semantic", "semantic controlat?"), ConnectionFake())
+
+    assert rezultat["embedding_calls"] == 1
+    assert rezultat["generation_calls"] == 1
+    assert rezultat["citations"] == [
+        {
+            "id": "C1",
+            "cod_document": "NP TEST-1",
+            "titlu_document": "Titlu public",
+            "articol": "1.1.",
+            "citat": "Pasaj public controlat.",
+        }
+    ]
+    assert "source_key" not in json.dumps(rezultat, ensure_ascii=False)
+
+
+@pytest.mark.parametrize("status", ("not_found", "ambiguous_article", "ambiguous_reference", "unsupported_answer"))
+def test_adaptor_real_nu_genereaza_pentru_status_fara_dovezi(status):
+    embedder = EmbedderCounter()
+    generator = GeneratorCounter()
+    executor = executor_real_controlat(SimpleNamespace(status=status, evidence=()), embedder, generator)
+
+    rezultat = executor(evaluation.RealEvaluationCase("N01", "negative", "întrebare negativă?"), ConnectionFake())
+
+    assert rezultat["status"] == status
+    assert rezultat["answer"] == ""
+    assert rezultat["citations"] == []
+    assert rezultat["generation_calls"] == generator.calls == 0
+
+
+def test_cli_refuza_rularea_fara_run_fara_sa_construiasca_provider(monkeypatch, tmp_path):
+    manifest = scrie_manifest(tmp_path)
+    report = tmp_path / "r05-report.json"
+    invoked = []
+    monkeypatch.setattr(evaluation, "build_runtime_executor", lambda: invoked.append(True))
+
+    assert evaluation.main(["--manifest", str(manifest), "--report", str(report)]) == 2
+    assert invoked == []
+    assert not report.exists()
