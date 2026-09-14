@@ -1,13 +1,13 @@
 # NormativAI — vedere completă a proiectului
 
-## D22 pregătit pentru review — output Anthropic structurat prin tool (14-09-2026)
+## D22 live — output Anthropic structurat prin tool (14-09-2026)
 
-Pentru a elimina JSON-ul text liber corupt, Anthropic este forțat să emită toolul `return_grounded_answer`, cu schema strictă a răspunsului și pasajelor. Serverul acceptă numai un singur tool valid și îl trece prin validările R06 existente; nu există fallback text liber sau retry nou. Implementat și împins local, fără provider real, DB, merge sau deploy.
+Pentru a elimina JSON-ul text liber corupt, Anthropic este forțat să emită toolul `return_grounded_answer`, cu schema strictă a răspunsului și pasajelor. Serverul acceptă numai un singur tool valid și îl trece prin validările R06 existente; nu există fallback text liber sau retry nou. D22 este live în `main` SHA `e895605`, Railway deployment `7d8eaf9b-d860-4ed1-b8a3-24feeae5bef6` (`SUCCESS`); healthcheck `200`, iar proba semantică aprobată a răspuns `200` cu 2 citări.
 
 
-## D21 pregătit pentru deploy — diagnostic sigur pentru validarea generării (14-09-2026)
+## D21 live — diagnostic sigur pentru validarea generării (14-09-2026)
 
-După un `503` semantic rămas, Lucian a aprobat D21: când `POST /intreaba` prinde o `GenerationValidationError`, runtime-ul loghează numai clasa internă și un cod stabil whitelistat. Nu loghează întrebarea, evidence, răspunsul/payloadul modelului, excepția/traceback-ul, date DB sau secrete; HTTP public rămâne `503` generic. D21 nu modifică retrieval-ul, validarea, quota, DB sau providerii. Este comis și împins, cu verificare host și review OK; fără provider real, DB write, merge sau deploy.
+După un `503` semantic rămas, Lucian a aprobat D21: când `POST /intreaba` prinde o `GenerationValidationError`, runtime-ul loghează numai clasa internă și un cod stabil whitelistat. Nu loghează întrebarea, evidence, răspunsul/payloadul modelului, excepția/traceback-ul, date DB sau secrete; HTTP public rămâne `503` generic. D21 este live în `main` SHA `42dcc52`, Railway deployment `da48a9af-efa4-4190-aeca-4246c5627448` (`SUCCESS`); fără provider real sau DB write pentru diagnostic.
 
 ## D20/R06 live — pasaj public literal derivat server-side (14-09-2026)
 

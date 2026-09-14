@@ -1,8 +1,8 @@
 # TASKS — Omnia
 
-## Task activ — D22, output Anthropic structurat prin tool (14-09-2026)
+## D22 live — output Anthropic structurat prin tool (14-09-2026)
 
-**Contract aprobat:** Anthropic returnează exclusiv toolul `return_grounded_answer`; inputul structurat trece prin R06, fără fallback text liber sau retry nou. Stare: implementat și împins pe `feat/d22-anthropic-tool-output`; teste host verzi, review/deploy rămân gate-uri.
+**Contract aprobat:** Anthropic returnează exclusiv toolul `return_grounded_answer`; inputul structurat trece prin R06, fără fallback text liber sau retry nou. D22 este live în `main` SHA `e895605`, Railway deployment `7d8eaf9b-d860-4ed1-b8a3-24feeae5bef6` (`SUCCESS`); healthcheck `200` și proba semantică aprobată a răspuns `200` cu 2 citări.
 
 
 ## D21 live — diagnostic sigur pentru validarea generării (14-09-2026)
