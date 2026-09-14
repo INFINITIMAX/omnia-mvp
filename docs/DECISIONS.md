@@ -4,6 +4,12 @@ Acest fișier separă deciziile explicite ale lui Lucian de propunerile agențil
 
 ## Decizii active
 
+### D20 — pasaj literal determinist la nepotrivirea textului, aprobat Lucian (14-09-2026)
+
+Pentru un pachet R06 unde ID-ul citării este valid și folosit, iar `citat` este text nevid de maximum 600 de caractere, dar nu apare literal în propria dovadă, Lucian aprobă înlocuirea server-side a **numai textului public al pasajului**. Backend-ul alege determinist cel mult 600 de caractere originale, de la primul caracter non-whitespace al dovezii acelui ID; dacă dovada nu are text publicabil, răspunsul rămâne fail-closed. Nu se folosește text din altă dovadă, nu se modifică ID-ul, răspunsul sau metadata și nu se reîncearcă providerul pentru această nepotrivire. Citatele deja valide, inclusiv diferențele exclusiv de whitespace acceptate, rămân neschimbate. Schema/ID/mapare/pasaj lipsă, gol sau prea lung rămân erori fără fallback. Retry-ul existent pentru referințe normative nesusținute nu se schimbă. Decizia nu aprobă DB, migrare, apel API real, commit/push sau deploy.
+
+**Valoare CV:** fail-safe grounding cu derivare deterministă server-side a artefactului public, separată de outputul variabil al modelului.
+
 ### D19 — R05 real izolat, aprobat Lucian (13-09-2026)
 
 Lucian aprobă pilotul R05 cu 20 cazuri, set propus de agent și validat de Lucian, cu cost estimat sub 0,55 USD și limită operațională aprobată de 1 USD. Rularea reală folosește evaluator izolat: DB numai `readonly`, fără `POST /intreaba`, quota, rate limit sau `paid_call_budget`; fără retry. Providerii Voyage/Anthropic pot fi apelați numai prin comandă concretă aprobată separat, iar verdictul semantic este uman.

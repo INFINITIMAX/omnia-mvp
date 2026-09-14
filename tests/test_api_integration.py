@@ -1665,14 +1665,12 @@ def _r06_payload(answer="Răspuns [C1].", quote="fragment public"):
     }, ensure_ascii=False)
 
 
-@pytest.mark.parametrize("payload, expected_calls", [
-    pytest.param(_r06_payload(quote="pasaj fabricat"), 2, id="pasaj-invalid-retry"),
-    pytest.param(_r06_payload(answer="Conform STAS 987654321 [C1].", quote="pasaj fabricat"), 2, id="invalid-inainte-de-retry"),
-    pytest.param('{"raspuns":"Răspuns [C1]."}', 1, id="pasaje-lipsa-fara-retry"),
-    pytest.param(GeneratedText(_r06_payload()[:-1], truncated=True), 1, id="json-incomplet-trunchiat-fara-retry"),
-    pytest.param(GeneratedText(_r06_payload(quote="fabricat"), truncated=True), 1, id="pasaj-invalid-trunchiat-fara-retry"),
+@pytest.mark.parametrize("payload", [
+    pytest.param('{"raspuns":"Răspuns [C1]."}', id="pasaje-lipsa"),
+    pytest.param(GeneratedText(_r06_payload()[:-1], truncated=True), id="json-incomplet-trunchiat"),
+    pytest.param(_r06_payload(quote="x" * 601), id="pasaj-prea-lung"),
 ])
-def test_r06_pasaj_invalid_503_rollback_quota_exact_cu_retry_limitat(api, payload, expected_calls):
+def test_r06_schema_sau_valoare_invalida_503_rollback_quota_exact_fara_retry(api, payload):
     connection = R06TransactionConnection()
     budget_connection = ConnectionFake()
     generator = RawGeneratorFake(payload)
@@ -1685,7 +1683,7 @@ def test_r06_pasaj_invalid_503_rollback_quota_exact_cu_retry_limitat(api, payloa
 
     assert response.status_code == 503
     assert response.json() == {"detail": "Serviciul este temporar indisponibil."}
-    assert generator.calls == expected_calls and embedder.calls == 0
+    assert generator.calls == 1 and embedder.calls == 0
     assert generator.max_tokens == 1200
     assert connection.commits == 1 and connection.rollbacks == 1
     assert connection.events == ["rate", "commit", "quota", "rollback"]
@@ -1704,16 +1702,32 @@ def test_r06_pasaj_invalid_503_rollback_quota_exact_cu_retry_limitat(api, payloa
     assert second.json()["intrebari_ramase"] == 9
     assert connection.questions_used == 1 and connection.rate_requests == 2
     assert connection.commits == 3 and connection.rollbacks == 1
-    assert generator.calls == expected_calls + 1
+    assert generator.calls == 2
     assert budget_connection.commits == 2 and budget_connection.rollbacks == 0
     quota_parameters = [parameters for sql, parameters in connection.calls if "INSERT INTO public.anonymous_usage" in sql]
     assert len(quota_parameters) == 2 and quota_parameters[0] == quota_parameters[1]
 
 
-def test_r06_pasaj_invalid_rollback_esuat_ramane_503_dupa_retry_limitat(api):
+def test_r06_pasaj_neprovenit_este_inlocuit_server_fara_al_doilea_apel(api):
+    connection = R06TransactionConnection()
+    budget_connection = ConnectionFake()
+    generator = RawGeneratorFake(_r06_payload(quote="pasaj fabricat"))
+
+    response = configure(api, connection, generator=generator, budget_connection=budget_connection).post(
+        "/intreaba", json={"intrebare": "art. 4.4.7.2"}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["citari"][0]["citat"] == "fragment public"
+    assert generator.calls == 1
+    assert connection.commits == 2 and connection.rollbacks == 0
+    assert budget_connection.commits == 1 and budget_connection.rollbacks == 0
+
+
+def test_r06_schema_invalida_rollback_esuat_ramane_503_fara_retry(api):
     connection = R06TransactionConnection(rollback_error=psycopg2.OperationalError("rollback fictiv"))
     budget_connection = ConnectionFake()
-    generator = RawGeneratorFake(_r06_payload(quote="fabricat"))
+    generator = RawGeneratorFake('{"raspuns":"Răspuns [C1]."}')
 
     response = configure(api, connection, generator=generator, budget_connection=budget_connection).post(
         "/intreaba", json={"intrebare": "art. 4.4.7.2"}
@@ -1723,7 +1737,7 @@ def test_r06_pasaj_invalid_rollback_esuat_ramane_503_dupa_retry_limitat(api):
     assert response.json() == {"detail": "Serviciul este temporar indisponibil."}
     assert connection.commits == 1 and connection.rollbacks == 1
     assert connection.closed and connection.rate_requests == 1
-    assert generator.calls == 2
+    assert generator.calls == 1
     assert budget_connection.commits == 1 and budget_connection.rollbacks == 0
     _assert_no_technical_identifiers(response)
 

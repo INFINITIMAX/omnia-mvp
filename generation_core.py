@@ -57,14 +57,6 @@ class InvalidGenerationPayloadError(GenerationValidationError):
     """Pachetul JSON sau pasajele declarate încalcă contractul de proveniență."""
 
 
-class InvalidPassageProvenanceError(InvalidGenerationPayloadError):
-    """Un citat text valid ca formă nu apare în dovada asociată."""
-
-    def __init__(self, message: str, *, retry_allowed: bool = True) -> None:
-        super().__init__(message)
-        self.retry_allowed = retry_allowed
-
-
 class EmptyGeneratedAnswerError(GenerationValidationError):
     """Generatorul a returnat un răspuns gol."""
 
@@ -155,6 +147,17 @@ def _normalized_code(text: str) -> str:
 def _normalized_whitespace(text: str) -> str:
     """Păstrează toate caracterele semnificative și uniformizează numai whitespace Unicode."""
     return " ".join(text.split())
+
+
+def _literal_evidence_excerpt(content: str) -> str:
+    """Extrage determinist maximum 600 de caractere literale din propria dovadă."""
+    first_non_whitespace = re.search(r"\S", content)
+    if first_non_whitespace is None:
+        raise InvalidGenerationPayloadError("dovada nu conține pasaj literal publicabil")
+    excerpt = content[first_non_whitespace.start():first_non_whitespace.start() + MAX_CITATION_CHARS]
+    if not excerpt.strip() or excerpt not in content:
+        raise InvalidGenerationPayloadError("dovada nu conține pasaj literal publicabil")
+    return excerpt
 
 
 def _supported_reference_fragments(evidence: Sequence[Evidence]) -> tuple[str, ...]:
@@ -267,22 +270,9 @@ class GenerationService:
         supported_fragments = _supported_reference_fragments([item for _, item in assigned])
         prompt = self._build_prompt(question, assigned)
 
-        provenance_retry_used = False
-        try:
-            generated, used_ids, passages = self._generate_validated(prompt, evidence_by_id)
-        except InvalidPassageProvenanceError as error:
-            if not error.retry_allowed:
-                raise
-            provenance_retry_used = True
-            generated, used_ids, passages = self._generate_validated(
-                self._provenance_retry_prompt(prompt), evidence_by_id
-            )
+        generated, used_ids, passages = self._generate_validated(prompt, evidence_by_id)
         unsupported = _unsupported_normative_references(generated.text, supported_fragments)
         if unsupported:
-            if provenance_retry_used:
-                raise UngroundedReferenceError(
-                    "răspunsul invocă referințe normative care nu apar în dovezi"
-                )
             # O SINGURĂ reîncercare plătită, niciodată în buclă: dacă și a doua încercare
             # inventează referințe, refuzăm în loc să afișăm răspunsul.
             generated, used_ids, passages = self._generate_validated(
@@ -320,12 +310,7 @@ class GenerationService:
         if not isinstance(answer, str) or not answer.strip():
             raise EmptyGeneratedAnswerError("generatorul a returnat un răspuns gol")
         used_ids = self._validated_used_ids(answer, set(evidence_by_id))
-        try:
-            passages = self._validated_passages(payload["pasaje"], used_ids, evidence_by_id)
-        except InvalidPassageProvenanceError as error:
-            if generated.truncated:
-                raise InvalidPassageProvenanceError(str(error), retry_allowed=False) from error
-            raise
+        passages = self._validated_passages(payload["pasaje"], used_ids, evidence_by_id)
         return GeneratedText(answer, truncated=generated.truncated), used_ids, passages
 
     @staticmethod
@@ -373,8 +358,8 @@ class GenerationService:
             if not isinstance(quote, str) or not quote.strip() or len(quote) > MAX_CITATION_CHARS:
                 raise InvalidGenerationPayloadError("pasaj invalid")
             if _normalized_whitespace(quote) not in _normalized_whitespace(evidence_by_id[citation_id].content):
-                raise InvalidPassageProvenanceError("pasaj fără proveniență literală validă")
-            # Păstrăm textul original; strip() de mai sus verifică doar lipsa conținutului.
+                quote = _literal_evidence_excerpt(evidence_by_id[citation_id].content)
+            # Păstrăm citatul valid al modelului; pentru nepotrivire, pasajul vine literal din dovadă.
             passages[citation_id] = quote
         if set(passages) != set(used_ids):
             raise InvalidGenerationPayloadError("lipsește un pasaj citat")
@@ -392,15 +377,6 @@ class GenerationService:
         if not isinstance(generated.text, str) or not generated.text.strip():
             raise EmptyGeneratedAnswerError("generatorul a returnat un răspuns gol")
         return generated
-
-    @staticmethod
-    def _provenance_retry_prompt(prompt: str) -> str:
-        """Cere o singură corecție a citatului, fără a accepta text neverificat."""
-        return (
-            f"{prompt}\n"
-            "Pasajul anterior nu era un subșir literal exact din dovada asociată. Răspunde din nou "
-            "cu aceeași schemă JSON și copiază fiecare citat ca subșir literal exact din dovada cu același ID."
-        )
 
     @staticmethod
     def _retry_prompt(prompt: str, unsupported: Sequence[str]) -> str:

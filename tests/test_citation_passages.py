@@ -268,13 +268,26 @@ def test_citation_passages_respinge_schema_sau_valoare_invalida_fara_retry(evide
     pytest.param("Carcasa fictivă este turcoaz!", id="punctuatie-schimbata"),
     pytest.param("Carcasa fictivă este roz.", id="text-fabricat"),
 ])
-def test_citation_passages_reincearca_numai_nepotrivirea_de_provenienta(evidence_pair, quote):
+def test_citation_passages_neprovenit_este_inlocuit_literal_din_propria_dovada(evidence_pair, quote):
     payload = encode_payload(f"{PASSAGE_C1} [C1]", [{"id": "C1", "citat": quote}])
-    generator = RawSequenceGenerator((payload, payload))
-    with pytest.raises(GenerationValidationError):
-        GenerationService(generator).generate(QUESTION, evidence_pair)
-    assert generator.calls == 2
-    assert generator.token_limits == [1200, 1200]
+    generator = RawGenerator(payload)
+
+    result = GenerationService(generator).generate(QUESTION, evidence_pair)
+
+    assert [(citation.id, citation.citat) for citation in result.citari] == [
+        ("C1", evidence_pair[0].content[:600])
+    ]
+    assert result.citari[0].citat in evidence_pair[0].content
+    assert result.citari[0].citat != PASSAGE_C2
+    assert generator.calls == 1
+    assert generator.token_limits == [1200]
+
+
+def test_citation_passages_neprovenit_fara_text_in_dovada_ramane_fail_closed():
+    evidence = (make_evidence(1, " \t\n "),)
+    payload = encode_payload("Afirmație [C1]", [{"id": "C1", "citat": "pasaj fabricat"}])
+
+    assert_rejected_once(payload, evidence)
 
 
 @pytest.mark.parametrize("quote", [
@@ -363,9 +376,14 @@ def test_citation_passages_json_incomplet_trunchiat_nu_se_repara(evidence_pair, 
     assert_rejected_once(GeneratedText(payload, truncated=True), evidence_pair)
 
 
-def test_citation_passages_json_complet_citat_invalid_trunchiat_este_eroare(evidence_pair):
+def test_citation_passages_json_complet_citat_neprovenit_trunchiat_primeste_pasaj_server(evidence_pair):
     payload = encode_payload("Carcasa este turcoaz. [C1]", [{"id": "C1", "citat": PASSAGE_C2}])
-    assert_rejected_once(GeneratedText(payload, truncated=True), evidence_pair)
+    generator = RawGenerator(GeneratedText(payload, truncated=True))
+
+    result = GenerationService(generator).generate(QUESTION, evidence_pair)
+
+    assert result.citari[0].citat == evidence_pair[0].content[:600]
+    assert generator.calls == 1
 
 
 @pytest.mark.parametrize("constant", ["NaN", "Infinity", "-Infinity"])
@@ -410,33 +428,6 @@ class RawSequenceGenerator(RawGenerator):
         return super().generate(prompt, max_tokens=max_tokens)
 
 
-def test_citation_passages_retry_provenienta_cere_subsir_literal_si_publica_al_doilea_raspuns(evidence_pair):
-    first = encode_payload(PASSAGE_C1 + " [C1]", [{"id": "C1", "citat": "Carcasa fictivă este roz."}])
-    second = encode_payload(PASSAGE_C1 + " [C1]", [{"id": "C1", "citat": PASSAGE_C1}])
-    generator = RawSequenceGenerator((first, second))
-
-    result = GenerationService(generator).generate(QUESTION, evidence_pair)
-
-    assert result.raspuns == PASSAGE_C1 + " [C1]"
-    assert [(citation.id, citation.citat) for citation in result.citari] == [("C1", PASSAGE_C1)]
-    assert generator.calls == 2
-    assert generator.token_limits == [1200, 1200]
-    assert "subșir literal exact" in generator.prompts[1]
-
-
-def test_citation_passages_retry_provenienta_nu_declanseaza_al_treilea_apel_pentru_referinta_nesustinuta(evidence_pair):
-    first = encode_payload(PASSAGE_C1 + " [C1]", [{"id": "C1", "citat": "Carcasa fictivă este roz."}])
-    second = encode_payload(
-        "Conform STAS 987654321 [C1]", [{"id": "C1", "citat": PASSAGE_C1}]
-    )
-    generator = RawSequenceGenerator((first, second))
-
-    with pytest.raises(UngroundedReferenceError):
-        GenerationService(generator).generate(QUESTION, evidence_pair)
-
-    assert generator.calls == 2
-
-
 def test_citation_passages_retry_verifica_referinta_decodata_si_foloseste_noile_pasaje(evidence_pair):
     first = encode_payload(
         "Conform STAS 987654321 [C1].", [{"id": "C1", "citat": PASSAGE_C1}]
@@ -453,7 +444,7 @@ def test_citation_passages_retry_verifica_referinta_decodata_si_foloseste_noile_
     assert result.citari[0].cod_document == evidence_pair[1].cod_document
 
 
-def test_citation_passages_invalid_la_retry_nu_reutilizeaza_primul_citat_valid(evidence_pair):
+def test_citation_passages_pasaj_neprovenit_la_retry_referinta_ramane_server_literal(evidence_pair):
     first = encode_payload(
         "Conform STAS 987654321 [C1].", [{"id": "C1", "citat": PASSAGE_C1}]
     )
@@ -462,10 +453,9 @@ def test_citation_passages_invalid_la_retry_nu_reutilizeaza_primul_citat_valid(e
     )
     generator = RawSequenceGenerator((first, second))
 
-    with pytest.raises(GenerationValidationError) as caught:
+    with pytest.raises(UngroundedReferenceError):
         GenerationService(generator).generate(QUESTION, evidence_pair)
 
-    assert type(caught.value).__name__ != "UngroundedReferenceError"
     assert generator.calls == 2 and generator.token_limits == [1200, 1200]
 
 

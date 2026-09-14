@@ -1,5 +1,11 @@
 # TASKS — Omnia
 
+## Task activ — D20/R06, pasaj public literal derivat server-side (14-09-2026)
+
+**Contract aprobat:** pentru un `pasaje.citat` textual, nevid și de maximum 600 caractere al unui ID valid/folosit, dar fără proveniență literală în propria evidence, serverul îl înlocuiește cu un excerpt literal determinist din aceeași evidence: începe la primul caracter non-whitespace și are cel mult 600 caractere originale. Nu se alege text din altă evidence, nu se schimbă ID-ul/răspunsul/metadata și nu se face retry provider pentru acest caz. Evidence fără text publicabil, JSON/schema/ID/mapare/pasaj lipsă-gol-prea lung rămân fail-closed. Retry-ul existent pentru referințe normative nesusținute este separat și neschimbat. D20 este în `docs/DECISIONS.md`.
+
+**Stare:** implementare locală și regresii în lucru; nu s-au apelat provideri, nu s-a modificat DB și nu există commit/push/deploy. Urmează teste host, QA/Reviewer și aprobare explicită de publicare.
+
 ## Task activ — metadata operator-confirmed pentru NP 015-2022 (13-09-2026)
 
 **MMO ACCEPTAT LOCAL:** Contractul D18 este implementat pe `fix/manual-metadata-preflight`: preflight-ul poate primi opțional metadata locală confirmată de Lucian, marcată explicit `operator_confirmed`; fără ea, blocarea automată rămâne. Parserul elimină numai virgula delimitatoare după articol valid; slash-ul rămâne blocat. Host: 32 țintite trec; **994 passed, 11 skipped, 1 warning** complet. QA și Reviewer read-only: LOCAL OK, fără finding de cod. Fără DB/Voyage/`approved`/worker/deploy.

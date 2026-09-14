@@ -1,5 +1,11 @@
 # NormativAI — vedere completă a proiectului
 
+## D20/R06 în implementare locală — pasaj public literal derivat server-side (14-09-2026)
+
+După confirmarea unui `503` semantic live provocat de citate model nepublicabile, Lucian a aprobat D20: dacă ID-ul citării este valid/folosit și citatul este text nevid de maximum 600 caractere, dar nu apare în propria evidence, backend-ul publică un excerpt literal determinist din acea evidence. Excerptul pornește de la primul caracter non-whitespace și are cel mult 600 caractere originale; nu folosește altă evidence, nu schimbă răspunsul/ID-ul/metadata și nu reîncearcă providerul. Evidence fără text publicabil, schema/ID/mapare/pasaj lipsă-gol-prea lung rămân fail-closed; retry-ul pentru referințe normative nesusținute rămâne separat. Schimbarea este locală în acest moment: fără DB, provider real, commit/push sau deploy; teste, QA/Reviewer și aprobarea de producție rămân gate-uri obligatorii.
+
+**Valoare CV:** citare verificabilă bazată pe evidence, cu transformare deterministă controlată de server în locul publicării textului variabil al modelului.
+
 ## D18 acceptat local — metadata operator-confirmed (13-09-2026)
 
 Branchul `fix/manual-metadata-preflight` implementează preflight cu manifest local explicit pentru PDF-uri al căror cod nu poate fi extras sigur. Raportul distinge `operator_confirmed` de metadata extrasă automat, iar importerul compară identic toate cele patru câmpuri. Virgula delimitatoare după articol valid este acceptată; slash-ul și virgula ne-delimitatoare rămân blocate. Host: 32 teste țintite și 994 complete trec (11 skip-uri, 1 warning); QA și Reviewer fără finding-uri. Nu este încă integrat în `main`, iar DB/Voyage/`approved` și deploy nu sunt autorizate.
