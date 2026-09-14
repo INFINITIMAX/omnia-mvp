@@ -3,6 +3,7 @@
 import base64
 import hashlib
 import importlib
+import logging
 import json
 import re
 from dataclasses import dataclass
@@ -1706,6 +1707,30 @@ def test_r06_schema_sau_valoare_invalida_503_rollback_quota_exact_fara_retry(api
     assert budget_connection.commits == 2 and budget_connection.rollbacks == 0
     quota_parameters = [parameters for sql, parameters in connection.calls if "INSERT INTO public.anonymous_usage" in sql]
     assert len(quota_parameters) == 2 and quota_parameters[0] == quota_parameters[1]
+
+
+def test_r06_validation_logheaza_numai_clasa_si_codul_sigur_fara_payload_sau_evidence(api, caplog):
+    connection = R06TransactionConnection()
+    generator = RawGeneratorFake(
+        json.dumps({
+            "raspuns": "MODEL_ANSWER_SHOULD_NOT_LOG [C1]",
+            "pasaje": [{"id": "C1", "citat": "x" * 601}],
+        })
+    )
+    caplog.set_level(logging.WARNING, logger="main")
+
+    response = configure(api, connection, generator=generator).post(
+        "/intreaba", json={"intrebare": "QUESTION_SHOULD_NOT_LOG"}
+    )
+
+    assert response.status_code == 503
+    records = [record for record in caplog.records if record.name == "main"]
+    assert [record.getMessage() for record in records] == [
+        "generation_validation_failed class=InvalidGenerationPayloadError code=passage_value"
+    ]
+    assert "QUESTION_SHOULD_NOT_LOG" not in caplog.text
+    assert "MODEL_ANSWER_SHOULD_NOT_LOG" not in caplog.text
+    assert "fragment public" not in caplog.text
 
 
 def test_r06_pasaj_neprovenit_este_inlocuit_server_fara_al_doilea_apel(api):

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ipaddress
+import logging
 import math
 import os
 from dataclasses import dataclass
@@ -33,14 +34,46 @@ from access_control import (
     verify_anonymous_cookie,
 )
 from generation_core import (
+    EmptyGeneratedAnswerError,
     GeneratedText,
     GenerationService,
     GenerationValidationError,
+    InvalidGenerationPayloadError,
+    MissingCitationError,
     PublicCitation,
     UngroundedReferenceError,
+    UnknownCitationError,
 )
 from scope_core import is_engineering_calculation_request
 load_dotenv()
+
+_LOGGER = logging.getLogger(__name__)
+_GENERATION_VALIDATION_CODES: dict[type[GenerationValidationError], str] = {
+    EmptyGeneratedAnswerError: "empty_answer",
+    MissingCitationError: "missing_citation",
+    UnknownCitationError: "unknown_citation",
+}
+_INVALID_PAYLOAD_CODES = {
+    "cheie JSON duplicată": "json_duplicate_key",
+    "constantă JSON invalidă": "json_invalid_constant",
+    "pachet JSON invalid": "json_invalid",
+    "schema pachetului este invalidă": "schema_payload",
+    "lista pasajelor este invalidă": "schema_passages",
+    "schema pasajului este invalidă": "schema_passage",
+    "identificator de pasaj invalid": "citation_id",
+    "mapare de pasaje invalidă": "passage_mapping",
+    "pasaj invalid": "passage_value",
+    "lipsește un pasaj citat": "passage_missing",
+    "dovada nu conține pasaj literal publicabil": "evidence_not_publicable",
+}
+
+
+def _generation_validation_diagnostic_code(error: GenerationValidationError) -> str:
+    """Întoarce un cod whitelistat; nu loghează mesajul sau conținut neîncrezător."""
+    if type(error) is InvalidGenerationPayloadError:
+        return _INVALID_PAYLOAD_CODES.get(str(error), "invalid_payload_unknown")
+    return _GENERATION_VALIDATION_CODES.get(type(error), "unknown_generation_validation")
+
 
 from retrieval_core import (
     MAX_CONTEXT_DOCUMENT_CODES,
@@ -755,6 +788,12 @@ def intreaba(
     except HTTPException:
         raise
     except (GenerationValidationError, ServiceDependencyError, psycopg2.Error) as error:
+        if isinstance(error, GenerationValidationError):
+            _LOGGER.warning(
+                "generation_validation_failed class=%s code=%s",
+                type(error).__name__,
+                _generation_validation_diagnostic_code(error),
+            )
         if connection is not None and (not rate_transaction_committed or quota_transaction_active) and not _rollback_succeeds(connection):
             raise HTTPException(status_code=503, detail="Serviciul este temporar indisponibil.") from error
         raise HTTPException(status_code=503, detail="Serviciul este temporar indisponibil.") from error

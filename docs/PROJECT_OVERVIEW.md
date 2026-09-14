@@ -1,10 +1,12 @@
 # NormativAI — vedere completă a proiectului
 
-## D20/R06 în implementare locală — pasaj public literal derivat server-side (14-09-2026)
+## D21 în implementare locală — diagnostic sigur pentru validarea generării (14-09-2026)
 
-După confirmarea unui `503` semantic live provocat de citate model nepublicabile, Lucian a aprobat D20: dacă ID-ul citării este valid/folosit și citatul este text nevid de maximum 600 caractere, dar nu apare în propria evidence, backend-ul publică un excerpt literal determinist din acea evidence. Excerptul pornește de la primul caracter non-whitespace și are cel mult 600 caractere originale; nu folosește altă evidence, nu schimbă răspunsul/ID-ul/metadata și nu reîncearcă providerul. Evidence fără text publicabil, schema/ID/mapare/pasaj lipsă-gol-prea lung rămân fail-closed; retry-ul pentru referințe normative nesusținute rămâne separat. Schimbarea este locală în acest moment: fără DB, provider real, commit/push sau deploy; teste, QA/Reviewer și aprobarea de producție rămân gate-uri obligatorii.
+După un `503` semantic rămas, Lucian a aprobat D21: când `POST /intreaba` prinde o `GenerationValidationError`, runtime-ul loghează numai clasa internă și un cod stabil. Nu loghează întrebarea, evidence, răspunsul/payloadul modelului, excepția/traceback-ul, date DB sau secrete; HTTP public rămâne `503` generic. D21 nu modifică retrieval-ul, validarea, quota, DB sau providerii. Este local: fără provider real, DB write, commit, push, merge sau deploy.
 
-**Stare:** D20 este comis și împins pe branchul de lucru; fără DB, provider real, merge sau deploy. Testele host și review-ul sunt în curs înainte de aprobarea de producție.
+## D20/R06 live — pasaj public literal derivat server-side (14-09-2026)
+
+După confirmarea unui `503` semantic live provocat de citate model nepublicabile, Lucian a aprobat D20: dacă ID-ul citării este valid/folosit și citatul este text nevid de maximum 600 caractere, dar nu apare în propria evidence, backend-ul publică un excerpt literal determinist din acea evidence. Excerptul pornește de la primul caracter non-whitespace și are cel mult 600 caractere originale; nu folosește altă evidence și nu schimbă răspunsul/ID-ul/metadata. Evidence fără text publicabil, schema/ID/mapare/pasaj lipsă-gol-prea lung rămân fail-closed. D20 este în `main` SHA `0261ef5`, Railway deployment `da83e6d1-cb00-41d8-a6c2-3ec2c8b40052` (`SUCCESS`).
 
 **Valoare CV:** citare verificabilă bazată pe evidence, cu transformare deterministă controlată de server în locul publicării textului variabil al modelului.
 
