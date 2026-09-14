@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from generation_core import GeneratedText, GenerationService, GenerationValidationError
+from generation_core import GeneratedText, GenerationService, GenerationValidationError, UngroundedReferenceError
 from retrieval_core import Evidence
 
 
@@ -422,6 +422,19 @@ def test_citation_passages_retry_provenienta_cere_subsir_literal_si_publica_al_d
     assert generator.calls == 2
     assert generator.token_limits == [1200, 1200]
     assert "subșir literal exact" in generator.prompts[1]
+
+
+def test_citation_passages_retry_provenienta_nu_declanseaza_al_treilea_apel_pentru_referinta_nesustinuta(evidence_pair):
+    first = encode_payload(PASSAGE_C1 + " [C1]", [{"id": "C1", "citat": "Carcasa fictivă este roz."}])
+    second = encode_payload(
+        "Conform STAS 987654321 [C1]", [{"id": "C1", "citat": PASSAGE_C1}]
+    )
+    generator = RawSequenceGenerator((first, second))
+
+    with pytest.raises(UngroundedReferenceError):
+        GenerationService(generator).generate(QUESTION, evidence_pair)
+
+    assert generator.calls == 2
 
 
 def test_citation_passages_retry_verifica_referinta_decodata_si_foloseste_noile_pasaje(evidence_pair):

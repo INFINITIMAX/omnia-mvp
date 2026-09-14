@@ -267,16 +267,22 @@ class GenerationService:
         supported_fragments = _supported_reference_fragments([item for _, item in assigned])
         prompt = self._build_prompt(question, assigned)
 
+        provenance_retry_used = False
         try:
             generated, used_ids, passages = self._generate_validated(prompt, evidence_by_id)
         except InvalidPassageProvenanceError as error:
             if not error.retry_allowed:
                 raise
+            provenance_retry_used = True
             generated, used_ids, passages = self._generate_validated(
                 self._provenance_retry_prompt(prompt), evidence_by_id
             )
         unsupported = _unsupported_normative_references(generated.text, supported_fragments)
         if unsupported:
+            if provenance_retry_used:
+                raise UngroundedReferenceError(
+                    "răspunsul invocă referințe normative care nu apar în dovezi"
+                )
             # O SINGURĂ reîncercare plătită, niciodată în buclă: dacă și a doua încercare
             # inventează referințe, refuzăm în loc să afișăm răspunsul.
             generated, used_ids, passages = self._generate_validated(
