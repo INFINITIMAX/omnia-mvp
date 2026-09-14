@@ -270,3 +270,56 @@ def test_cli_refuza_rularea_fara_run_fara_sa_construiasca_provider(monkeypatch, 
     assert evaluation.main(["--manifest", str(manifest), "--report", str(report)]) == 2
     assert invoked == []
     assert not report.exists()
+
+
+def test_adaptor_refuza_al_noualea_embedding_inainte_de_delegate():
+    embedder = EmbedderCounter()
+    executor = executor_real_controlat(SimpleNamespace(status="found", evidence=(object(),)), embedder, GeneratorCounter())
+
+    for index in range(8):
+        executor(evaluation.RealEvaluationCase(f"S{index:02d}", "semantic", "semantic controlat?"), ConnectionFake())
+
+    with pytest.raises(evaluation.RealEvaluationError, match="cost_limit"):
+        executor(evaluation.RealEvaluationCase("S09", "semantic", "semantic controlat?"), ConnectionFake())
+
+    assert embedder.calls == 8
+
+
+def test_adaptor_refuza_a_saptesprezecea_generare_inainte_de_delegate():
+    generator = GeneratorCounter()
+    executor = executor_real_controlat(SimpleNamespace(status="found", evidence=(object(),)), EmbedderCounter(), generator)
+
+    for index in range(16):
+        executor(evaluation.RealEvaluationCase(f"E{index:02d}", "exact", "exact controlat?"), ConnectionFake())
+
+    with pytest.raises(evaluation.RealEvaluationError, match="cost_limit"):
+        executor(evaluation.RealEvaluationCase("E17", "exact", "exact controlat?"), ConnectionFake())
+
+    assert generator.calls == 16
+
+
+def test_factory_runtime_construieste_clienti_fara_retry_si_cu_timeout(monkeypatch):
+    voyage_calls = []
+    anthropic_calls = []
+    voyage_client = object()
+    anthropic_client = object()
+
+    def voyage_factory(**kwargs):
+        voyage_calls.append(kwargs)
+        return voyage_client
+
+    def anthropic_factory(**kwargs):
+        anthropic_calls.append(kwargs)
+        return anthropic_client
+
+    monkeypatch.setattr(evaluation, "VoyageClient", voyage_factory)
+    monkeypatch.setattr(evaluation, "AnthropicClient", anthropic_factory)
+    monkeypatch.setattr(evaluation, "_required_environment", lambda name: f"fake-{name}")
+
+    embedder = evaluation._build_runtime_embedder()
+    generator = evaluation._build_runtime_generator()
+
+    assert embedder._client is voyage_client
+    assert generator._client is anthropic_client
+    assert voyage_calls == [{"api_key": "fake-VOYAGE_API_KEY", "timeout": 30, "max_retries": 0}]
+    assert anthropic_calls == [{"api_key": "fake-ANTHROPIC_API_KEY", "timeout": 30, "max_retries": 0}]
