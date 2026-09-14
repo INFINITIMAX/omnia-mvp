@@ -5,17 +5,17 @@
 **Contract aprobat:** Anthropic returnează exclusiv toolul `return_grounded_answer`; inputul structurat trece prin R06, fără fallback text liber sau retry nou. Stare: implementat și împins pe `feat/d22-anthropic-tool-output`; teste host verzi, review/deploy rămân gate-uri.
 
 
-## Task activ — D21, diagnostic sigur pentru validarea generării (14-09-2026)
+## D21 live — diagnostic sigur pentru validarea generării (14-09-2026)
 
 **Contract aprobat:** pentru erorile `GenerationValidationError` prinse de `POST /intreaba`, runtime-ul loghează numai numele clasei interne și un cod stabil. Nu loghează întrebarea, răspunsul modelului, evidence, payloadul providerului, excepția/traceback-ul, câmpuri DB sau secrete; răspunsul public rămâne exact `503` generic. D21 nu schimbă validarea, retrieval-ul, quota, DB sau providerii.
 
-**Stare:** D21 este comis și împins pe `chore/d21-safe-generation-diagnostics`; verificarea host și review-ul sunt OK. Fără provider real, DB write, merge sau deploy. Urmează merge/deploy conform aprobării explicite primite.
+**Stare:** D21 este live în `main` SHA `42dcc52`, Railway deployment `da48a9af-efa4-4190-aeca-4246c5627448` (`SUCCESS`); healthcheck `200`. Fără provider real sau DB write pentru D21.
 
 ## D20/R06 — pasaj public literal derivat server-side, live (14-09-2026)
 
 D20 este în `main` SHA `0261ef5` și Railway deployment `da83e6d1-cb00-41d8-a6c2-3ec2c8b40052` (`SUCCESS`). Pentru un `pasaje.citat` textual, nevid și de maximum 600 caractere al unui ID valid/folosit, dar fără proveniență literală în propria evidence, serverul publică un excerpt literal determinist din aceeași evidence. Nu se schimbă ID-ul/răspunsul/metadata; cazurile schema/ID/mapare/pasaj lipsă-gol-prea lung rămân fail-closed.
 
-## Task activ — metadata operator-confirmed pentru NP 015-2022 (13-09-2026)
+## D18 amânat — metadata operator-confirmed pentru NP 015-2022 (13-09-2026)
 
 **MMO ACCEPTAT LOCAL:** Contractul D18 este implementat pe `fix/manual-metadata-preflight`: preflight-ul poate primi opțional metadata locală confirmată de Lucian, marcată explicit `operator_confirmed`; fără ea, blocarea automată rămâne. Parserul elimină numai virgula delimitatoare după articol valid; slash-ul rămâne blocat. Host: 32 țintite trec; **994 passed, 11 skipped, 1 warning** complet. QA și Reviewer read-only: LOCAL OK, fără finding de cod. Fără DB/Voyage/`approved`/worker/deploy.
 
