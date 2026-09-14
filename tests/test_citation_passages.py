@@ -258,11 +258,25 @@ def test_citation_passages_text_simplu_vechi_nu_devine_fallback(evidence_pair, r
     pytest.param("Carcasa fictiva este turcoaz.", id="diacritice-eliminate"),
     pytest.param("Carcasa fictivă este roz.", id="text-fabricat"),
 ])
-def test_citation_passages_respinge_citat_invalid_fara_retry(evidence_pair, quote, reference_suffix):
+def test_citation_passages_respinge_schema_sau_valoare_invalida_fara_retry(evidence_pair, quote, reference_suffix):
     payload = encode_payload(
         f"{PASSAGE_C1} [C1]{reference_suffix}", [{"id": "C1", "citat": quote}]
     )
     assert_rejected_once(payload, evidence_pair)
+
+
+@pytest.mark.parametrize("quote", [
+    pytest.param(PASSAGE_C2, id="literal-numai-in-alta-dovada"),
+    pytest.param("Carcasa fictiva este turcoaz.", id="diacritice-eliminate"),
+    pytest.param("Carcasa fictivă este roz.", id="text-fabricat"),
+])
+def test_citation_passages_reincearca_numai_nepotrivirea_de_provenienta(evidence_pair, quote):
+    payload = encode_payload(f"{PASSAGE_C1} [C1]", [{"id": "C1", "citat": quote}])
+    generator = RawSequenceGenerator((payload, payload))
+    with pytest.raises(GenerationValidationError):
+        GenerationService(generator).generate(QUESTION, evidence_pair)
+    assert generator.calls == 2
+    assert generator.token_limits == [1200, 1200]
 
 
 @pytest.mark.parametrize("quote", [
@@ -391,16 +405,32 @@ def test_citation_passages_id_literal_din_citat_nu_este_id_folosit_in_raspuns():
 
 
 class RawSequenceGenerator(RawGenerator):
-    """Secvență RAW finită: verifică retry-ul existent fără împachetare din prompt."""
+    """Secvență RAW finită: verifică retry-urile fără împachetare din prompt."""
 
     def __init__(self, payloads):
         super().__init__(None)
         self.payloads = payloads
+        self.prompts = []
 
     def generate(self, prompt, *, max_tokens):
         assert self.calls < len(self.payloads), "apel generator suplimentar"
+        self.prompts.append(prompt)
         self.payload = self.payloads[self.calls]
         return super().generate(prompt, max_tokens=max_tokens)
+
+
+def test_citation_passages_retry_provenienta_cere_subsir_literal_si_publica_al_doilea_raspuns(evidence_pair):
+    first = encode_payload(PASSAGE_C1 + " [C1]", [{"id": "C1", "citat": "Carcasa fictivă este roz."}])
+    second = encode_payload(PASSAGE_C1 + " [C1]", [{"id": "C1", "citat": PASSAGE_C1}])
+    generator = RawSequenceGenerator((first, second))
+
+    result = GenerationService(generator).generate(QUESTION, evidence_pair)
+
+    assert result.raspuns == PASSAGE_C1 + " [C1]"
+    assert [(citation.id, citation.citat) for citation in result.citari] == [("C1", PASSAGE_C1)]
+    assert generator.calls == 2
+    assert generator.token_limits == [1200, 1200]
+    assert "subșir literal exact" in generator.prompts[1]
 
 
 def test_citation_passages_retry_verifica_referinta_decodata_si_foloseste_noile_pasaje(evidence_pair):
