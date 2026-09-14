@@ -256,7 +256,6 @@ def test_citation_passages_text_simplu_vechi_nu_devine_fallback(evidence_pair, r
     pytest.param("x" * 601, id="601-caractere-literale"),
     pytest.param(PASSAGE_C2, id="literal-numai-in-alta-dovada"),
     pytest.param("Carcasa fictiva este turcoaz.", id="diacritice-eliminate"),
-    pytest.param("Carcasa  fictivă este turcoaz.", id="spatiu-adaugat"),
     pytest.param("Șurubul fictiv este îngust.", id="whitespace-normalizat"),
     pytest.param(PASSAGE_C1 + EXACT_WHITESPACE, id="concatenare-pasaje-neadiacente"),
     pytest.param(" " + PASSAGE_C1 + " ", id="necesita-trim-pentru-potrivire"),
@@ -267,6 +266,17 @@ def test_citation_passages_respinge_citat_invalid_fara_retry(evidence_pair, quot
         f"{PASSAGE_C1} [C1]{reference_suffix}", [{"id": "C1", "citat": quote}]
     )
     assert_rejected_once(payload, evidence_pair)
+
+
+def test_citation_passages_accepta_numai_whitespace_normalizat_si_respinge_punctuatia_schimbata(evidence_pair):
+    quote_whitespace = "Carcasa\n\tfictivă este   turcoaz."
+    payload_valid = encode_payload(PASSAGE_C1 + " [C1]", [{"id": "C1", "citat": quote_whitespace}])
+
+    result = GenerationService(RawGenerator(payload_valid)).generate(QUESTION, evidence_pair)
+
+    assert result.status == "answered"
+    payload_invalid = encode_payload(PASSAGE_C1 + " [C1]", [{"id": "C1", "citat": "Carcasa fictivă este turcoaz!"}])
+    assert_rejected_once(payload_invalid, evidence_pair)
 
 
 @pytest.mark.parametrize("reference_suffix", ["", INVENTED_REFERENCE], ids=["fara-referinta", "inainte-de-retry"])
