@@ -2,11 +2,21 @@
 
 from __future__ import annotations
 
+import argparse
 from dataclasses import dataclass
 import json
 import os
 from pathlib import Path
+import sys
 from typing import Callable, Mapping, Sequence
+
+from generation_core import GenerationService
+from main import AnthropicTextGenerator, VoyageQueryEmbedder, _open_db_connection
+from retrieval_core import (
+    PostgresApprovedCatalogRepository,
+    PostgresRetrievalRepository,
+    RetrievalService,
+)
 
 
 MAX_CASES = 20
@@ -102,6 +112,94 @@ def _write_report_atomically(report_path: Path, report: Mapping[str, object]) ->
         raise RealEvaluationError("report_error") from error
 
 
+class _CountingEmbedder:
+    """Numără doar apelurile acestui runner și delegă embedding-ul real sau fake."""
+
+    def __init__(self, delegate: object) -> None:
+        self._delegate = delegate
+        self.calls = 0
+
+    def embed_query(self, question: str) -> object:
+        self.calls += 1
+        return self._delegate.embed_query(question)
+
+
+class _CountingGenerator:
+    """Numără doar generările acestui runner și delegă contractul generatorului."""
+
+    def __init__(self, delegate: object) -> None:
+        self._delegate = delegate
+        self.calls = 0
+
+    def generate(self, prompt: str, *, max_tokens: int) -> object:
+        self.calls += 1
+        return self._delegate.generate(prompt, max_tokens=max_tokens)
+
+
+def _citation_publica(citation: object) -> dict[str, str]:
+    """Selectează explicit forma publică, fără identificatori interni de sursă."""
+    fields = ("id", "cod_document", "titlu_document", "articol", "citat")
+    values = {field: getattr(citation, field, None) for field in fields}
+    if not all(isinstance(value, str) for value in values.values()):
+        raise RealEvaluationError("execution_error")
+    return values
+
+
+def build_real_case_executor(
+    *,
+    catalog_factory: Callable[[object], object] = PostgresApprovedCatalogRepository,
+    repository_factory: Callable[[object], object] = PostgresRetrievalRepository,
+    retrieval_service_factory: Callable[[object, object, object], object] = RetrievalService,
+    embedder_factory: Callable[[], object] = VoyageQueryEmbedder,
+    generator_factory: Callable[[], object] = AnthropicTextGenerator,
+    generation_service_factory: Callable[[object], object] = GenerationService,
+) -> Callable[[RealEvaluationCase, object], Mapping[str, object]]:
+    """Compune retrieval/generare direct, fără a folosi ruta publică sau contoare live."""
+    embedder = _CountingEmbedder(embedder_factory())
+    generator = _CountingGenerator(generator_factory())
+
+    def execute(case: RealEvaluationCase, connection: object) -> Mapping[str, object]:
+        embedding_before = embedder.calls
+        generation_before = generator.calls
+        catalog = catalog_factory(connection)
+        catalog_complet = catalog.load() if hasattr(catalog, "load") else catalog
+        parser = catalog_complet.create_parser()
+        retrieval = retrieval_service_factory(parser, repository_factory(connection), embedder)
+        result = retrieval.retrieve(case.question)
+        status = getattr(result, "status", None)
+        evidence = getattr(result, "evidence", ())
+        if not isinstance(status, str) or not isinstance(evidence, Sequence):
+            raise RealEvaluationError("execution_error")
+        if status != "found" or not evidence:
+            return {
+                "status": status,
+                "answer": "",
+                "citations": [],
+                "embedding_calls": embedder.calls - embedding_before,
+                "generation_calls": generator.calls - generation_before,
+            }
+
+        generated = generation_service_factory(generator).generate(case.question, evidence)
+        answer = getattr(generated, "raspuns", None)
+        citations = getattr(generated, "citari", None)
+        if not isinstance(answer, str) or not isinstance(citations, Sequence):
+            raise RealEvaluationError("execution_error")
+        return {
+            "status": "answered",
+            "answer": answer,
+            "citations": [_citation_publica(citation) for citation in citations],
+            "embedding_calls": embedder.calls - embedding_before,
+            "generation_calls": generator.calls - generation_before,
+        }
+
+    return execute
+
+
+def build_runtime_executor() -> Callable[[RealEvaluationCase, object], Mapping[str, object]]:
+    """Construiește adaptorii cu cheile încărcate lazy numai după `--run` explicit."""
+    return build_real_case_executor()
+
+
 def run_isolated_evaluation(
     manifest_path: Path,
     report_path: Path,
@@ -151,3 +249,31 @@ def run_isolated_evaluation(
     }
     _write_report_atomically(Path(report_path), report)
     return report
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    """Rulează costisitor numai cu opt-in explicit; fără acesta nu construiește provideri."""
+    parser = argparse.ArgumentParser(description="Rulează pilotul R05 izolat.")
+    parser.add_argument("--manifest", required=True, type=Path)
+    parser.add_argument("--report", required=True, type=Path)
+    parser.add_argument("--run", action="store_true", help="Confirmă apelurile providerilor reali.")
+    arguments = parser.parse_args(argv)
+    if not arguments.run:
+        print("run_required", file=sys.stderr)
+        return 2
+    try:
+        report = run_isolated_evaluation(
+            arguments.manifest,
+            arguments.report,
+            connection_factory=_open_db_connection,
+            execute_case=build_runtime_executor(),
+        )
+    except RealEvaluationError as error:
+        print(str(error), file=sys.stderr)
+        return 2
+    print(json.dumps(report["summary"], ensure_ascii=True, sort_keys=True))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
