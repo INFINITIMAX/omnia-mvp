@@ -57,6 +57,14 @@ class InvalidGenerationPayloadError(GenerationValidationError):
     """Pachetul JSON sau pasajele declarate încalcă contractul de proveniență."""
 
 
+class InvalidPassageProvenanceError(InvalidGenerationPayloadError):
+    """Un citat text valid ca formă nu apare în dovada asociată."""
+
+    def __init__(self, message: str, *, retry_allowed: bool = True) -> None:
+        super().__init__(message)
+        self.retry_allowed = retry_allowed
+
+
 class EmptyGeneratedAnswerError(GenerationValidationError):
     """Generatorul a returnat un răspuns gol."""
 
@@ -259,7 +267,14 @@ class GenerationService:
         supported_fragments = _supported_reference_fragments([item for _, item in assigned])
         prompt = self._build_prompt(question, assigned)
 
-        generated, used_ids, passages = self._generate_validated(prompt, evidence_by_id)
+        try:
+            generated, used_ids, passages = self._generate_validated(prompt, evidence_by_id)
+        except InvalidPassageProvenanceError as error:
+            if not error.retry_allowed:
+                raise
+            generated, used_ids, passages = self._generate_validated(
+                self._provenance_retry_prompt(prompt), evidence_by_id
+            )
         unsupported = _unsupported_normative_references(generated.text, supported_fragments)
         if unsupported:
             # O SINGURĂ reîncercare plătită, niciodată în buclă: dacă și a doua încercare
@@ -299,7 +314,12 @@ class GenerationService:
         if not isinstance(answer, str) or not answer.strip():
             raise EmptyGeneratedAnswerError("generatorul a returnat un răspuns gol")
         used_ids = self._validated_used_ids(answer, set(evidence_by_id))
-        passages = self._validated_passages(payload["pasaje"], used_ids, evidence_by_id)
+        try:
+            passages = self._validated_passages(payload["pasaje"], used_ids, evidence_by_id)
+        except InvalidPassageProvenanceError as error:
+            if generated.truncated:
+                raise InvalidPassageProvenanceError(str(error), retry_allowed=False) from error
+            raise
         return GeneratedText(answer, truncated=generated.truncated), used_ids, passages
 
     @staticmethod
@@ -344,14 +364,10 @@ class GenerationService:
             if citation_id not in used_ids or citation_id in passages:
                 raise InvalidGenerationPayloadError("mapare de pasaje invalidă")
             quote = entry["citat"]
-            if (
-                not isinstance(quote, str)
-                or not quote.strip()
-                or len(quote) > MAX_CITATION_CHARS
-                or _normalized_whitespace(quote)
-                not in _normalized_whitespace(evidence_by_id[citation_id].content)
-            ):
-                raise InvalidGenerationPayloadError("pasaj fără proveniență literală validă")
+            if not isinstance(quote, str) or not quote.strip() or len(quote) > MAX_CITATION_CHARS:
+                raise InvalidGenerationPayloadError("pasaj invalid")
+            if _normalized_whitespace(quote) not in _normalized_whitespace(evidence_by_id[citation_id].content):
+                raise InvalidPassageProvenanceError("pasaj fără proveniență literală validă")
             # Păstrăm textul original; strip() de mai sus verifică doar lipsa conținutului.
             passages[citation_id] = quote
         if set(passages) != set(used_ids):
@@ -370,6 +386,15 @@ class GenerationService:
         if not isinstance(generated.text, str) or not generated.text.strip():
             raise EmptyGeneratedAnswerError("generatorul a returnat un răspuns gol")
         return generated
+
+    @staticmethod
+    def _provenance_retry_prompt(prompt: str) -> str:
+        """Cere o singură corecție a citatului, fără a accepta text neverificat."""
+        return (
+            f"{prompt}\n"
+            "Pasajul anterior nu era un subșir literal exact din dovada asociată. Răspunde din nou "
+            "cu aceeași schemă JSON și copiază fiecare citat ca subșir literal exact din dovada cu același ID."
+        )
 
     @staticmethod
     def _retry_prompt(prompt: str, unsupported: Sequence[str]) -> str:
