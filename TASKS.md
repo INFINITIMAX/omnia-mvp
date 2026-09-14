@@ -4,7 +4,7 @@
 
 **Contract aprobat:** pentru erorile `GenerationValidationError` prinse de `POST /intreaba`, runtime-ul loghează numai numele clasei interne și un cod stabil. Nu loghează întrebarea, răspunsul modelului, evidence, payloadul providerului, excepția/traceback-ul, câmpuri DB sau secrete; răspunsul public rămâne exact `503` generic. D21 nu schimbă validarea, retrieval-ul, quota, DB sau providerii.
 
-**Stare:** implementare locală și teste în lucru; fără provider real, DB write, commit, push, merge sau deploy. Urmează verificare host, review și aprobare explicită de publicare.
+**Stare:** D21 este comis și împins pe `chore/d21-safe-generation-diagnostics`; verificarea host și review-ul sunt OK. Fără provider real, DB write, merge sau deploy. Urmează merge/deploy conform aprobării explicite primite.
 
 ## D20/R06 — pasaj public literal derivat server-side, live (14-09-2026)
 

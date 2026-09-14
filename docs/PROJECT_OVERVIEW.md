@@ -1,8 +1,8 @@
 # NormativAI — vedere completă a proiectului
 
-## D21 în implementare locală — diagnostic sigur pentru validarea generării (14-09-2026)
+## D21 pregătit pentru deploy — diagnostic sigur pentru validarea generării (14-09-2026)
 
-După un `503` semantic rămas, Lucian a aprobat D21: când `POST /intreaba` prinde o `GenerationValidationError`, runtime-ul loghează numai clasa internă și un cod stabil. Nu loghează întrebarea, evidence, răspunsul/payloadul modelului, excepția/traceback-ul, date DB sau secrete; HTTP public rămâne `503` generic. D21 nu modifică retrieval-ul, validarea, quota, DB sau providerii. Este local: fără provider real, DB write, commit, push, merge sau deploy.
+După un `503` semantic rămas, Lucian a aprobat D21: când `POST /intreaba` prinde o `GenerationValidationError`, runtime-ul loghează numai clasa internă și un cod stabil whitelistat. Nu loghează întrebarea, evidence, răspunsul/payloadul modelului, excepția/traceback-ul, date DB sau secrete; HTTP public rămâne `503` generic. D21 nu modifică retrieval-ul, validarea, quota, DB sau providerii. Este comis și împins, cu verificare host și review OK; fără provider real, DB write, merge sau deploy.
 
 ## D20/R06 live — pasaj public literal derivat server-side (14-09-2026)
 
