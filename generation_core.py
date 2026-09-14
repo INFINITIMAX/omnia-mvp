@@ -144,6 +144,11 @@ def _normalized_code(text: str) -> str:
     return _NON_ALPHANUMERIC.sub("", text.upper())
 
 
+def _normalized_whitespace(text: str) -> str:
+    """Păstrează toate caracterele semnificative și uniformizează numai whitespace Unicode."""
+    return " ".join(text.split())
+
+
 def _supported_reference_fragments(evidence: Sequence[Evidence]) -> tuple[str, ...]:
     """Textele normalizate în care o referință are voie să apară.
 
@@ -343,7 +348,8 @@ class GenerationService:
                 not isinstance(quote, str)
                 or not quote.strip()
                 or len(quote) > MAX_CITATION_CHARS
-                or quote not in evidence_by_id[citation_id].content
+                or _normalized_whitespace(quote)
+                not in _normalized_whitespace(evidence_by_id[citation_id].content)
             ):
                 raise InvalidGenerationPayloadError("pasaj fără proveniență literală validă")
             # Păstrăm textul original; strip() de mai sus verifică doar lipsa conținutului.
