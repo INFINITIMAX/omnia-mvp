@@ -4,6 +4,10 @@ Acest fișier separă deciziile explicite ale lui Lucian de propunerile agențil
 
 ## Decizii active
 
+### D19 — R05 real izolat, aprobat Lucian (13-09-2026)
+
+Lucian aprobă pilotul R05 cu 20 cazuri, set propus de agent și validat de Lucian, cu cost estimat sub 0,55 USD și limită operațională aprobată de 1 USD. Rularea reală folosește evaluator izolat: DB numai `readonly`, fără `POST /intreaba`, quota, rate limit sau `paid_call_budget`; fără retry. Providerii Voyage/Anthropic pot fi apelați numai prin comandă concretă aprobată separat, iar verdictul semantic este uman.
+
 ### D18 — metadata confirmată de operator și virgulă delimitatoare, aprobat Lucian (13-09-2026)
 
 Pentru PDF-uri unde codul nu poate fi extras sigur, Lucian aprobă metadata locală explicită în preflight, marcată `operator_confirmed`, nu ca metadata extrasă automat. Câmpurile sunt `document_id`, `cod_oficial`, `titlu_oficial`, `an`; fără această metadata, ambiguitatea rămâne blocată. Importerul acceptă numai metadata identică cu confirmarea din raport. Lucian aprobă și excepția îngustă pentru virgulă urmată de whitespace/sfârșit imediat după un articol deja recunoscut; ea este punctuație, nu parte din identificator. Slash-ul și alte caractere rămân refuzate. Nu se aprobă DB/Voyage real, `approved`, deploy sau schimbarea workerului.

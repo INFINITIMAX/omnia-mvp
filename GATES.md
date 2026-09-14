@@ -1,5 +1,13 @@
 # Gate-uri — refuz calcule/proiectare
 
+## R05 — evaluator real izolat (13-09-2026)
+
+- [x] **R05-SPEC:** runner explicit, DB `readonly`, fără ruta publică/buget live/retry, maximum 20 cazuri.
+- [x] **R05-RED/GREEN:** teste mock pentru limite, conexiune read-only, zero scrieri și oprire la eroare.
+- [x] **R05-LOCAL:** host: 14 teste R05 trec; suita completă: 1009 passed, 11 skipped, 1 warning; fără provider real.
+- [x] **R05-REVIEW:** Reviewer read-only: OK cu notă P2 documentară remediată; fără finding de siguranță.
+- [ ] **R05-RUNTIME:** Lucian aprobă separat comanda concretă cu manifestul local; raportul este revizuit uman.
+
 ## MMO — metadata operator-confirmed pentru preflight (13-09-2026)
 
 **OWNS:** `manual_ingestion_preflight.py`, `manual_ingestion_import.py`, testele manuale dedicate, `docs/MANUAL_METADATA_OVERRIDE_SPEC.md`, `docs/DECISIONS.md`, `TASKS.md`, `GATES.md`, documentația de rulare.
