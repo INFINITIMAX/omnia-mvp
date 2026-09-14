@@ -4,7 +4,7 @@
 
 **Contract aprobat:** pentru un `pasaje.citat` textual, nevid și de maximum 600 caractere al unui ID valid/folosit, dar fără proveniență literală în propria evidence, serverul îl înlocuiește cu un excerpt literal determinist din aceeași evidence: începe la primul caracter non-whitespace și are cel mult 600 caractere originale. Nu se alege text din altă evidence, nu se schimbă ID-ul/răspunsul/metadata și nu se face retry provider pentru acest caz. Evidence fără text publicabil, JSON/schema/ID/mapare/pasaj lipsă-gol-prea lung rămân fail-closed. Retry-ul existent pentru referințe normative nesusținute este separat și neschimbat. D20 este în `docs/DECISIONS.md`.
 
-**Stare:** implementare locală și regresii în lucru; nu s-au apelat provideri, nu s-a modificat DB și nu există commit/push/deploy. Urmează teste host, QA/Reviewer și aprobare explicită de publicare.
+**Stare:** implementarea D20 este comisă și împinsă pe `fix/r06-server-literal-passage`; host: testele țintite au trecut, iar suita completă așteaptă consemnarea finală. Nu s-au apelat provideri, nu s-a modificat DB și nu există merge/deploy. Reviewer-ul a cerut un test suplimentar pentru prefix whitespace + 600, în curs înainte de aprobarea explicită de publicare.
 
 ## Task activ — metadata operator-confirmed pentru NP 015-2022 (13-09-2026)
 

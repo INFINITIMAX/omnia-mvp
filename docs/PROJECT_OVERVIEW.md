@@ -4,6 +4,8 @@
 
 După confirmarea unui `503` semantic live provocat de citate model nepublicabile, Lucian a aprobat D20: dacă ID-ul citării este valid/folosit și citatul este text nevid de maximum 600 caractere, dar nu apare în propria evidence, backend-ul publică un excerpt literal determinist din acea evidence. Excerptul pornește de la primul caracter non-whitespace și are cel mult 600 caractere originale; nu folosește altă evidence, nu schimbă răspunsul/ID-ul/metadata și nu reîncearcă providerul. Evidence fără text publicabil, schema/ID/mapare/pasaj lipsă-gol-prea lung rămân fail-closed; retry-ul pentru referințe normative nesusținute rămâne separat. Schimbarea este locală în acest moment: fără DB, provider real, commit/push sau deploy; teste, QA/Reviewer și aprobarea de producție rămân gate-uri obligatorii.
 
+**Stare:** D20 este comis și împins pe branchul de lucru; fără DB, provider real, merge sau deploy. Testele host și review-ul sunt în curs înainte de aprobarea de producție.
+
 **Valoare CV:** citare verificabilă bazată pe evidence, cu transformare deterministă controlată de server în locul publicării textului variabil al modelului.
 
 ## D18 acceptat local — metadata operator-confirmed (13-09-2026)

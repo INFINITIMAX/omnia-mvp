@@ -283,6 +283,18 @@ def test_citation_passages_neprovenit_este_inlocuit_literal_din_propria_dovada(e
     assert generator.token_limits == [1200]
 
 
+def test_citation_passages_neprovenit_deriva_de_la_primul_caracter_util_si_limiteaza_la_600():
+    content = " \t\n" + "x" * 650
+    evidence = (make_evidence(1, content),)
+    payload = encode_payload("Afirmație [C1]", [{"id": "C1", "citat": "pasaj fabricat"}])
+
+    result = GenerationService(RawGenerator(payload)).generate(QUESTION, evidence)
+
+    assert result.citari[0].citat == "x" * 600
+    assert len(result.citari[0].citat) == 600
+    assert result.citari[0].citat in content
+
+
 def test_citation_passages_neprovenit_fara_text_in_dovada_ramane_fail_closed():
     evidence = (make_evidence(1, " \t\n "),)
     payload = encode_payload("Afirmație [C1]", [{"id": "C1", "citat": "pasaj fabricat"}])
