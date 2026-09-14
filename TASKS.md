@@ -1,5 +1,10 @@
 # TASKS — Omnia
 
+## Task activ — D22, output Anthropic structurat prin tool (14-09-2026)
+
+**Contract aprobat:** Anthropic returnează exclusiv toolul `return_grounded_answer`; inputul structurat trece prin R06, fără fallback text liber sau retry nou. Stare: implementat și împins pe `feat/d22-anthropic-tool-output`; teste host verzi, review/deploy rămân gate-uri.
+
+
 ## Task activ — D21, diagnostic sigur pentru validarea generării (14-09-2026)
 
 **Contract aprobat:** pentru erorile `GenerationValidationError` prinse de `POST /intreaba`, runtime-ul loghează numai numele clasei interne și un cod stabil. Nu loghează întrebarea, răspunsul modelului, evidence, payloadul providerului, excepția/traceback-ul, câmpuri DB sau secrete; răspunsul public rămâne exact `503` generic. D21 nu schimbă validarea, retrieval-ul, quota, DB sau providerii.

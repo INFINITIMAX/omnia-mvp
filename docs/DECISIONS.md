@@ -4,6 +4,11 @@ Acest fișier separă deciziile explicite ale lui Lucian de propunerile agențil
 
 ## Decizii active
 
+### D22 — output Anthropic structurat prin tool, aprobat Lucian (14-09-2026)
+
+Anthropic este forțat să apeleze toolul `return_grounded_answer`, cu schema pentru `raspuns` și `pasaje`. Backend-ul serializează numai inputul structurat al toolului și păstrează validările R06; textul liber, lipsa toolului, toolul multiplu/necunoscut, inputul invalid sau răspunsul trunchiat rămân fail-closed. Nu se adaugă retry, apel provider normal, DB sau migrare.
+
+
 ### D20 — pasaj literal determinist la nepotrivirea textului, aprobat Lucian (14-09-2026)
 
 Pentru un pachet R06 unde ID-ul citării este valid și folosit, iar `citat` este text nevid de maximum 600 de caractere, dar nu apare literal în propria dovadă, Lucian aprobă înlocuirea server-side a **numai textului public al pasajului**. Backend-ul alege determinist cel mult 600 de caractere originale, de la primul caracter non-whitespace al dovezii acelui ID; dacă dovada nu are text publicabil, răspunsul rămâne fail-closed. Nu se folosește text din altă dovadă, nu se modifică ID-ul, răspunsul sau metadata și nu se reîncearcă providerul pentru această nepotrivire. Citatele deja valide, inclusiv diferențele exclusiv de whitespace acceptate, rămân neschimbate. Schema/ID/mapare/pasaj lipsă, gol sau prea lung rămân erori fără fallback. Retry-ul existent pentru referințe normative nesusținute nu se schimbă. Decizia nu aprobă DB, migrare, apel API real, commit/push sau deploy.

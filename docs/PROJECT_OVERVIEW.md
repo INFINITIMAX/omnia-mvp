@@ -1,5 +1,10 @@
 # NormativAI — vedere completă a proiectului
 
+## D22 pregătit pentru review — output Anthropic structurat prin tool (14-09-2026)
+
+Pentru a elimina JSON-ul text liber corupt, Anthropic este forțat să emită toolul `return_grounded_answer`, cu schema strictă a răspunsului și pasajelor. Serverul acceptă numai un singur tool valid și îl trece prin validările R06 existente; nu există fallback text liber sau retry nou. Implementat și împins local, fără provider real, DB, merge sau deploy.
+
+
 ## D21 pregătit pentru deploy — diagnostic sigur pentru validarea generării (14-09-2026)
 
 După un `503` semantic rămas, Lucian a aprobat D21: când `POST /intreaba` prinde o `GenerationValidationError`, runtime-ul loghează numai clasa internă și un cod stabil whitelistat. Nu loghează întrebarea, evidence, răspunsul/payloadul modelului, excepția/traceback-ul, date DB sau secrete; HTTP public rămâne `503` generic. D21 nu modifică retrieval-ul, validarea, quota, DB sau providerii. Este comis și împins, cu verificare host și review OK; fără provider real, DB write, merge sau deploy.
