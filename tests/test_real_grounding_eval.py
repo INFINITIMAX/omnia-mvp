@@ -298,6 +298,33 @@ def test_adaptor_refuza_a_saptesprezecea_generare_inainte_de_delegate():
     assert generator.calls == 16
 
 
+def test_runtime_generator_r05_forteaza_toolul_d22_si_refuza_text_liber():
+    calls = []
+
+    class MessagesFake:
+        def create(self, **kwargs):
+            calls.append(kwargs)
+            return SimpleNamespace(
+                content=[SimpleNamespace(
+                    type="tool_use", name="return_grounded_answer",
+                    input={"raspuns": "Răspuns [C1]", "pasaje": [{"id": "C1", "citat": "literal"}]},
+                )],
+                stop_reason="tool_use",
+            )
+
+    generated = evaluation._RuntimeGenerator(SimpleNamespace(messages=MessagesFake())).generate("prompt", max_tokens=1200)
+
+    assert json.loads(generated.text)["raspuns"] == "Răspuns [C1]"
+    assert calls[0]["tool_choice"] == {"type": "tool", "name": "return_grounded_answer"}
+
+    class TextMessagesFake:
+        def create(self, **_kwargs):
+            return SimpleNamespace(content=[SimpleNamespace(type="text", text="nu accept" )], stop_reason="end_turn")
+
+    with pytest.raises(evaluation.RealEvaluationError, match="invalid_generation"):
+        evaluation._RuntimeGenerator(SimpleNamespace(messages=TextMessagesFake())).generate("prompt", max_tokens=1200)
+
+
 def test_factory_runtime_construieste_clienti_fara_retry_si_cu_timeout(monkeypatch):
     voyage_calls = []
     anthropic_calls = []

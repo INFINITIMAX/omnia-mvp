@@ -14,7 +14,7 @@ from anthropic import Anthropic as AnthropicClient
 from voyageai import Client as VoyageClient
 
 from generation_core import GeneratedText, GenerationService
-from main import _open_db_connection
+from main import AnthropicTextGenerator, _open_db_connection
 from retrieval_core import (
     PostgresApprovedCatalogRepository,
     PostgresRetrievalRepository,
@@ -174,28 +174,30 @@ class _RuntimeEmbedder:
 
 
 class _RuntimeGenerator:
-    """Adaptor Anthropic local care păstrează contractul `GeneratedText` al generatorului."""
+    """Adaptor R05 identic cu D22: acceptă exclusiv inputul toolului structurat."""
 
-    model = "claude-sonnet-4-6"
+    model = AnthropicTextGenerator.model
+    _TOOL_NAME = AnthropicTextGenerator._TOOL_NAME
+    _TOOL = AnthropicTextGenerator._TOOL
 
     def __init__(self, client: object) -> None:
         self._client = client
 
     def generate(self, prompt: str, *, max_tokens: int) -> GeneratedText:
         response = self._client.messages.create(
-            model=self.model, max_tokens=max_tokens, messages=[{"role": "user", "content": prompt}]
+            model=self.model, max_tokens=max_tokens, messages=[{"role": "user", "content": prompt}],
+            tools=[self._TOOL], tool_choice={"type": "tool", "name": self._TOOL_NAME},
         )
         content = getattr(response, "content", None)
-        if not isinstance(content, Sequence) or isinstance(content, (str, bytes)):
+        if getattr(response, "stop_reason", None) == "max_tokens":
             raise RealEvaluationError("invalid_generation")
-        texts = [
-            block.text
-            for block in content
-            if getattr(block, "type", None) == "text" and isinstance(getattr(block, "text", None), str) and block.text.strip()
-        ]
-        if not texts:
+        if not isinstance(content, Sequence) or isinstance(content, (str, bytes)) or len(content) != 1:
             raise RealEvaluationError("invalid_generation")
-        return GeneratedText("\n".join(texts), truncated=getattr(response, "stop_reason", None) == "max_tokens")
+        block = content[0]
+        payload = getattr(block, "input", None)
+        if getattr(block, "type", None) != "tool_use" or getattr(block, "name", None) != self._TOOL_NAME or not isinstance(payload, dict):
+            raise RealEvaluationError("invalid_generation")
+        return GeneratedText(json.dumps(payload, ensure_ascii=False), truncated=False)
 
 
 def _build_runtime_embedder() -> _RuntimeEmbedder:
