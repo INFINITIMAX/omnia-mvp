@@ -21,11 +21,11 @@ KNOWN = {"doc-np010": ("4.4.7.2", "4.6.(1)", "3.2.(B).l.")}
 
 def evidence(
     chunk_id=1, document_id="doc-np010", article="4.4.7.2", content="fragment sintetic",
-    content_hash="hash-a", score=None,
+    content_hash="hash-a", score=None, chunk_order=0,
 ):
     return Evidence(
         chunk_id, document_id, "NP TEST-2026", "Titlu sintetic", article,
-        ArticleParser.normalize_article(article), content, content_hash, score,
+        ArticleParser.normalize_article(article), content, content_hash, score, chunk_order,
     )
 
 
@@ -204,7 +204,7 @@ def test_catalogul_approved_foloseste_numai_metadata_oficiala_si_inchide_cursoru
 
 
 def test_repository_exact_foloseste_numai_sql_parametrizat_cu_document_optional():
-    connection = ConnectionFake([(1, "doc", "COD", "Titlu", "1.1", "1.1", "text", "hash")])
+    connection = ConnectionFake([(1, "doc", "COD", "Titlu", "1.1", "1.1", "text", "hash", 7)])
     repository = PostgresRetrievalRepository(connection)
 
     found = repository.find_exact("doc", "1.1")
@@ -213,8 +213,10 @@ def test_repository_exact_foloseste_numai_sql_parametrizat_cu_document_optional(
     assert "document.status = 'approved' AND chunk.document_id = %s AND chunk.articol_normalizat = %s" in sql
     assert parameters == ("doc", "1.1")
     assert "FROM public.documente_chunks" in sql
+    assert "chunk.chunk_order" in sql
     assert "WHERE chunk.document_id = 'doc'" not in sql
     assert found[0].content == "text"
+    assert found[0].chunk_order == 7
     assert connection.cursor_instance.closed
 
     repository.find_exact(None, "1.1")
@@ -239,11 +241,12 @@ def test_repository_propaga_eroarea_db_si_inchide_cursorul():
 
 
 def test_repository_semantic_foloseste_pgvector_parametrizat_scor_si_limita():
-    connection = ConnectionFake([(1, "doc", "COD", "Titlu", "1.1", "1.1", "text", "hash", 0.75)])
+    connection = ConnectionFake([(1, "doc", "COD", "Titlu", "1.1", "1.1", "text", "hash", 7, 0.75)])
     found = PostgresRetrievalRepository(connection).find_semantic([0.1, 2], 3)
 
     sql, parameters = connection.cursor_instance.calls[0]
     assert "1 - (chunk.embedding <=> %s::vector) AS score" in sql
+    assert "chunk.chunk_order" in sql
     assert sql.index("AS score") < sql.index("FROM public.documente_chunks")
     assert "WHERE document.status = 'approved' AND chunk.embedding IS NOT NULL" in sql
     assert "ORDER BY chunk.embedding <=> %s::vector" in sql
@@ -251,6 +254,20 @@ def test_repository_semantic_foloseste_pgvector_parametrizat_scor_si_limita():
     assert "LIMIT %s" in sql
     assert parameters == ("[0.1,2.0]", "[0.1,2.0]", 3)
     assert found[0].score == 0.75
+    assert found[0].chunk_order == 7
+
+
+def test_repository_legacy_mock_rows_primesc_ordine_determinista():
+    exact = PostgresRetrievalRepository(
+        ConnectionFake([(12, "doc", "COD", "Titlu", "1.1", "1.1", "text", "hash")])
+    ).find_exact("doc", "1.1")
+    semantic = PostgresRetrievalRepository(
+        ConnectionFake([(13, "doc", "COD", "Titlu", "1.1", "1.1", "text", "hash", 0.75)])
+    ).find_semantic([0.1], 1)
+
+    assert exact[0].chunk_order == 12
+    assert semantic[0].chunk_order == 13
+    assert semantic[0].score == 0.75
 
 
 @pytest.mark.parametrize("top_k", [0, -1, True, "5"])
@@ -364,24 +381,41 @@ def test_exact_pastreaza_documentele_diferite_chiar_cu_acelasi_hash():
     assert [item.document_id for item in result.evidence] == ["doc-np010", "doc-alternativ"]
 
 
-def test_hashuri_diferite_pentru_acelasi_document_articol_sunt_ambigue():
-    conflicting = evidence(chunk_id=2, content="alt fragment", content_hash="hash-b")
-    result = service(RepositoryFake([evidence(), conflicting], [])).retrieve("art. 4.4.7.2")
+def test_exact_accepta_chunkuri_consecutive_pentru_acelasi_articol():
+    primul = evidence(chunk_id=10, content="prima parte", content_hash="hash-a", chunk_order=40)
+    al_doilea = evidence(chunk_id=11, content="a doua parte", content_hash="hash-b", chunk_order=41)
+
+    result = service(RepositoryFake([primul, al_doilea], [])).retrieve("art. 4.4.7.2")
+
+    assert result.status == "found"
+    assert result.evidence == (primul, al_doilea)
+
+
+def test_semantic_accepta_chunkuri_consecutive_pentru_acelasi_articol():
+    primul = evidence(chunk_id=10, content="prima parte", content_hash="hash-a", score=0.90, chunk_order=40)
+    al_doilea = evidence(chunk_id=11, content="a doua parte", content_hash="hash-b", score=0.80, chunk_order=41)
+
+    result = service(RepositoryFake([], [primul, al_doilea])).retrieve("întrebare semantică")
+
+    assert result.status == "found"
+    assert result.evidence == (primul, al_doilea)
+
+
+def test_exact_refuza_chunkuri_conflictuale_cu_aceeasi_pozitie():
+    primul = evidence(chunk_id=10, content="prima versiune", content_hash="hash-a", chunk_order=40)
+    conflicting = evidence(chunk_id=11, content="alta versiune", content_hash="hash-b", chunk_order=40)
+
+    result = service(RepositoryFake([primul, conflicting], [])).retrieve("art. 4.4.7.2")
 
     assert result.status == "ambiguous_article"
     assert result.evidence == ()
 
 
-def test_semantic_detecteaza_hashuri_diferite_pentru_acelasi_articol():
-    repository = RepositoryFake(
-        [],
-        [
-            evidence(content_hash="hash-a", score=0.90),
-            evidence(chunk_id=2, content_hash="hash-b", score=0.80),
-        ],
-    )
+def test_semantic_refuza_chunkuri_conflictuale_neconsecutive():
+    primul = evidence(chunk_id=10, content="prima parte", content_hash="hash-a", score=0.90, chunk_order=40)
+    conflicting = evidence(chunk_id=11, content="a treia parte", content_hash="hash-b", score=0.80, chunk_order=42)
 
-    result = service(repository).retrieve("întrebare semantică")
+    result = service(RepositoryFake([], [primul, conflicting])).retrieve("întrebare semantică")
 
     assert result.status == "ambiguous_article"
     assert result.evidence == ()
@@ -766,7 +800,7 @@ def test_codul_invalid_nu_rezolva_niciun_document(code):
 
 
 def test_repository_semantic_restrans_foloseste_any_parametrizat_si_pastreaza_approved():
-    connection = ConnectionFake([(1, "doc-p118", "COD", "Titlu", "7.183", "7.183", "text", "hash", 0.75)])
+    connection = ConnectionFake([(1, "doc-p118", "COD", "Titlu", "7.183", "7.183", "text", "hash", 7, 0.75)])
 
     found = PostgresRetrievalRepository(connection).find_semantic_in_documents(
         [0.1, 2], 3, ("doc-p118", "doc-i7")

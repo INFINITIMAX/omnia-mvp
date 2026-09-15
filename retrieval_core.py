@@ -79,6 +79,7 @@ class Evidence:
     content: str
     content_hash: str
     score: float | None = None
+    chunk_order: int = 0
 
 
 @dataclass(frozen=True)
@@ -305,7 +306,7 @@ class PostgresRetrievalRepository:
 
     _SELECT_FIELDS = """
         chunk.id, chunk.document_id, document.cod_oficial, document.titlu_oficial,
-        chunk.articol, chunk.articol_normalizat, chunk.text, chunk.content_hash
+        chunk.articol, chunk.articol_normalizat, chunk.text, chunk.content_hash, chunk.chunk_order
     """
     _FROM_DOCUMENTS = """
         FROM public.documente_chunks AS chunk
@@ -355,7 +356,7 @@ class PostgresRetrievalRepository:
         cursor = self._connection.cursor()
         try:
             cursor.execute(self._semantic_sql(), (vector, vector, top_k))
-            return [self._evidence_from_row(row, score=row[8]) for row in cursor.fetchall()]
+            return [self._evidence_from_row(row, score=row[9] if len(row) > 9 else row[8]) for row in cursor.fetchall()]
         finally:
             cursor.close()
 
@@ -377,7 +378,7 @@ class PostgresRetrievalRepository:
                 self._semantic_sql(" AND chunk.document_id = ANY(%s)"),
                 (vector, documents, vector, top_k),
             )
-            return [self._evidence_from_row(row, score=row[8]) for row in cursor.fetchall()]
+            return [self._evidence_from_row(row, score=row[9] if len(row) > 9 else row[8]) for row in cursor.fetchall()]
         finally:
             cursor.close()
 
@@ -410,11 +411,15 @@ class PostgresRetrievalRepository:
 
     @staticmethod
     def _evidence_from_row(row: Sequence[object], score: object | None = None) -> Evidence:
+        # Fixture-urile mock legacy nu au încă `chunk_order`; păstrează-le
+        # compatibile, folosind chunk_id ca ordine unică deterministică.
+        chunk_order_index = 8 if (score is None and len(row) > 8) or (score is not None and len(row) > 9) else None
         return Evidence(
             chunk_id=int(row[0]), document_id=str(row[1]), cod_document=str(row[2]),
             titlu_document=str(row[3]), articol=str(row[4]), articol_normalizat=str(row[5]),
             content=str(row[6]), content_hash=str(row[7]),
             score=None if score is None else float(score),
+            chunk_order=int(row[chunk_order_index]) if chunk_order_index is not None else int(row[0]),
         )
 
 
@@ -540,10 +545,22 @@ class RetrievalService:
 
     @staticmethod
     def _has_ambiguous_article(evidence: Sequence[Evidence]) -> bool:
-        hashes_by_article: dict[tuple[str, str], set[str]] = {}
+        """Refuză numai poziții duplicate sau necontinue ale aceluiași articol.
+
+        După D25, hash-uri diferite sunt normale pentru chunk-uri consecutive ale
+        unui articol lung. Un conflict real are două chunk-uri pentru aceeași
+        poziție sau o secvență întreruptă, deci nu poate fi redat complet sigur.
+        """
+        orders_by_article: dict[tuple[str, str], dict[str, int]] = {}
         for item in evidence:
-            hashes_by_article.setdefault((item.document_id, item.articol_normalizat), set()).add(item.content_hash)
-        return any(len(hashes) > 1 for hashes in hashes_by_article.values())
+            orders_by_article.setdefault((item.document_id, item.articol_normalizat), {}).setdefault(
+                item.content_hash, item.chunk_order
+            )
+        return any(
+            len(orders.values()) != len(set(orders.values()))
+            or sorted(orders.values()) != list(range(min(orders.values()), max(orders.values()) + 1))
+            for orders in orders_by_article.values()
+        )
 
     @staticmethod
     def _deduplicate(
