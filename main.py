@@ -169,7 +169,7 @@ class AnthropicTextGenerator:
                     "items": {
                         "type": "object", "additionalProperties": False,
                         "required": ["id", "citat"],
-                        "properties": {"id": {"type": "string"}, "citat": {"type": "string"}},
+                        "properties": {"id": {"type": "string"}, "citat": {"type": "string", "minLength": 1, "maxLength": 600}},
                     },
                 },
             },
