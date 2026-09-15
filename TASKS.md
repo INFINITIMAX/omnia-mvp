@@ -1,5 +1,10 @@
 # TASKS — Omnia
 
+## R05 finalizat operațional — pilot real izolat (15-09-2026)
+
+Manifest local: 20 cazuri (8 exacte, 8 semantice, 4 negative). Rulare reală readonly: 20 cazuri, 8 embedding-uri, 16 generări; 16 `answered` cu 20 citări, 4 negative `ambiguous_reference`, fără răspuns `answered` fără citare. Verdictul semantic al conținutului rămâne revizie umană; raportul local nu este în Git.
+
+
 ## D22 live — output Anthropic structurat prin tool (14-09-2026)
 
 **Contract aprobat:** Anthropic returnează exclusiv toolul `return_grounded_answer`; inputul structurat trece prin R06, fără fallback text liber sau retry nou. D22 este live în `main` SHA `e895605`, Railway deployment `7d8eaf9b-d860-4ed1-b8a3-24feeae5bef6` (`SUCCESS`); healthcheck `200` și proba semantică aprobată a răspuns `200` cu 2 citări.

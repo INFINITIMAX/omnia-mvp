@@ -1,5 +1,10 @@
 # NormativAI — vedere completă a proiectului
 
+## R05 finalizat operațional — evaluator real izolat (15-09-2026)
+
+Pilotul local, necomis, a rulat 20 cazuri cu DB readonly: 8 embedding-uri și 16 generări, în limitele aprobate. Au rezultat 16 răspunsuri cu 20 citări și 4 negative fail-closed `ambiguous_reference`; niciun răspuns publicat nu a fost fără citare. Acesta este verdict operațional, nu validare semantică umană a fiecărui răspuns; raportul local și conținutul normativ rămân în afara Git.
+
+
 ## D22 live — output Anthropic structurat prin tool (14-09-2026)
 
 Pentru a elimina JSON-ul text liber corupt, Anthropic este forțat să emită toolul `return_grounded_answer`, cu schema strictă a răspunsului și pasajelor. Serverul acceptă numai un singur tool valid și îl trece prin validările R06 existente; nu există fallback text liber sau retry nou. D22 este live în `main` SHA `e895605`, Railway deployment `7d8eaf9b-d860-4ed1-b8a3-24feeae5bef6` (`SUCCESS`); healthcheck `200`, iar proba semantică aprobată a răspuns `200` cu 2 citări.
