@@ -44,6 +44,7 @@ _PATTERN_SPATIERE_ARTICOL = re.compile(r"[ \t\n\r\f\v\u00a0\u202f]+")
 _PATTERN_ARTICOL_NORMALIZAT = re.compile(r"^[a-z0-9().-]+$")
 _LUNGIME_MINIMA_CHUNK = 15
 _LUNGIME_SPLIT_SECUNDAR = 2000
+_MAX_CHUNK_CHARS = 1000
 
 
 class PreflightError(ValueError):
@@ -354,7 +355,19 @@ def _creeaza_chunkuri_locale(text: str) -> list[dict[str, str]]:
             text_subpunct = subpuncte[index + 1].strip() if index + 1 < len(subpuncte) else ""
             if len(text_subpunct) >= _LUNGIME_MINIMA_CHUNK:
                 rezultat.append({"articol": f"{chunk['articol']}({numar})", "text": text_subpunct})
-    return rezultat
+    rezultat_limitat: list[dict[str, str]] = []
+    for chunk in rezultat:
+        text = chunk["text"]
+        while len(text) > _MAX_CHUNK_CHARS:
+            boundary = max(text.rfind("\n", 0, _MAX_CHUNK_CHARS + 1), text.rfind(" ", 0, _MAX_CHUNK_CHARS + 1))
+            if boundary < _LUNGIME_MINIMA_CHUNK:
+                boundary = _MAX_CHUNK_CHARS
+            piece, text = text[:boundary].strip(), text[boundary:].strip()
+            if piece:
+                rezultat_limitat.append({"articol": chunk["articol"], "text": piece})
+        if text:
+            rezultat_limitat.append({"articol": chunk["articol"], "text": text})
+    return rezultat_limitat
 
 
 def _valideaza_chunkuri_locale(chunkuri: Sequence[object]) -> Sequence[object]:
@@ -365,6 +378,8 @@ def _valideaza_chunkuri_locale(chunkuri: Sequence[object]) -> Sequence[object]:
         if not isinstance(chunk, Mapping) or not isinstance(chunk.get("text"), str) or not chunk["text"].strip():
             raise ValueError("chunk invalid")
         _normalizeaza_articol(chunk.get("articol"))
+        if len(chunk["text"]) > _MAX_CHUNK_CHARS:
+            raise ValueError("chunk too long")
     return chunkuri
 
 

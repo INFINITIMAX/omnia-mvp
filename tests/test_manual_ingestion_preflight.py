@@ -408,3 +408,12 @@ def test_cli_emite_json_ascii_portabil_pentru_metadata_cu_diacritice(
 
     assert "\\u021b" in stdout
     assert json.loads(stdout) == rezultat_cu_diacritice
+
+
+def test_chunker_implicit_limiteaza_articol_lung_fara_subpuncte_la_1000(preflight_module):
+    text = "1.1.\n" + ("propozitie sintetica lunga. " * 120)
+    chunks = preflight_module._creeaza_chunkuri_locale(text)
+
+    assert len(chunks) > 1
+    assert all(0 < len(chunk["text"]) <= 1000 for chunk in chunks)
+    preflight_module._valideaza_chunkuri_locale(chunks)
