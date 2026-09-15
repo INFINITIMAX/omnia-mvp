@@ -388,3 +388,8 @@ def test_cli_commit_este_opt_in_si_transmite_numai_caile_explicite(importer_modu
         ["--pdf", str(pdf), "--report", str(raport), "--metadata", str(metadata), "--commit"]
     ) == 0
     assert apeluri[-1] == (pdf, raport, metadata, True)
+
+
+def test_importer_refuza_direct_chunk_peste_1000(importer_module):
+    with pytest.raises(ValueError, match="chunk too long"):
+        importer_module._valideaza_chunkuri([{"articol": "1.1", "text": "x" * 1001}])
