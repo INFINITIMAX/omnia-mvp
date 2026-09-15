@@ -41,10 +41,6 @@ def replace_pending_document(cale_pdf: Path, cale_raport: Path, cale_metadata: P
     connection = cursor = None
     uncertain = False
     try:
-        # Costul se obține înainte de DELETE; DB-ul vechi nu este atins la eșec Voyage.
-        embeddings = base._cere_embeddings(voyage_client_factory(), chunks)
-        if base._hash_sha256(pdf) != sha:
-            raise base.ImportError("unstable_pdf")
         connection = connection_factory(); cursor = connection.cursor()
         cursor.execute("SET LOCAL statement_timeout = %s", (base._TIMEOUT_STATEMENT_MS,))
         for identity in (sha, metadata["document_id"], metadata["cod_oficial"]):
@@ -53,6 +49,11 @@ def replace_pending_document(cale_pdf: Path, cale_raport: Path, cale_metadata: P
         rows = cursor.fetchall()
         if len(rows) != 1 or rows[0][3] != base.STATUS_PENDING:
             raise base.ImportError("pending_identity_mismatch")
+        # Identitatea pending rămâne blocată pe durata apelului Voyage; ștergerea
+        # începe numai după ce embeddings sunt disponibili și SHA-ul este stabil.
+        embeddings = base._cere_embeddings(voyage_client_factory(), chunks)
+        if base._hash_sha256(pdf) != sha:
+            raise base.ImportError("unstable_pdf")
         cursor.execute(_DELETE_CHUNKS_SQL, (metadata["document_id"],))
         if cursor.rowcount <= 0:
             raise base.ImportError("no_existing_chunks")

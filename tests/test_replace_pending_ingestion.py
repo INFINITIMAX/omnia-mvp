@@ -53,17 +53,20 @@ def call(m,ins,commit=False,**kw):
 def test_dry_run_no_db_or_voyage(module,inputs):
     assert call(module,inputs,connection_factory=lambda:pytest.fail("db"),voyage_client_factory=lambda:pytest.fail("voyage"))["status"]=="validated"
 
-def test_commit_embeds_before_delete_and_only_target_id(module,inputs):
+def test_commit_verifica_pending_sub_lock_inainte_de_voyage_si_delete(module,inputs):
     events=[]; c=Cursor(); conn=Conn(c)
     assert call(module,inputs,True,connection_factory=lambda:conn,voyage_client_factory=lambda:Voyage(events))["status"]=="indexed_pending_validation"
-    delete=next(x for x in c.calls if "DELETE" in x[0]); assert delete[1]==("pending_1",) and events.index("embed") < next(i for i,x in enumerate(c.calls) if "DELETE" in x[0])
+    select_index=next(i for i,x in enumerate(c.calls) if "SELECT document_id" in x[0])
+    delete_index=next(i for i,x in enumerate(c.calls) if "DELETE" in x[0])
+    delete= c.calls[delete_index]
+    assert delete[1]==("pending_1",) and select_index < delete_index and events.index("embed") < delete_index
     assert conn.commits==1 and conn.rollbacks==0
 
-@pytest.mark.parametrize("status,delete_count,token",[("approved",2,"pending_identity_mismatch"),("indexed_pending_validation",0,"no_existing_chunks")])
-def test_commit_refuses_nonpending_or_missing_chunks_with_rollback(module,inputs,status,delete_count,token):
-    conn=Conn(Cursor(status,delete_count))
-    with pytest.raises(module.base.ImportError,match=token): call(module,inputs,True,connection_factory=lambda:conn,voyage_client_factory=lambda:Voyage([]))
-    assert conn.rollbacks==1
+@pytest.mark.parametrize("status,delete_count,token,expects_voyage",[("approved",2,"pending_identity_mismatch",False),("indexed_pending_validation",0,"no_existing_chunks",True)])
+def test_commit_refuses_nonpending_or_missing_chunks_with_rollback(module,inputs,status,delete_count,token,expects_voyage):
+    events=[]; conn=Conn(Cursor(status,delete_count))
+    with pytest.raises(module.base.ImportError,match=token): call(module,inputs,True,connection_factory=lambda:conn,voyage_client_factory=lambda:Voyage(events))
+    assert bool(events) is expects_voyage and conn.rollbacks==1
 
 def test_commit_checks_every_insert_and_commit_unknown_no_rollback(module,inputs):
     conn=Conn(Cursor(insert_counts=[1,0]))
