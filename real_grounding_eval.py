@@ -13,7 +13,7 @@ from typing import Callable, Mapping, Sequence
 from anthropic import Anthropic as AnthropicClient
 from voyageai import Client as VoyageClient
 
-from generation_core import GeneratedText, GenerationService
+from generation_core import GeneratedText, GenerationService, GenerationValidationError
 from main import AnthropicTextGenerator, _open_db_connection
 from retrieval_core import (
     PostgresApprovedCatalogRepository,
@@ -73,6 +73,15 @@ def load_cases(manifest_path: Path) -> tuple[RealEvaluationCase, ...]:
     if len(cases) != MAX_CASES or len({case.id for case in cases}) != MAX_CASES or category_counts != _EXPECTED_CATEGORIES:
         raise RealEvaluationError("invalid_cases")
     return tuple(cases)
+
+
+def _safe_case_failure_code(error: Exception) -> str:
+    """Cod whitelistat pentru diagnostic; nu expune mesajul sau datele cazului."""
+    if isinstance(error, GenerationValidationError):
+        return f"generation_{type(error).__name__}"
+    if isinstance(error, RealEvaluationError):
+        return "r05_" + (str(error) if str(error) in {"invalid_embedding", "invalid_generation", "cost_limit", "execution_error"} else "unknown")
+    return "execution_error"
 
 
 def _counter(result: Mapping[str, object], name: str) -> int:
@@ -302,10 +311,10 @@ def run_isolated_evaluation(
                 public_cases.append(_public_case(case, result))
                 embedding_calls += current_embeddings
                 generation_calls += current_generations
-            except RealEvaluationError:
-                raise
             except Exception as error:
-                raise RealEvaluationError("execution_error") from error
+                raise RealEvaluationError(
+                    f"case_failed:{case.id}:{_safe_case_failure_code(error)}"
+                ) from error
     finally:
         if connection is not None:
             try:
