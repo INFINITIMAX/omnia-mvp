@@ -355,9 +355,9 @@ class GenerationService:
             if citation_id not in used_ids or citation_id in passages:
                 raise InvalidGenerationPayloadError("mapare de pasaje invalidă")
             quote = entry["citat"]
-            if not isinstance(quote, str) or not quote.strip() or len(quote) > MAX_CITATION_CHARS:
+            if not isinstance(quote, str):
                 raise InvalidGenerationPayloadError("pasaj invalid")
-            if _normalized_whitespace(quote) not in _normalized_whitespace(evidence_by_id[citation_id].content):
+            if not quote.strip() or len(quote) > MAX_CITATION_CHARS or _normalized_whitespace(quote) not in _normalized_whitespace(evidence_by_id[citation_id].content):
                 quote = _literal_evidence_excerpt(evidence_by_id[citation_id].content)
             # Păstrăm citatul valid al modelului; pentru nepotrivire, pasajul vine literal din dovadă.
             passages[citation_id] = quote

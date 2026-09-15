@@ -251,9 +251,6 @@ def test_citation_passages_text_simplu_vechi_nu_devine_fallback(evidence_pair, r
     pytest.param(True, id="bool"),
     pytest.param([PASSAGE_C1], id="lista"),
     pytest.param({"text": PASSAGE_C1}, id="obiect"),
-    pytest.param("", id="gol"),
-    pytest.param(" \t\n ", id="numai-whitespace"),
-    pytest.param("x" * 601, id="601-caractere-literale"),
 ])
 def test_citation_passages_respinge_schema_sau_valoare_invalida_fara_retry(evidence_pair, quote, reference_suffix):
     payload = encode_payload(
@@ -267,6 +264,9 @@ def test_citation_passages_respinge_schema_sau_valoare_invalida_fara_retry(evide
     pytest.param("Carcasa fictiva este turcoaz.", id="diacritice-eliminate"),
     pytest.param("Carcasa fictivă este turcoaz!", id="punctuatie-schimbata"),
     pytest.param("Carcasa fictivă este roz.", id="text-fabricat"),
+    pytest.param("", id="gol"),
+    pytest.param(" \t\n ", id="numai-whitespace"),
+    pytest.param("x" * 601, id="601-caractere"),
 ])
 def test_citation_passages_neprovenit_este_inlocuit_literal_din_propria_dovada(evidence_pair, quote):
     payload = encode_payload(f"{PASSAGE_C1} [C1]", [{"id": "C1", "citat": quote}])

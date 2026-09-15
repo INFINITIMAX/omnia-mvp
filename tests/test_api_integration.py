@@ -1646,7 +1646,6 @@ def _r06_payload(answer="Răspuns [C1].", quote="fragment public"):
 @pytest.mark.parametrize("payload", [
     pytest.param('{"raspuns":"Răspuns [C1]."}', id="pasaje-lipsa"),
     pytest.param(GeneratedText(_r06_payload()[:-1], truncated=True), id="json-incomplet-trunchiat"),
-    pytest.param(_r06_payload(quote="x" * 601), id="pasaj-prea-lung"),
 ])
 def test_r06_schema_sau_valoare_invalida_503_rollback_quota_exact_fara_retry(api, payload):
     connection = R06TransactionConnection()
@@ -1691,7 +1690,7 @@ def test_r06_validation_logheaza_numai_clasa_si_codul_sigur_fara_payload_sau_evi
     generator = RawGeneratorFake(
         json.dumps({
             "raspuns": "MODEL_ANSWER_SHOULD_NOT_LOG [C1]",
-            "pasaje": [{"id": "C1", "citat": "x" * 601}],
+            "pasaje": [{"id": "C1", "citat": None}],
         })
     )
     caplog.set_level(logging.WARNING, logger="main")
