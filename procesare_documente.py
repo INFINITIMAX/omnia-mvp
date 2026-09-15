@@ -47,9 +47,9 @@ def _repara_np091_verificat(text: str, cale_pdf: Path) -> str:
     digest = hashlib.sha256(cale_pdf.read_bytes()).hexdigest()
     if digest != _NP091_SHA256:
         return text
-    if text.count("�") != 11:
+    if text.count("?") != 11:
         raise ValueError("np091_symbol_count_invalid")
-    return text.replace("�", "→")
+    return text.replace("?", "→")
 
 
 def extrage_text(cale_pdf):
