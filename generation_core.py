@@ -310,7 +310,11 @@ class GenerationService:
         if not isinstance(answer, str) or not answer.strip():
             raise EmptyGeneratedAnswerError("generatorul a returnat un răspuns gol")
         used_ids = self._validated_used_ids(answer, set(evidence_by_id))
-        passages = self._validated_passages(payload["pasaje"], used_ids, evidence_by_id)
+        passages = (
+            self._validated_passages(payload["pasaje"], used_ids, evidence_by_id)
+            if "pasaje" in payload
+            else {citation_id: _literal_evidence_excerpt(evidence_by_id[citation_id].content) for citation_id in used_ids}
+        )
         return GeneratedText(answer, truncated=generated.truncated), used_ids, passages
 
     @staticmethod
@@ -333,7 +337,7 @@ class GenerationService:
             )
         except (ValueError, RecursionError) as error:
             raise InvalidGenerationPayloadError("pachet JSON invalid") from error
-        if not isinstance(payload, dict) or set(payload) != {"raspuns", "pasaje"}:
+        if not isinstance(payload, dict) or set(payload) not in ({"raspuns"}, {"raspuns", "pasaje"}):
             raise InvalidGenerationPayloadError("schema pachetului este invalidă")
         return payload
 

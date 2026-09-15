@@ -1644,7 +1644,6 @@ def _r06_payload(answer="Răspuns [C1].", quote="fragment public"):
 
 
 @pytest.mark.parametrize("payload", [
-    pytest.param('{"raspuns":"Răspuns [C1]."}', id="pasaje-lipsa"),
     pytest.param(GeneratedText(_r06_payload()[:-1], truncated=True), id="json-incomplet-trunchiat"),
 ])
 def test_r06_schema_sau_valoare_invalida_503_rollback_quota_exact_fara_retry(api, payload):
@@ -1728,7 +1727,7 @@ def test_r06_pasaj_neprovenit_este_inlocuit_server_fara_al_doilea_apel(api):
 def test_r06_schema_invalida_rollback_esuat_ramane_503_fara_retry(api):
     connection = R06TransactionConnection(rollback_error=psycopg2.OperationalError("rollback fictiv"))
     budget_connection = ConnectionFake()
-    generator = RawGeneratorFake('{"raspuns":"Răspuns [C1]."}')
+    generator = RawGeneratorFake('{"raspuns":"Răspuns [C1].","pasaje":[]}')
 
     response = configure(api, connection, generator=generator, budget_connection=budget_connection).post(
         "/intreaba", json={"intrebare": "art. 4.4.7.2"}

@@ -161,7 +161,7 @@ class AnthropicTextGenerator:
         "input_schema": {
             "type": "object",
             "additionalProperties": False,
-            "required": ["raspuns", "pasaje"],
+            "required": ["raspuns"],
             "properties": {
                 "raspuns": {"type": "string"},
                 "pasaje": {
