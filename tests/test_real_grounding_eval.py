@@ -363,5 +363,5 @@ def test_factory_runtime_construieste_clienti_fara_retry_si_cu_timeout(monkeypat
 def test_r05_safe_case_failure_code_whitelists_generation_error():
     from generation_core import InvalidGenerationPayloadError
 
-    assert evaluation._safe_case_failure_code(InvalidGenerationPayloadError("pasaj invalid")) == "generation_InvalidGenerationPayloadError"
+    assert evaluation._safe_case_failure_code(InvalidGenerationPayloadError("pasaj invalid")) == "generation_passage_value"
     assert evaluation._safe_case_failure_code(RuntimeError("SECRET_OR_RAW_OUTPUT")) == "execution_error"

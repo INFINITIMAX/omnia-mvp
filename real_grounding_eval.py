@@ -13,7 +13,7 @@ from typing import Callable, Mapping, Sequence
 from anthropic import Anthropic as AnthropicClient
 from voyageai import Client as VoyageClient
 
-from generation_core import GeneratedText, GenerationService, GenerationValidationError
+from generation_core import GeneratedText, GenerationService, GenerationValidationError, InvalidGenerationPayloadError
 from main import AnthropicTextGenerator, _open_db_connection
 from retrieval_core import (
     PostgresApprovedCatalogRepository,
@@ -75,8 +75,20 @@ def load_cases(manifest_path: Path) -> tuple[RealEvaluationCase, ...]:
     return tuple(cases)
 
 
+_INVALID_PAYLOAD_CODES = {
+    "cheie JSON duplicată": "json_duplicate_key", "constantă JSON invalidă": "json_invalid_constant",
+    "pachet JSON invalid": "json_invalid", "schema pachetului este invalidă": "schema_payload",
+    "lista pasajelor este invalidă": "schema_passages", "schema pasajului este invalidă": "schema_passage",
+    "identificator de pasaj invalid": "citation_id", "mapare de pasaje invalidă": "passage_mapping",
+    "pasaj invalid": "passage_value", "lipsește un pasaj citat": "passage_missing",
+    "dovada nu conține pasaj literal publicabil": "evidence_not_publicable",
+}
+
+
 def _safe_case_failure_code(error: Exception) -> str:
     """Cod whitelistat pentru diagnostic; nu expune mesajul sau datele cazului."""
+    if type(error) is InvalidGenerationPayloadError:
+        return "generation_" + _INVALID_PAYLOAD_CODES.get(str(error), "invalid_payload_unknown")
     if isinstance(error, GenerationValidationError):
         return f"generation_{type(error).__name__}"
     if isinstance(error, RealEvaluationError):
