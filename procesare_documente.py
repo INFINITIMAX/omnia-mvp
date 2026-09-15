@@ -5,6 +5,7 @@ Folderul _inbox este doar zona de intrare manuala si nu este procesat automat.
 """
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 
@@ -38,6 +39,19 @@ def citeste_metadata(folder_document):
     return metadata
 
 
+_NP091_SHA256 = "677a7c0af0c7522d87d36c0b723f936d919698d929c2d72e1b4f9644339a8ef3"
+
+
+def _repara_np091_verificat(text: str, cale_pdf: Path) -> str:
+    """Înlocuiește strict cele 11 săgeți validate vizual pentru sursa NP 091."""
+    digest = hashlib.sha256(cale_pdf.read_bytes()).hexdigest()
+    if digest != _NP091_SHA256:
+        return text
+    if text.count("�") != 11:
+        raise ValueError("np091_symbol_count_invalid")
+    return text.replace("�", "→")
+
+
 def extrage_text(cale_pdf):
     """Extrage textul tuturor paginilor unui PDF.
 
@@ -57,7 +71,7 @@ def extrage_text(cale_pdf):
         text = "".join(
             corecteaza_text_pagina(pagina, tabela_glife, proxy=proxy_glife) + "\n" for pagina in document
         )
-    return normalizeaza_diacritice(text), pagini
+    return _repara_np091_verificat(normalizeaza_diacritice(text), Path(cale_pdf)), pagini
 
 
 def main():

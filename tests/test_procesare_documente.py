@@ -41,6 +41,30 @@ def test_extrage_text_normalizeaza_diacriticele_sedila(tmp_path, monkeypatch):
     assert text == "Rețeaua știe despre acțiunea Țării, cu și fara sedila\n"
 
 
+def test_repara_np091_verificat_inlocuieste_numai_sursa_validata(tmp_path, monkeypatch):
+    cale_pdf = tmp_path / "np091.pdf"
+    cale_pdf.write_bytes(b"sursa-validata")
+    monkeypatch.setattr(procesare_documente, "_NP091_SHA256", procesare_documente.hashlib.sha256(b"sursa-validata").hexdigest())
+
+    assert procesare_documente._repara_np091_verificat("A�B" * 11, cale_pdf) == "A→B" * 11
+
+
+def test_repara_np091_verificat_nu_modifica_alta_sursa(tmp_path):
+    cale_pdf = tmp_path / "alta-sursa.pdf"
+    cale_pdf.write_bytes(b"alta")
+
+    assert procesare_documente._repara_np091_verificat("A�B", cale_pdf) == "A�B"
+
+
+def test_repara_np091_verificat_esueaza_la_numar_neasteptat(tmp_path, monkeypatch):
+    cale_pdf = tmp_path / "np091.pdf"
+    cale_pdf.write_bytes(b"sursa-validata")
+    monkeypatch.setattr(procesare_documente, "_NP091_SHA256", procesare_documente.hashlib.sha256(b"sursa-validata").hexdigest())
+
+    with pytest.raises(ValueError, match="np091_symbol_count_invalid"):
+        procesare_documente._repara_np091_verificat("A�B", cale_pdf)
+
+
 def test_extrage_text_nu_modifica_simbolurile_matematice_si_literele_grecesti(tmp_path, monkeypatch):
     """Textul reconstruit din formule CambriaMath (radical, litere grecesti,
     punctul suprapus combinat) trece nemodificat prin normalizarea de
