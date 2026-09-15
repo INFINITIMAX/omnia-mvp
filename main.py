@@ -164,14 +164,6 @@ class AnthropicTextGenerator:
             "required": ["raspuns"],
             "properties": {
                 "raspuns": {"type": "string"},
-                "pasaje": {
-                    "type": "array",
-                    "items": {
-                        "type": "object", "additionalProperties": False,
-                        "required": ["id", "citat"],
-                        "properties": {"id": {"type": "string"}, "citat": {"type": "string", "minLength": 1, "maxLength": 600}},
-                    },
-                },
             },
         },
     }

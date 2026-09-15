@@ -433,6 +433,7 @@ def test_adaptorul_anthropic_forteaza_toolul_si_serializeaza_numai_inputul():
     assert json.loads(generated.text) == {"raspuns": "răspuns [C1]", "pasaje": [{"id": "C1", "citat": "literal"}]}
     assert calls[0]["tool_choice"] == {"type": "tool", "name": "return_grounded_answer"}
     assert calls[0]["tools"][0]["name"] == "return_grounded_answer"
+    assert set(calls[0]["tools"][0]["input_schema"]["properties"]) == {"raspuns"}
 
 
 def test_configurarea_lipsa_este_503_generic(api):
