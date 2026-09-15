@@ -317,12 +317,20 @@ def test_runtime_generator_r05_forteaza_toolul_d22_si_refuza_text_liber():
     assert json.loads(generated.text)["raspuns"] == "Răspuns [C1]"
     assert calls[0]["tool_choice"] == {"type": "tool", "name": "return_grounded_answer"}
 
-    class TextMessagesFake:
-        def create(self, **_kwargs):
-            return SimpleNamespace(content=[SimpleNamespace(type="text", text="nu accept" )], stop_reason="end_turn")
+    invalid_responses = [
+        SimpleNamespace(content=[SimpleNamespace(type="text", text="nu accept")], stop_reason="end_turn"),
+        SimpleNamespace(content=[SimpleNamespace(type="tool_use", name="alt_tool", input={})], stop_reason="tool_use"),
+        SimpleNamespace(content=[SimpleNamespace(type="tool_use", name="return_grounded_answer", input="invalid")], stop_reason="tool_use"),
+        SimpleNamespace(content=[SimpleNamespace(type="tool_use", name="return_grounded_answer", input={}), SimpleNamespace(type="text", text="extra")], stop_reason="tool_use"),
+        SimpleNamespace(content=[SimpleNamespace(type="tool_use", name="return_grounded_answer", input={})], stop_reason="max_tokens"),
+    ]
+    for invalid_response in invalid_responses:
+        class InvalidMessagesFake:
+            def create(self, **_kwargs):
+                return invalid_response
 
-    with pytest.raises(evaluation.RealEvaluationError, match="invalid_generation"):
-        evaluation._RuntimeGenerator(SimpleNamespace(messages=TextMessagesFake())).generate("prompt", max_tokens=1200)
+        with pytest.raises(evaluation.RealEvaluationError, match="invalid_generation"):
+            evaluation._RuntimeGenerator(SimpleNamespace(messages=InvalidMessagesFake())).generate("prompt", max_tokens=1200)
 
 
 def test_factory_runtime_construieste_clienti_fara_retry_si_cu_timeout(monkeypatch):
