@@ -4,6 +4,8 @@
 
 **Citește `HANDOFF.md` pentru context complet.** Rezumat rapid:
 
+- **Audit complet Opus (R10, 25-09-2026):** `docs/handoff/R10-audit-complet-opus-raport.md`. Blocaj principal: contractul de citare s-a schimbat pe 15-09 fără decizie scrisă (F1) — **așteaptă decizia Lucian**. Apoi merge R08 (fix corect, dar parțial pe ruta semantică).
+
 - `main` la `132f7f4`, curat, pushed. Cea mai recentă lucrare confirmată: R05 pilot finalizat operațional (15-09-2026), D22/D21/D20 live în producție.
 - Verificare proaspătă azi: `python -m pytest -q` → **1021 passed, 1 warning** (avertisment extern, nu al proiectului).
 - Curățenie repo azi: 31 worktree-uri + 51 branch-uri orfane (deja merge-uite) șterse. Rămân 5 worktree-uri cu muncă reală ne-merge-uită: `feat/context-conversatie`, `feat/mobil-varianta-b`, `fix/blocheaza-calcule-proiectare` (are și modificări necommise local), `fix/i7-glife-corupte`, `fix/r08-split-article-retrieval`.

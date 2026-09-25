@@ -4,6 +4,8 @@ Updated: **25-09-2026** (EET). Rewritten after a 10-day documentation gap (previ
 
 ## 1. The short version
 
+> **Correction after the Opus audit (R10, same day):** see `docs/handoff/R10-audit-complet-opus-raport.md`. Most important: the citation contract on `main` was changed on 15-09 (`1091bb8`, `6888902`) without a written decision — the tool schema no longer has `pasaje`, so the public quote is the first ~600 characters of the chunk. That contradicts D20/D22/R06 as written in `docs/DECISIONS.md`. The "D20/D22 live" claims below describe the approved contracts, not current `main` behavior. Also: D18 **is** confirmed merged (`fa82e31`, merge `762fe34`); R09 overstated R08's production impact.
+
 - **`main` is at `132f7f4`** (merge commit for NP091 verified symbols), pushed to `origin/main`. Working tree clean on `main` as of this handoff.
 - **D11–D22 are all accepted and live**, later than the 11-09 handoff suggested: multi-document search (D11-D14), passage verification (D20/R06), safe generation diagnostics (D21), structured Anthropic tool output (D22), and a real read-only R05 pilot run (15-09-2026, 20 real cases, 16 `answered`/4 `ambiguous_reference`, zero uncited answers).
 - **Fresh host verification for this handoff:** `python -m pytest -q` → **1021 passed, 1 warning** (external `httpx`/`starlette.testclient` deprecation, not a project issue). No DB/provider calls made for this check.
@@ -42,7 +44,7 @@ In rough order, most recent first (see `TASKS.md` for full predare text per item
 - **D22 (14-09-2026):** Anthropic returns exclusively the `return_grounded_answer` tool; structured input goes through R06, no free-text fallback/retry. Live in `main` SHA `e895605`, Railway deployment `SUCCESS`.
 - **D21 (14-09-2026):** `GenerationValidationError` caught by `POST /intreaba` logs only the internal class name + a stable code — no question, model answer, evidence, provider payload, traceback, DB fields, or secrets. Public response stays generic `503`. Live in `main` SHA `42dcc52`.
 - **D20/R06 (14-09-2026):** for a non-empty, ≤600-char `pasaje.citat` on a valid/used ID without literal provenance in its own evidence, the server publishes a deterministic literal excerpt from that same evidence instead. Live in `main` SHA `0261ef5`.
-- **D18 (13-09-2026):** operator-confirmed metadata for manual preflight — accepted locally on `fix/manual-metadata-preflight`, not yet independently re-confirmed merged for this handoff.
+- **D18 (13-09-2026):** operator-confirmed metadata for manual preflight — merged into `main` (`fa82e31`, merge `762fe34`), confirmed by the R10 audit.
 - **Deploy verified (13-09-2026):** `main` published manually to Railway from SHA `4bc4973`; healthcheck + smoke passed without provider calls. **This is the last recorded live-deploy verification** — 12 days stale as of this handoff.
 - **D11–D14 multi-document search:** long saga (started 11-09), finally "ACCEPTAT LOCAL" — exact-article routing fixed, QA/re-review OK, 105 focused / 962 full tests passed. The underlying branch `fix/stabilizare-coduri-normative` is confirmed merged into `main` as of today's worktree cleanup.
 - **R06 final handoff + explicit STOP from Lucian (11-09-2026):** citation-passage verification closed locally; Lucian requested a stop before starting the next task.
