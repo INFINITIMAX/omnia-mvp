@@ -1,118 +1,88 @@
 # NormativAI — current state and next actionable steps
 
-Updated: **11-09-2026** (EET). This is a handoff, **not a claim that D11 or production readiness is complete**.
+Updated: **25-09-2026** (EET). Rewritten after a 10-day documentation gap (previous version dated 11-09-2026, but `main` had advanced through 15-09-2026 without a matching handoff). This version is a **read from git history + fresh host verification**, not a new implementation session.
 
 ## 1. The short version
 
-- **Completed locally:** the synthetic grounding evaluator (5A) and verified citation passages (R06). QA and Reviewer approved both local slices.
-- **D11–D14 acceptat local:** P1 exact-article este reparat; QA și re-review P1 sunt OK. Articolul nemarcat/marcat după cod complet ajunge exact/no embedding, iar 2099 rămâne fail-closed. Host: 105 focused și 962 full passed/11 skips. Nu este acceptare de producție sau închidere R05/D02/D03.
-- **Fresh GREEN:** 515 focused passed; full suite 863 passed/11 corpus skips/0 failures. R05 diagnostic remains 19 cases/10 findings/exit 1 intentional.
-- **Still wrong:** authentic quotes can accompany unsupported claims. D11 fixes retrieval routing, not semantic claim truth.
-- **Last GitHub checkpoint:** `d0f457ee15a51111cfec9d691f84f14e6da6f406` contains RED tests. The GREEN runtime diff is currently uncommitted pending independent review.
-- No live DB/provider calls, merge or deployment were made.
+- **`main` is at `132f7f4`** (merge commit for NP091 verified symbols), pushed to `origin/main`. Working tree clean on `main` as of this handoff.
+- **D11–D22 are all accepted and live**, later than the 11-09 handoff suggested: multi-document search (D11-D14), passage verification (D20/R06), safe generation diagnostics (D21), structured Anthropic tool output (D22), and a real read-only R05 pilot run (15-09-2026, 20 real cases, 16 `answered`/4 `ambiguous_reference`, zero uncited answers).
+- **Fresh host verification for this handoff:** `python -m pytest -q` → **1021 passed, 1 warning** (external `httpx`/`starlette.testclient` deprecation, not a project issue). No DB/provider calls made for this check.
+- **Production** (`https://normativai.ro`): `/health` → `200 {"status":"ok"}`, verified live for this handoff (25-09-2026). Security headers present (CSP, HSTS, X-Frame-Options, nosniff, Permissions-Policy). Railway deploy is manual (`railway up`, no Git Source connected) — **the exact deployed SHA is unconfirmed**; `main` has moved since the last recorded deploy note (`4bc4973`, 13-09-2026), and nobody has re-verified which commit is actually live.
+- **Repo hygiene fixed today:** 31 stale git worktrees (all already merged into `main`) and 51 stale local branches were removed. Only 5 worktrees with genuinely unmerged work remain, plus `main`.
 
 ## 2. Where the work is
 
 | Item | Location / state |
 |---|---|
-| Working directory | `D:\Omnia-MVP-stabilizare` |
-| Working branch | `fix/stabilizare-coduri-normative` |
-| Base | `237e11db81251b8eb316ec02aa01e428089c66bc` |
-| Current local HEAD | `d0f457ee15a51111cfec9d691f84f14e6da6f406`; D11–D14 runtime/test migration is uncommitted pending QA/Reviewer. |
-| Git checkpoint | `d0f457ee15a51111cfec9d691f84f14e6da6f406`, pushed to `origin/fix/stabilizare-coduri-normative`; this is intentionally RED. |
-| Last recorded production SHA | `47a61339037c941e97f136686832142b8e1ac8e6`; production was **not rechecked** for this handoff. |
-| Complete issue register | [revizii.md](revizii.md): 28 findings, approved decisions, remediation steps and production gates. |
+| Main working directory | `D:\Omnia-MVP` (worktree for `main`) |
+| Open worktrees with real unmerged work | see §3 below — 5 total |
+| Untracked, never-run audit briefs | `docs/handoff/R07-operations.md`, `docs/handoff/R07-security.md` — read-only production-readiness audits, prepared but never executed or reported |
+| Complete issue register | [revizii.md](revizii.md): R01–R28 findings, approved decisions, remediation steps, production gates — not re-audited for this handoff, treat as historical unless re-verified |
 | Approval source | [docs/DECISIONS.md](docs/DECISIONS.md) |
-| Current task / acceptance checks | [TASKS.md](TASKS.md), [GATES.md](GATES.md) |
-| Beginner explanation of R06 | [docs/R06_CODE_WALKTHROUGH.md](docs/R06_CODE_WALKTHROUGH.md) |
+| Task log (chronological, not an index) | [TASKS.md](TASKS.md) — see the new "Stare curentă" section at the top for a quick-read summary; the rest is historical predare-by-predare log, kept for traceability |
+| Production gates | [GATES.md](GATES.md) |
 
-## 3. What we have
+## 3. Open worktrees — genuinely unmerged work
 
-### Existing foundation — retain it
+| Worktree | Branch | Last commit | Status |
+|---|---|---|---|
+| `D:\Omnia-MVP-context` | `feat/context-conversatie` | `b480584` — "wip: conserva testele API pentru context conversational" | WIP checkpoint, not confirmed active |
+| `D:\Omnia-MVP-mobil-b` | `feat/mobil-varianta-b` | `793d303` — "wip: conserva varianta mobila B inainte de integrare" | WIP checkpoint, paused before integration |
+| `D:\Omnia-MVP-no-calculations` | `fix/blocheaza-calcule-proiectare` | `dfead38` + **uncommitted local changes** (`.github/workflows/tests.yml`, `DEPLOYMENT.md`, `GATES.md`, `TASKS.md`, `docs/DECISIONS.md`) | Most "live" of the five, but **Lucian confirmed 25-09-2026: not resuming this branch right now** |
+| `D:\Omnia-MVP-i7` | `fix/i7-glife-corupte` | `b239a72` — "wip: conserva maparea tehnica Monotype WGL4" | WIP checkpoint, paused |
+| `D:\Omnia-MVP-r08-split-article-retrieval` | `fix/r08-split-article-retrieval` | `8023d1a` — "fix: accept consecutive chunks for split articles" | Real fix commit, not WIP-labeled, never merged — worth checking if still needed |
 
-FastAPI/Python, PostgreSQL/pgvector retrieval, approved-document filtering, official citations, calculation refusal, anonymous quota/rate limiting and provider-call budgeting. Keep the architecture; no rewrite or new orchestration framework is approved.
+None of these five have been inspected in depth for this handoff (read-only branch/commit inspection only). Before resuming any of them, re-read their actual diff against current `main` — commits are 10+ days old and `main` has moved.
 
-The importer status-reconciliation fix and automatic-worker code are already in the repository base. **The worker stays inactive:** no permanent worker or logon task. The worker SHA migration remains unapplied according to the recorded handoff. The one-PDF preflight and persistent importer are accepted locally: the importer has dry-run by default and explicit insert-only `--commit` to pending, but has never used real DB/Voyage. `commit_unknown` requires read-only reconciliation before retry; `approved` remains separate.
+## 4. Confirmed via git history (not re-verified live) — feature timeline through 15-09-2026
 
-### Completed local stabilization
+In rough order, most recent first (see `TASKS.md` for full predare text per item):
 
-| Deliverable | What improved | Important limit |
-|---|---|---|
-| 5A evaluator | 19 reproducible, fictitious fixed-output cases distinguish unsupported claims, bad citations and missing passages. | Not live-model accuracy or human-expert validation. |
-| R06 citation passages | Model supplies a passage; backend verifies literal occurrence in the corresponding evidence and owns public metadata. | A genuine passage does not prove that it supports every claim. |
-| R06 failure handling | Invalid passage/payload returns 503 with checked quota rollback; no retry caused by that failure. Valid complete truncated JSON retains the existing warning. | Already consumed provider cost and rate/budget accounting are not undone. |
-| Verification | Historical RED: 133 failures / 18 passes before the fix. Focused GREEN: 402 passes. Independent QA and Reviewer: OK. | Approval is local, not deployment authorization. |
+- **R05 pilot, finalized operational (15-09-2026):** 20-case local manifest (8 exact, 8 semantic, 4 negative), real read-only run: 8 embeddings, 16 generations, 16 `answered` with 20 citations, 4 `ambiguous_reference`, zero uncited `answered`. Semantic content verdict remains human review; local report not in Git.
+- **D22 (14-09-2026):** Anthropic returns exclusively the `return_grounded_answer` tool; structured input goes through R06, no free-text fallback/retry. Live in `main` SHA `e895605`, Railway deployment `SUCCESS`.
+- **D21 (14-09-2026):** `GenerationValidationError` caught by `POST /intreaba` logs only the internal class name + a stable code — no question, model answer, evidence, provider payload, traceback, DB fields, or secrets. Public response stays generic `503`. Live in `main` SHA `42dcc52`.
+- **D20/R06 (14-09-2026):** for a non-empty, ≤600-char `pasaje.citat` on a valid/used ID without literal provenance in its own evidence, the server publishes a deterministic literal excerpt from that same evidence instead. Live in `main` SHA `0261ef5`.
+- **D18 (13-09-2026):** operator-confirmed metadata for manual preflight — accepted locally on `fix/manual-metadata-preflight`, not yet independently re-confirmed merged for this handoff.
+- **Deploy verified (13-09-2026):** `main` published manually to Railway from SHA `4bc4973`; healthcheck + smoke passed without provider calls. **This is the last recorded live-deploy verification** — 12 days stale as of this handoff.
+- **D11–D14 multi-document search:** long saga (started 11-09), finally "ACCEPTAT LOCAL" — exact-article routing fixed, QA/re-review OK, 105 focused / 962 full tests passed. The underlying branch `fix/stabilizare-coduri-normative` is confirmed merged into `main` as of today's worktree cleanup.
+- **R06 final handoff + explicit STOP from Lucian (11-09-2026):** citation-passage verification closed locally; Lucian requested a stop before starting the next task.
 
-The R06 internal JSON format, 600-character citation limit and existing 1200-token generation ceiling are documented. Passages use some of those output tokens; real-model adherence, cost and truncation effects remain unmeasured.
+## 5. What's NOT confirmed / open risk
 
-### Fresh checks run for this handoff
+- **Production SHA is unconfirmed against current `main`.** `/health` responds, but nobody has checked whether Railway is actually serving `132f7f4` or something from mid-September. Not urgent (site works), but a real gap before claiming "production reflects current work."
+- **`revizii.md` (R01–R28 findings register) was not re-read for this handoff.** Treat its findings as of their last recorded status, not re-verified today.
+- **The two R07 audit briefs (`docs/handoff/R07-operations.md`, `R07-security.md`) were written but never executed.** They look like a natural next step for confirming "Omnia is clean and functional" (Lucian's stated priority, 25-09-2026) before moving to the RAG ingestion check and, later, the planned AutoCAD extension work.
+- **Dependabot: 5 open PRs, stale since 06-09-2026 (19 days).** One (`anthropic` 0.116.0 → 1.3.0) is a major version bump — likely has breaking API changes, needs careful review, not a routine merge.
+- **The 5 open worktrees (§3) haven't been checked for whether their WIP work is still relevant** given how much has landed on `main` since they were paused.
 
-- Focused D11 verification: **515 passed**, zero failures/errors.
-- Full suite: **863 passed, 11 skipped, zero failures/errors**. The skips require absent local corpus fixtures.
-- Diagnostic: **19 cases, 19 fake calls, 17 publications, 2 structural refusals; 10 unsupported candidates accepted; zero missing passages/valid rejections/execution errors**. Exit 1 is intentional and not a live error rate.
-- Host snapshot protection confirms only authorized D11 Python seams changed; R06/5A inputs and runtime files are protected.
-- `git diff --check` passed; zero staged files at preflight. QA/Reviewer still pending.
+## 6. Lucian's stated roadmap (25-09-2026)
 
-## 4. The latest task: D11 multi-document search
+In order:
+1. **Confirm Omnia is clean and functional** — this handoff sync is part of that; the R07 audits (§5) are a natural next step.
+2. **Verify the RAG ingestion path** works correctly end-to-end.
+3. **Build an AutoCAD extension** so Omnia can be opened/used from inside AutoCAD.
 
-**Lucian's approved intent:** search all approved documentation by default and combine relevant evidence. Conversation history helps interpret the question; previously cited document codes must not silently restrict the next search. A document mention alone is not a request for exclusivity.
+`fix/blocheaza-calcule-proiectare` (§3) is explicitly **not** being resumed right now, despite having live uncommitted changes — Lucian's call, not a technical block.
 
-Explicit restrictions still matter. We want multi-source answers, not incorrect source attribution or silent substitution when a user requests a particular source/article.
+## 7. Immediate next steps — in order
 
-**Current local code implements this policy:** slash aliases; global semantic default; no hard filter from mentions/history; comparisons of distinct documents; finite current-question phrases `doar/numai/exclusiv din [cod]`; known-code scoped retrieval without global fallback; absent code as `ambiguous_reference` before dependencies; exact `nu doar din [cod]` global guard. History remains in embedding even for scope.
-
-RED evidence: 42 failures/35 passes for D11–D13, then 5 failures for D14/history. GREEN: 515 focused and 863 full passes. D11 gates are **7/8 met**; only independent QA/Reviewer and final handoff remain. D02/D03, other negations, multiple restrictions and UI replay remain outside this slice.
-
-## 5. GitHub snapshot — checked 11-09-2026
-
-- Remote: `https://github.com/INFINITIMAX/omnia-mvp.git`.
-- `origin/main` este **exact** `237e11db81251b8eb316ec02aa01e428089c66bc`, identic cu baza acestui worktree. Nu există schimbări remote de integrat.
-- Branch-ul local `fix/stabilizare-coduri-normative` pornește din acel SHA și are checkpoint-ul RED `d0f457e` împins pe GitHub. Nu am făcut fetch/pull/rebase/merge; push-ul nu schimbă `main` sau producția.
-- Există cinci PR-uri Dependabot deschise (#1–#5), independente de D11. Nu le-am actualizat/îmbinat.
-
-## 6. Immediate next steps — in order
-
-1. Run read-only QA and independent review on the exact local runtime diff.
-2. Resolve only concrete review findings with the same Coder, rerun affected host checks, then update the handoff/gates.
-3. Commit and push the verified GREEN increment; it remains a branch checkpoint, not merge/deploy.
-4. Later, decide D02/D03 separately: ambiguous article follow-ups, other negations/multiple restrictions, persistence of scope and UI history replay.
-
-## 7. After D11 — remaining product work
-
-| Priority | Action | Evidence required |
-|---|---|---|
-| Answer correctness (R05) | Prepare real questions with manually checked answers/citations, approve the evaluation budget, measure the current system, then approve a targeted protection. | Real-corpus/model results; not only green synthetic tests. |
-| Conversation/history | Resolve remaining exact follow-ups, unknown references, reopening and clearing history; verify in a browser. | Approved scenario matrix and end-to-end conversation checks. |
-| Corpus integrity | Inventory actual approved documents/chunks; inspect missing/duplicate articles, extraction and text-hash idempotency. | Explicitly approved DB/corpus audit; the historical “10 documents” is not a current inventory. |
-| Manual ingestion | Deliver one PDF → local validation → separately approved DB/Voyage import → pending status → separate public approval. | Tested safe import/update behavior; no watcher or implicit approval. |
-| Operations/privacy/legal | Verify timeouts/TLS, grants/proxy handling, budget accounting, retention/cleanup, privacy wording, PDF-library/corpus rights, backup restore and rollback. | Approved values, working runbooks and demonstrated recovery. |
-| Release | Review the actual candidate changes, close applicable production gates, obtain publication approvals and run post-deploy checks. | Exact candidate SHA, CI/reviews, authorized release and smoke evidence. |
-
-The separate review of the initial documentation lot also remains open. **No production gate is closed by this handoff.**
+1. Merge this doc-sync branch (`docs/sync-handoff-tasks-25-09`) into `main`, with Lucian's explicit approval (per `AGENTS.md` rule 8 — no direct push to `main` without approval).
+2. Decide whether to run the two prepared R07 audits (operations + security) now, as the concrete next action for "confirm Omnia is clean."
+3. After that: RAG ingestion verification (scope not yet defined — needs a spec before implementation).
+4. AutoCAD extension: needs its own intent/spec — completely new surface area (desktop plugin, not web), not started.
 
 ## 8. Commands and evidence
 
-Safe existing local checks, from PowerShell:
+Safe existing local checks, from PowerShell, on `D:\Omnia-MVP` (or any worktree):
 
 ```powershell
-Set-Location 'D:\Omnia-MVP-stabilizare'
+Set-Location 'D:\Omnia-MVP'
 python -m pytest -q
 git diff --check
 ```
 
-Only **after the new test file exists**:
+Fresh result for this handoff: `1021 passed, 1 warning` (external deprecation warning only).
 
-```powershell
-python -m pytest -q tests/test_multi_document_retrieval.py
-python -m pytest -q tests/test_retrieval_core.py tests/test_multi_document_retrieval.py tests/test_api_integration.py tests/test_citation_passages.py
-```
+Never include `.env`, secrets, PDF contents or extracted normative text in a commit or public handoff.
 
-Evidence root: `C:\Users\Lucian-PC\AppData\Local\Temp\normativai-stabilizare-237e11d\`.
-
-- `handoff-11-09-2026/`: fresh full-suite and diagnostic logs, JSON/JUnit, command/exit receipts and `verification.json`.
-- `multi-document/`: pre-D11 snapshots, authorization, RED/GREEN receipts/logs, evaluator-after-D11 evidence and host `verify.py`. Do not rerun baseline mode over the saved baseline.
-- `r06/`: reviewed snapshots, RED/GREEN evidence and supplemental API/QA checks.
-
-Temporary evidence can expire. This Markdown preserves the conclusions; if artifacts disappear, rerun the applicable checks rather than inventing evidence. Never include `.env`, secrets, PDF contents or extracted normative text in a commit or public handoff.
-
-**CV value:** measurable regression work, source provenance and explicit safety/cost boundaries—not claiming factual accuracy merely because citations and tests are valid.
+**CV value:** documentation-debt detection and repair (stale handoff caught against real git history), git hygiene at scale (31 worktrees + 51 branches identified as safe-to-delete via `--merged` checks, not guessed), production-vs-main drift flagged explicitly instead of assumed — the kind of operational discipline that's easy to skip and expensive to skip.
