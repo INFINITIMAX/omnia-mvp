@@ -169,7 +169,10 @@ class AnthropicTextGenerator:
                     "items": {
                         "type": "object", "additionalProperties": False,
                         "required": ["id", "citat"],
-                        "properties": {"id": {"type": "string"}, "citat": {"type": "string", "minLength": 1, "maxLength": 600}},
+                        "properties": {"id": {"type": "string"}, "citat": {
+                            "type": "string", "minLength": 1, "maxLength": 600,
+                            "description": "O singură frază copiată literal din dovadă, ideal sub 300 de caractere; niciodată articolul întreg.",
+                        }},
                     },
                 },
             },
