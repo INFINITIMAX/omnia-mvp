@@ -33,6 +33,13 @@ PATTERN_ARTICOL_ART = re.compile(
 PATTERN_ARTICOL_FARA_PUNCT = re.compile(
     r"\n\s*„?\s*(\d+\.\d+(?:\.\d+){0,4})[ \t  ]+(?=[A-ZĂÂÎȘȚŞŢ„(])"
 )
+# Titlu de capitol cu un singur nivel de numerotare ("4. Elemente generale de calcul"),
+# nerecunoscut de PATTERN_ARTICOL (cere >=2 componente). Grupul 1 include punctul final,
+# ca la celelalte marcaje; grupul 2 e textul titlului, validat separat în
+# `_este_titlu_capitol_simplu_valid` (lungime, punctuație finală, copil direct următor) —
+# altfel orice enumerare simplă din corpul unui articol ("1. text... 2. text...") ar fi
+# confundată cu un titlu de capitol.
+PATTERN_TITLU_CAPITOL_SIMPLU = re.compile(r"\n\s*(\d{1,2}\.)[ \t]+([A-ZĂÂÎȘȚŞŢ].*)")
 PATTERN_LINIE_CUPRINS = re.compile(r"\.{4,}\s*\d{1,4}\s*(?=\n|$)")
 PATTERN_TITLU_CUPRINS = re.compile(r"^\s*\d+(?:\.\d+)*\.\s+\S.*$")
 PATTERN_NUMAR_PAGINA = re.compile(r"^\d{1,4}$")
@@ -69,6 +76,7 @@ DISTANTA_MAXIMA_ANTET = 3
 NUMAR_MINIM_INTRARI_CUPRINS = 5
 DISTANTA_MAXIMA_INTRARE_CUPRINS = 3
 LUNGIME_MAXIMA_TITLU = 200
+LUNGIME_MAXIMA_TITLU_CAPITOL_SIMPLU = 120
 LUNGIME_FEREASTRA_COLOFON = 4000
 
 _ultimele_statistici = {
@@ -92,6 +100,7 @@ def creeaza_chunkuri(text: str) -> list[dict[str, str]]:
     continut = _elimina_titluri_capitol_roman(continut)
 
     segmente = _extrage_segmente(continut)
+    _propaga_titluri_capitol_simplu(segmente)
     titluri_contopite, titluri_cuprins_eliminate = _contopeste_titluri(segmente)
     articole_cu_context_parinte = {
         segment["articol"] for segment in segmente if segment["are_context_parinte"]
@@ -106,11 +115,12 @@ def creeaza_chunkuri(text: str) -> list[dict[str, str]]:
         if len(text_segment) < LUNGIME_MINIMA_CHUNK:
             continue
         articol = segment["articol"]
-        existent = chunkuri_dupa_articol.get(articol)
+        cheie = _normalizeaza_pentru_dedup(articol)
+        existent = chunkuri_dupa_articol.get(cheie)
         if existent is None:
-            chunkuri_dupa_articol[articol] = {"articol": articol, "text": text_segment}
+            chunkuri_dupa_articol[cheie] = {"articol": articol, "text": text_segment}
         elif len(text_segment) > len(existent["text"]):
-            chunkuri_dupa_articol[articol] = {"articol": articol, "text": text_segment}
+            chunkuri_dupa_articol[cheie] = {"articol": articol, "text": text_segment}
             duplicate_eliminate += 1
         else:
             duplicate_eliminate += 1
@@ -271,9 +281,15 @@ def _este_majoritar_majuscul(text: str) -> bool:
     return majuscule > len(litere) / 2
 
 
+def _normalizeaza_pentru_dedup(articol: str) -> str:
+    """Cheia de dedup: același contract ca `normalizeaza_articol`/`_normalizeaza_articol`
+    (spațiere colapsată, minuscule, fără puncte finale), fără validarea caracterelor —
+    validarea rămâne responsabilitatea importerului la scriere în DB."""
+    return _PATTERN_SPATIERE_ARTICOL.sub("", articol).lower().rstrip(".")
+
+
 def _este_articol_normalizabil(articol: str) -> bool:
-    normalizat = _PATTERN_SPATIERE_ARTICOL.sub("", articol).lower().rstrip(".")
-    return bool(_PATTERN_ARTICOL_NORMALIZAT.fullmatch(normalizat))
+    return bool(_PATTERN_ARTICOL_NORMALIZAT.fullmatch(_normalizeaza_pentru_dedup(articol)))
 
 
 def _baza_articol(potrivire: re.Match[str]) -> str:
@@ -310,7 +326,10 @@ _PATTERN_MAJUSCULA_LIPITA = re.compile(r"[A-ZĂÂÎȘȚŞŢ]")
 # numărul de pe rândul următor e continuarea unei trimiteri rupte de extragerea PDF
 # ("...prevederile Art.\n2.1.3.5. (1) alin. a);"), nu un articol nou. Comparate cu
 # rândul anterior integral, minuscule — acoperă și "Art."/"Articolul" cu majusculă.
-_CUVINTE_TRIMITERE_RUPTA = ("art.", "articolul", "alin.", "pct.", "lit.", "conform")
+_CUVINTE_TRIMITERE_RUPTA = (
+    "art.", "articolul", "alin.", "pct.", "lit.", "conform",
+    "punctele", "punctul", "punctelor", "articolele", "articolelor", "prevederile", "prevederilor",
+)
 
 
 def _linia_anterioara_se_termina_cu_trimitere(sursa: str, pozitie_marcaj: int) -> bool:
@@ -358,7 +377,32 @@ def _este_referinta_rupta(potrivire: re.Match[str], sursa: str) -> bool:
     rest = urmator[pas:]
     if rest[:1] in ("", "\n"):
         return False
+    # O cifră lipită imediat (fără spațiu) de marcaj e prefixul unui număr mai lung
+    # (ex. „4.2.4.” + „5 și 4.2.4.6” din text continuu), nu un articol nou — spre
+    # deosebire de o cifră după spațiu real, care rămâne caracter valid ca până acum.
+    if pas == 0 and rest[:1].isdigit():
+        return True
     return not _PATTERN_CARACTER_VALID_DUPA_NUMAR.match(rest)
+
+
+def _este_titlu_capitol_simplu_valid(
+    potrivire: re.Match[str], candidate: list[re.Match[str]], index: int
+) -> bool:
+    """Un rând `N. Titlu` e titlu de capitol numai dacă respectă formatul (titlu scurt,
+    fără punctuație finală de continuare) și marcajul recunoscut imediat următor e un
+    copil direct al lui — altfel e o enumerare obișnuită din corpul unui articol
+    (ex. „1. text… 2. text…”, fără „1.1.”), nu un separator de capitol.
+    """
+    titlu = potrivire.group(2).rstrip()
+    if len(titlu) > LUNGIME_MAXIMA_TITLU_CAPITOL_SIMPLU or titlu.endswith((".", ";", ":")):
+        return False
+    if index + 1 >= len(candidate):
+        return False
+    prefix = _baza_articol(potrivire)
+    baza_urmator = _baza_articol(candidate[index + 1])
+    if not baza_urmator.startswith(prefix) or baza_urmator == prefix:
+        return False
+    return baza_urmator[len(prefix):].count(".") == 1
 
 
 def _extrage_segmente(continut: str) -> list[dict[str, object]]:
@@ -376,6 +420,7 @@ def _extrage_segmente(continut: str) -> list[dict[str, object]]:
             *PATTERN_ARTICOL.finditer(sursa),
             *PATTERN_ARTICOL_ART.finditer(sursa),
             *PATTERN_ARTICOL_FARA_PUNCT.finditer(sursa),
+            *PATTERN_TITLU_CAPITOL_SIMPLU.finditer(sursa),
         ),
         key=lambda potrivire: (potrivire.start(), -(potrivire.end(1) - potrivire.start(1))),
     )
@@ -387,15 +432,22 @@ def _extrage_segmente(continut: str) -> list[dict[str, object]]:
         candidate.append(potrivire)
         ultimul_start = potrivire.start()
 
-    potriviri = [
-        potrivire
-        for potrivire in candidate
-        if not _este_data_zi_luna_an(potrivire, sursa) and not _este_referinta_rupta(potrivire, sursa)
-    ]
+    potriviri = []
+    for index, potrivire in enumerate(candidate):
+        if _este_data_zi_luna_an(potrivire, sursa) or _este_referinta_rupta(potrivire, sursa):
+            continue
+        if potrivire.re is PATTERN_TITLU_CAPITOL_SIMPLU and not _este_titlu_capitol_simplu_valid(
+            potrivire, candidate, index
+        ):
+            continue
+        potriviri.append(potrivire)
     segmente = []
     for index, potrivire in enumerate(potriviri):
         articol_baza = _baza_articol(potrivire)
         articol = articol_baza
+        titlu_capitol = (
+            potrivire.group(2).rstrip() if potrivire.re is PATTERN_TITLU_CAPITOL_SIMPLU else None
+        )
         urmator_direct = sursa[potrivire.end(1):potrivire.end(1) + 1]
         if not _PATTERN_MAJUSCULA_LIPITA.match(urmator_direct):
             sufix = re.match(r"[^\s]+", sursa[potrivire.end(1):])
@@ -412,12 +464,35 @@ def _extrage_segmente(continut: str) -> list[dict[str, object]]:
             {
                 "articol": articol,
                 "articol_baza": articol_baza,
+                "titlu_capitol": titlu_capitol,
                 "text": text_segment,
                 "este_titlu": False,
                 "are_context_parinte": False,
             }
         )
     return segmente
+
+
+def _propaga_titluri_capitol_simplu(segmente: list[dict[str, object]]) -> None:
+    """Pune textul titlurilor de capitol cu un singur nivel (`titlu_capitol`) ca prim
+    rând la copiii lor direcți, ca la titlurile din `_contopeste_titluri` — dar
+    segmentul-titlu însuși rămâne un chunk normal (introducerea capitolului), nu e
+    marcat `este_titlu`, fiindcă validarea din `_este_titlu_capitol_simplu_valid` a
+    confirmat deja că are un copil direct, indiferent de forma textului rămas.
+    """
+    for index, segment in enumerate(segmente):
+        titlu = segment["titlu_capitol"]
+        if titlu is None:
+            continue
+        prefix = segment["articol_baza"]
+        context = f"{prefix} {titlu}"
+        pas = index + 1
+        while pas < len(segmente) and segmente[pas]["articol_baza"].startswith(prefix):
+            rest = segmente[pas]["articol_baza"][len(prefix):]
+            if rest.count(".") == 1:
+                segmente[pas]["text"] = f"{context}\n{segmente[pas]['text']}"
+                segmente[pas]["are_context_parinte"] = True
+            pas += 1
 
 
 def _contopeste_titluri(segmente: list[dict[str, object]]) -> tuple[int, int]:
@@ -432,6 +507,8 @@ def _contopeste_titluri(segmente: list[dict[str, object]]) -> tuple[int, int]:
     cuprins_eliminate = 0
     bazele = [segment["articol_baza"] for segment in segmente]
     for index, segment in enumerate(segmente):
+        if segment["titlu_capitol"] is not None:
+            continue
         text = segment["text"]
         if not _este_titlu(text):
             continue
@@ -477,6 +554,14 @@ def _aplica_split_secundar(
             continue
         subpuncte = PATTERN_SUBPUNCT.split(chunk["text"])
         if len(subpuncte) == 1:
+            rezultat.append(chunk)
+            continue
+        numere_subpunct = [int(subpuncte[index]) for index in range(1, len(subpuncte), 2)]
+        # Numerotare care reîncepe sau se repetă (ex. „(1)…(3)” de mai multe ori în
+        # același articol, la sub-secțiuni nenumerotate) nu poate fi despărțită pe
+        # subpuncte — ar suprapune identificatori. Articolul rămâne o unitate, tăiată
+        # apoi doar de `_aplica_limita_caractere`.
+        if any(numere_subpunct[index] <= numere_subpunct[index - 1] for index in range(1, len(numere_subpunct))):
             rezultat.append(chunk)
             continue
         introducere = subpuncte[0].strip()

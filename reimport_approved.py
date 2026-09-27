@@ -529,7 +529,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(str(error), file=sys.stderr)
         return 2
 
-    print(json.dumps(rezultat, ensure_ascii=False, sort_keys=True, default=str))
+    print(json.dumps(rezultat, ensure_ascii=True, sort_keys=True, default=str))
     return 0
 
 
