@@ -547,8 +547,8 @@ class RetrievalService:
     def _has_ambiguous_article(evidence: Sequence[Evidence]) -> bool:
         """Refuză numai poziții duplicate sau necontinue ale aceluiași articol.
 
-        După D25, hash-uri diferite sunt normale pentru chunk-uri consecutive ale
-        unui articol lung. Un conflict real are două chunk-uri pentru aceeași
+        Hash-uri diferite sunt normale pentru chunk-uri consecutive ale unui
+        articol lung. Un conflict real are două chunk-uri pentru aceeași
         poziție sau o secvență întreruptă, deci nu poate fi redat complet sigur.
         """
         orders_by_article: dict[tuple[str, str], dict[str, int]] = {}
