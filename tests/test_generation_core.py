@@ -355,6 +355,8 @@ def test_promptul_contine_regulile_de_ancorare_si_de_concizie():
     assert "JSON strict" in generator.prompt
     assert "subșir literal" in generator.prompt
     assert "maximum 600 caractere" in generator.prompt
+    assert "Citează o singură frază" in generator.prompt
+    assert "nu copia niciodată articolul întreg" in generator.prompt
     assert "fără duplicate" in generator.prompt
     assert "nu duplica chei JSON" in generator.prompt
 
