@@ -15,6 +15,7 @@ from voyageai import Client as VoyageClient
 
 from generation_core import GeneratedText, GenerationService, GenerationValidationError, InvalidGenerationPayloadError
 from main import AnthropicTextGenerator, _open_db_connection
+from scope_core import is_engineering_calculation_request
 from retrieval_core import (
     PostgresApprovedCatalogRepository,
     PostgresRetrievalRepository,
@@ -256,6 +257,9 @@ def build_real_case_executor(
     def execute(case: RealEvaluationCase, connection: object) -> Mapping[str, object]:
         embedding_before = embedder.calls
         generation_before = generator.calls
+        # Aceeași poartă anti-calcul ca ruta publică: pilotul nu testează un drum inexistent public.
+        if is_engineering_calculation_request(case.question):
+            return {"status": "out_of_scope", "answer": "", "citations": [], "embedding_calls": 0, "generation_calls": 0}
         catalog = catalog_factory(connection)
         catalog_complet = catalog.load() if hasattr(catalog, "load") else catalog
         parser = catalog_complet.create_parser()
