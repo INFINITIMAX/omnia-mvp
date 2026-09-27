@@ -1,10 +1,16 @@
 # TASKS — Omnia
 
-## Stare curentă (25-09-2026)
+## Stare curentă (27-09-2026)
 
-**Citește `HANDOFF.md` pentru context complet.** Rezumat rapid:
+**Citește `HANDOFF.md` §0 pentru context complet.** Rezumat rapid:
 
-- **Audit complet Opus (R10, 25-09-2026):** `docs/handoff/R10-audit-complet-opus-raport.md`. Blocaj principal: contractul de citare s-a schimbat pe 15-09 fără decizie scrisă (F1) — **așteaptă decizia Lucian**. Apoi merge R08 (fix corect, dar parțial pe ruta semantică).
+- **Live în producție** (Railway deployment `15cbb8b7`, `main` `f5fbbc1`, verificat 27-09): R11 (pasaj verificat D20 restaurat), R08 (articole lungi consecutive acceptate), R12 (răspuns pe fiecare document + conflicte; formule lipsă nereconstruite), D23 (I 13-2015 și P 118/2-2013 `disabled`; 9 documente `approved`). Smoke real `/intreaba` 200, 7 normative, citate literale scurte.
+- **Următoarele task-uri, în ordine:** (1) foldere recursive în `documente_noi/`; (2) chunker-ul salvează titluri de secțiune ca articole; (3) politică de import pentru normative modificate (readucere I 13, P 118/2); (4) ruta semantică R08 (goluri top-k, ordine după `chunk_order`); (5) extensie AutoCAD.
+- Rapoarte: R07, R09, R10 (audit Opus), R11 (pilot) în `docs/handoff/`. Manifestele/rapoartele locale R05 sunt în `D:\_scratch\omnia\` (în afara Git).
+
+### Istoric 25-09-2026
+
+- **Audit complet Opus (R10, 25-09-2026):** `docs/handoff/R10-audit-complet-opus-raport.md`. Blocaj principal: contractul de citare s-a schimbat pe 15-09 fără decizie scrisă (F1) — rezolvat prin R11 pe 27-09.
 
 - `main` la `132f7f4`, curat, pushed. Cea mai recentă lucrare confirmată: R05 pilot finalizat operațional (15-09-2026), D22/D21/D20 live în producție.
 - Verificare proaspătă azi: `python -m pytest -q` → **1021 passed, 1 warning** (avertisment extern, nu al proiectului).

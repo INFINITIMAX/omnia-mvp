@@ -2,6 +2,20 @@
 
 Updated: **25-09-2026** (EET). Rewritten after a 10-day documentation gap (previous version dated 11-09-2026, but `main` had advanced through 15-09-2026 without a matching handoff). This version is a **read from git history + fresh host verification**, not a new implementation session.
 
+## 0. Update 27-09-2026 — read this first
+
+Sections 1–8 below describe 25-09-2026 and are kept as history.
+
+- **Production = `main` `f5fbbc1`**, Railway deployment `15cbb8b7` (`SUCCESS`, 27-09-2026). Checks: `/health`, `/`, `/termeni`, `/confidentialitate` 200; `/docs`, `/openapi.json` 404; CSP/HSTS/X-Frame-Options present. One approved real `/intreaba` smoke: 200, answer per normative for 7 documents, literal quotes of 43–254 characters.
+- **Merged 27-09 (all with green CI):**
+  - PR #10, R11: 15-09 citation relaxations reverted, prompt asks for one sentence; see `docs/handoff/R11-pilot-raport.md`.
+  - PR #11, R08: consecutive split chunks accepted; 292 split articles existed in `approved` documents.
+  - PR #12, R12: prompt rule 8, answer per document and flag conflicts (Lucian's product intent); rule 9, missing formulas/tables/figures are not reconstructed; the R05 runner applies the calculation gate.
+  - PR #13, D23: amendment-only `i13_2015_modificari` and `p118_2_2013_modificari` → `disabled`. Applied by Lucian in the Supabase SQL Editor; verified 9 `approved` / 2 `disabled`.
+- **Open, in order:** recursive folders in `documente_noi/`; chunker stores section headings as articles; import policy for amended normatives; R08 semantic route (top-k gaps, evidence order); AutoCAD extension.
+- **Tests:** `main` suite passes in CI (pytest + pip-audit) for every merged PR.
+- **Tooling note:** the auto-mode classifier blocked production DB writes and some production reads from the assistant; Lucian ran those himself (`!` prefix or SQL Editor). `railway up` ran from the assistant on 27-09 after Lucian's explicit approval.
+
 ## 1. The short version
 
 > **Correction after the Opus audit (R10, same day):** see `docs/handoff/R10-audit-complet-opus-raport.md`. Most important: the citation contract on `main` was changed on 15-09 (`1091bb8`, `6888902`) without a written decision — the tool schema no longer has `pasaje`, so the public quote is the first ~600 characters of the chunk. That contradicts D20/D22/R06 as written in `docs/DECISIONS.md`. The "D20/D22 live" claims below describe the approved contracts, not current `main` behavior. Also: D18 **is** confirmed merged (`fa82e31`, merge `762fe34`); R09 overstated R08's production impact.
