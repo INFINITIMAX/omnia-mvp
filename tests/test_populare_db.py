@@ -457,7 +457,7 @@ def test_creeaza_chunkuri_articol_nequotat_ramane_neschimbat(modul_ingestie):
 
 NUMAR_CHUNKURI_ASTEPTAT_PER_DOCUMENT = {
     "i5_2022": 786,
-    "i7_2011": 2229,
+    "i7_2011": 2226,
     "i9_2022": 769,
     "np004_03": 84,
     "np010_2022": 438,

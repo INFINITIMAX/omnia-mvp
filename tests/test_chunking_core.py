@@ -482,3 +482,38 @@ def test_ultimele_statistici_numara_corect_pe_exemplu_mic():
     articole = {c["articol"] for c in rezultat}
     assert articole == {"1.1.1.", "2.1."}
     assert len([c for c in rezultat if c["articol"] == "2.1."]) == 1
+
+
+# --- Runda 2: numar lipit de majuscula (I7/NP 057) -----------------------------
+
+
+def test_numar_lipit_de_majuscula_nu_se_lipeste_de_articol():
+    """Ar pica dacă „3.0.1.Condiții…” (extras de PDF fără spațiu între marcaj și
+    cuvânt) ar produce articolul invalid „3.0.1.Condiții” în loc să separe numărul
+    curat de cuvântul lipit, care trebuie să rămână începutul textului (bug real
+    găsit de planner pe I7/NP 057, runda 2)."""
+    text = (
+        "\n3.0.1.Condiții generale suficient de lungi pentru a forma un chunk valid conform regulilor stabilite clar.\n"
+    )
+
+    rezultat = creeaza_chunkuri(text)
+
+    assert len(rezultat) == 1
+    assert rezultat[0]["articol"] == "3.0.1."
+    assert rezultat[0]["text"].startswith("Condiții")
+
+
+def test_numar_lipit_de_caracter_ne_majuscul_ramane_referinta_rupta():
+    """Fix-ul de la runda 2 se aplică numai când primul caracter lipit e o
+    majusculă. Ar pica dacă „1.1./…” (bară, nu majusculă) ar deveni totuși un
+    articol propriu, în loc să rămână parte din textul articolului anterior —
+    la fel cum rămâne și „1.1.,text” (deja acoperit de testele D18 de mai sus)."""
+    text = (
+        "\n2.1. Introducere initiala cu suficient text pentru a forma un chunk valid corect aici sigur bine.\n"
+        "1.1./ceva trimitere rupta care nu trebuie sa devina articol propriu conform regulii clar aici.\n"
+    )
+
+    rezultat = creeaza_chunkuri(text)
+
+    assert [c["articol"] for c in rezultat] == ["2.1."]
+    assert "1.1./ceva trimitere rupta" in rezultat[0]["text"]

@@ -1,5 +1,13 @@
 # R15 — Raport Coder
 
+## Runda 3 — un singur tip de excepție la granița publică (27-09-2026)
+
+**Bug găsit de planner:** 2 teste picau (`test_pdf_in_afara_inbox_da_outside_inbox`, `test_restore_backup_in_afara_folderului_backups_e_refuzat`) fiindcă `_obtine_text` (apelată din `_evalueaza`, deci din `dry_run`/`commit_document`) și `restore_from_backup` apelau `base._cale_directa`/`base._hash_sha256` **neîncadrate** în vreun try/except local — dacă acele helper-e ridicau `manual_ingestion_import.ImportError` (clasa lor proprie), excepția ieșea neconvertită din `reimport_approved.py`, nu ca `ReimportError`. Tokenurile erau corecte, doar tipul de excepție era greșit.
+
+**Fix:** am adăugat decoratorul `_un_singur_tip_de_eroare` (folosește `functools.wraps`) și l-am aplicat pe cele trei funcții publice — `dry_run`, `commit_document`, `restore_from_backup`. La ieșirea din oricare din ele, orice `base.ImportError` scăpat e prins și re-ridicat ca `ReimportError(str(error))`, păstrând exact același mesaj/token; `ReimportError` deja ridicat trece nemodificat. Nu am schimbat niciun token, nu am atins `main()` (deja prindea doar `ReimportError`, corect conform cerinței), nu am atins `tests/`. Try/except-urile interne existente (`_conexiune_readonly`, `_evalueaza`, `_backup_chunkuri_curente`, tranzacțiile de commit/restore) rămân neschimbate — sunt acum redundante parțial cu decoratorul, dar le-am lăsat neatinse ca să nu extind diff-ul peste ce s-a cerut.
+
+Nu am rulat `pytest`. Planner trebuie să confirme cu `pytest tests/test_reimport_approved.py` (cele 2 teste picate) și o rulare completă pentru regresii.
+
 ## Runda 2 — fix `chunking_core.py`: cuvânt lipit de marcajul de articol (27-09-2026)
 
 **Bug:** în `_extrage_segmente`, când marcajul numeric era urmat direct (fără spațiu) de un cuvânt care începe cu majusculă — caz real în I7 (`3.0.1.CondiĠii`, `4.1.5.3.1.Legătura`, `5.5.1.GeneralităĠi`, `7.23.10.1.InstalaĠiile`) și NP 057 (`3.1.2.3.3.Mentenanța`, `3.1.4.1.5.Acoperișurile,`) — codul vechi lipea întregul cuvânt de `articol` (`sufix = re.match(r"[^\s]+", ...)` capturează orice șir nevid până la următorul spațiu, nu doar un caracter de punctuație). Rezultatul (`3.0.1.CondiĠii`) nu trece `_normalizeaza_articol` → `invalid_chunks` în dry-run.

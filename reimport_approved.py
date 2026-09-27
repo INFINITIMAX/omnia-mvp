@@ -15,6 +15,7 @@ advisory, loturi embedding, hash chunk, conexiune, client Voyage cu
 from __future__ import annotations
 
 import argparse
+import functools
 import json
 import os
 import sys
@@ -83,6 +84,23 @@ _INSERT_CHUNK_RESTORE_SQL = """
 
 class ReimportError(ValueError):
     """Eroare controlată: mesajul este un token local, fără text normativ ori secrete."""
+
+
+def _un_singur_tip_de_eroare(functie):
+    """Runda 3: la granița funcțiilor publice, orice `base.ImportError` scăpat dintr-un
+    helper importat (ex. `_cale_directa`, `_hash_sha256`) devine `ReimportError` cu
+    exact același token, ca apelanții (inclusiv `main()`) să prindă un singur tip."""
+
+    @functools.wraps(functie)
+    def wrapper(*args, **kwargs):
+        try:
+            return functie(*args, **kwargs)
+        except ReimportError:
+            raise
+        except base.ImportError as error:
+            raise ReimportError(str(error)) from error
+
+    return wrapper
 
 
 def _conexiune_readonly() -> object:
@@ -275,6 +293,7 @@ def _evalueaza(
     return text, sursa, chunkuri_noi, numar_vechi, poarta, raport
 
 
+@_un_singur_tip_de_eroare
 def dry_run(
     document_id: str,
     cale_pdf_arg: str | None = None,
@@ -322,6 +341,7 @@ def _backup_chunkuri_curente(
     return cale_backup
 
 
+@_un_singur_tip_de_eroare
 def commit_document(
     document_id: str,
     cale_pdf_arg: str | None = None,
@@ -405,6 +425,7 @@ def commit_document(
     return raport
 
 
+@_un_singur_tip_de_eroare
 def restore_from_backup(
     document_id: str,
     cale_backup_arg: str,
