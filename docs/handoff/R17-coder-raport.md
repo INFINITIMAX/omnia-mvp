@@ -74,3 +74,15 @@ rollback”, am corectat rândul `timeout` din tabelul de categorii (DB: doar ti
 conectare, nu de interogare) și am adăugat un paragraf nou care explică limitarea
 pooler-ului, valoarea implicită de 2 minute a rolului Supabase, și că o limită mai strictă
 necesită o migrare aprobată separat la nivel de rol Postgres.
+
+## Runda 3 (27-09-2026)
+
+Reviewer APROBAT cu finding MEDIUM: `$ErrorActionPreference='Stop'` nu oprește scriptul la
+eșecul comenzilor native (`git`), doar la erori PowerShell; fără verificare `$LASTEXITCODE`
+după `git rev-parse --abbrev-ref HEAD`, `git status --porcelain`, `git fetch origin main`,
+`git rev-parse HEAD`, `git rev-parse origin/main`, un `git fetch` picat pe rețea putea lăsa
+verificarea „HEAD == origin/main” să treacă pe ref-uri vechi din cache-ul local.
+
+Am adăugat, în `scripts/deploy.ps1`, câte un `if ($LASTEXITCODE -ne 0) { throw "…" }` cu
+mesaj distinct după fiecare din cele 5 comenzi `git` native, exact ca la `pytest`/`railway`.
+Nu am schimbat altceva în script.
