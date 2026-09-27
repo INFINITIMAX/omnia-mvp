@@ -7,20 +7,28 @@ import json
 import logging
 import math
 import os
+import threading
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Annotated, Callable, Literal, Protocol, Sequence
 
 import psycopg2
-from anthropic import Anthropic, AnthropicError
+from anthropic import Anthropic, AnthropicError, APIStatusError, APITimeoutError
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 import voyageai
-from voyageai.error import VoyageError
+from voyageai.error import (
+    AuthenticationError as _VoyageAuthenticationError,
+    RateLimitError as _VoyageRateLimitError,
+    ServerError as _VoyageServerError,
+    ServiceUnavailableError as _VoyageServiceUnavailableError,
+    Timeout as _VoyageTimeout,
+    VoyageError,
+)
 
 from access_control import (
     ANONYMOUS_QUOTA_LIMIT,
@@ -49,6 +57,116 @@ from scope_core import is_engineering_calculation_request
 load_dotenv()
 
 _LOGGER = logging.getLogger(__name__)
+
+_ANTHROPIC_TIMEOUT_SECONDS = 30
+_ANTHROPIC_MAX_RETRIES = 1
+_VOYAGE_TIMEOUT_SECONDS = 15
+_VOYAGE_MAX_RETRIES = 1
+_DB_CONNECT_TIMEOUT_SECONDS = 10
+
+_PROVIDER_DEGRADED_THRESHOLD = 3
+_PROVIDER_DEGRADED_WINDOW = timedelta(minutes=15)
+
+_DB_AUTH_PGCODES = frozenset({"28000", "28P01"})
+_DB_TIMEOUT_PGCODES = frozenset({"57014"})
+
+
+def _classify_anthropic_failure(error: AnthropicError) -> tuple[str, int | None]:
+    """Clasifică un eșec Anthropic din tipul excepției SDK, fără mesajul ei."""
+    if isinstance(error, APITimeoutError):
+        return "timeout", None
+    if isinstance(error, APIStatusError):
+        status = error.status_code
+        if error.type == "billing_error":
+            return "credit_exhausted", status
+        if status == 429:
+            return "rate_limited", status
+        if status in (401, 403):
+            return "auth", status
+        if status >= 500:
+            return "server_error", status
+        return "other", status
+    return "other", None
+
+
+def _classify_voyage_failure(error: VoyageError) -> tuple[str, int | None]:
+    """Clasifică un eșec Voyage din tipul excepției SDK, fără mesajul ei."""
+    status = error.http_status
+    if isinstance(error, _VoyageTimeout):
+        return "timeout", status
+    if isinstance(error, _VoyageAuthenticationError):
+        return "auth", status
+    if isinstance(error, _VoyageRateLimitError):
+        return "rate_limited", status
+    if isinstance(error, (_VoyageServerError, _VoyageServiceUnavailableError)):
+        return "server_error", status
+    return "other", status
+
+
+def _classify_db_failure(error: psycopg2.Error) -> tuple[str, int | None]:
+    """Clasifică un eșec de bază de date din codul SQLSTATE, fără mesajul ei."""
+    pgcode = getattr(error, "pgcode", None)
+    if pgcode in _DB_AUTH_PGCODES:
+        return "auth", None
+    if pgcode in _DB_TIMEOUT_PGCODES:
+        return "timeout", None
+    if isinstance(error, psycopg2.OperationalError):
+        if "timeout" in str(error).casefold():
+            return "timeout", None
+        return "server_error", None
+    return "other", None
+
+
+def _log_provider_failure(provider: str, category: str, status: int | None) -> None:
+    _LOGGER.warning(
+        "provider_failure provider=%s category=%s status=%s",
+        provider, category, status if status is not None else "-",
+    )
+
+
+@dataclass
+class _ProviderHealth:
+    consecutive_failures: int = 0
+    last_category: str | None = None
+    last_event_at: datetime | None = None
+
+
+class _ProviderHealthTracker:
+    """Stare în memorie, thread-safe, despre eșecurile recente ale providerilor externi."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._state: dict[str, _ProviderHealth] = {
+            "anthropic": _ProviderHealth(), "voyage": _ProviderHealth(), "db": _ProviderHealth(),
+        }
+
+    def record_failure(self, provider: str, category: str, *, now: datetime) -> None:
+        with self._lock:
+            health = self._state[provider]
+            health.consecutive_failures += 1
+            health.last_category = category
+            health.last_event_at = now
+
+    def record_success(self, provider: str, *, now: datetime) -> None:
+        with self._lock:
+            health = self._state[provider]
+            health.consecutive_failures = 0
+            health.last_event_at = now
+
+    def degraded_providers(self, *, now: datetime) -> list[dict[str, str]]:
+        with self._lock:
+            return [
+                {"provider": provider, "category": health.last_category}
+                for provider, health in self._state.items()
+                if health.consecutive_failures >= _PROVIDER_DEGRADED_THRESHOLD
+                and health.last_event_at is not None
+                and now - health.last_event_at <= _PROVIDER_DEGRADED_WINDOW
+            ]
+
+
+_PROVIDER_HEALTH = _ProviderHealthTracker()
+
+
 _GENERATION_VALIDATION_CODES: dict[type[GenerationValidationError], str] = {
     EmptyGeneratedAnswerError: "empty_answer",
     MissingCitationError: "missing_citation",
@@ -131,10 +249,18 @@ class VoyageQueryEmbedder:
     def embed_query(self, question: str) -> Sequence[float]:
         try:
             if self._client is None:
-                self._client = voyageai.Client(api_key=_required_environment("VOYAGE_API_KEY"))
+                self._client = voyageai.Client(
+                    api_key=_required_environment("VOYAGE_API_KEY"),
+                    timeout=_VOYAGE_TIMEOUT_SECONDS,
+                    max_retries=_VOYAGE_MAX_RETRIES,
+                )
             response = self._client.embed([question], model=self.model, input_type="query")
         except VoyageError as error:
+            category, status = _classify_voyage_failure(error)
+            _log_provider_failure("voyage", category, status)
+            _PROVIDER_HEALTH.record_failure("voyage", category, now=_utc_now())
             raise ProviderUnavailableError("Voyage indisponibil") from error
+        _PROVIDER_HEALTH.record_success("voyage", now=_utc_now())
         return self._validated_embedding(response)
 
     @staticmethod
@@ -185,13 +311,21 @@ class AnthropicTextGenerator:
     def generate(self, prompt: str, *, max_tokens: int) -> GeneratedText:
         try:
             if self._client is None:
-                self._client = Anthropic(api_key=_required_environment("ANTHROPIC_API_KEY"))
+                self._client = Anthropic(
+                    api_key=_required_environment("ANTHROPIC_API_KEY"),
+                    timeout=_ANTHROPIC_TIMEOUT_SECONDS,
+                    max_retries=_ANTHROPIC_MAX_RETRIES,
+                )
             response = self._client.messages.create(
                 model=self.model, max_tokens=max_tokens, messages=[{"role": "user", "content": prompt}],
                 tools=[self._TOOL], tool_choice={"type": "tool", "name": self._TOOL_NAME},
             )
         except AnthropicError as error:
+            category, status = _classify_anthropic_failure(error)
+            _log_provider_failure("anthropic", category, status)
+            _PROVIDER_HEALTH.record_failure("anthropic", category, now=_utc_now())
             raise ProviderUnavailableError("Anthropic indisponibil") from error
+        _PROVIDER_HEALTH.record_success("anthropic", now=_utc_now())
         return self._validated_tool_response(response)
 
     @classmethod
@@ -276,6 +410,8 @@ def _open_db_connection() -> object:
         user=_required_environment("DB_USER"),
         password=_required_environment("DB_PASSWORD"),
         port=_required_environment("DB_PORT"),
+        connect_timeout=_DB_CONNECT_TIMEOUT_SECONDS,
+        sslmode="require",
     )
 
 
@@ -465,6 +601,15 @@ def pagina_principala(request: Request) -> FileResponse:
 def health() -> dict[str, str]:
     """Healthcheck public și ieftin: nu atinge DB-ul, providerii sau configurația."""
     return {"status": "ok"}
+
+
+@app.get("/health/provideri")
+def health_provideri() -> JSONResponse:
+    """Diagnostic intern din eșecurile deja observate; nu face niciun apel extern."""
+    degraded = _PROVIDER_HEALTH.degraded_providers(now=_utc_now())
+    if not degraded:
+        return JSONResponse(status_code=200, content={"status": "ok"})
+    return JSONResponse(status_code=503, content={"status": "degraded", "provideri": degraded})
 
 
 def _static_page_response(file_name: str) -> FileResponse:
@@ -705,6 +850,7 @@ def intreaba(
         rate_result = access_repository.check_and_increment_rate_limit(ip_hash, now=now)
         connection.commit()
         rate_transaction_committed = True
+        _PROVIDER_HEALTH.record_success("db", now=now)
         rate_result = _validate_rate_limit_result(rate_result)
         if not rate_result.allowed:
             return _control_error_response(
@@ -812,6 +958,10 @@ def intreaba(
                 type(error).__name__,
                 _generation_validation_diagnostic_code(error),
             )
+        if isinstance(error, psycopg2.Error):
+            category, status = _classify_db_failure(error)
+            _log_provider_failure("db", category, status)
+            _PROVIDER_HEALTH.record_failure("db", category, now=now)
         if connection is not None and (not rate_transaction_committed or quota_transaction_active) and not _rollback_succeeds(connection):
             raise HTTPException(status_code=503, detail="Serviciul este temporar indisponibil.") from error
         raise HTTPException(status_code=503, detail="Serviciul este temporar indisponibil.") from error

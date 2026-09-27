@@ -13,6 +13,7 @@ from types import SimpleNamespace
 
 import anthropic
 import dotenv
+import httpx
 import psycopg2
 import pytest
 from fastapi.testclient import TestClient
@@ -2084,3 +2085,353 @@ def test_api_d14_nu_doar_din_nu_introduce_filtru_scoped(api):
     assert _interogari_semantice(connection) == [(False, ("[0.1,0.2]", "[0.1,0.2]", 5))]
     assert embedder.calls == generator.calls == 1
     assert response.json()["intrebari_ramase"] == 9
+
+
+# --- R17: timeout-uri, clasificare provider_failure, /health/provideri, deploy.ps1 ---
+
+
+@pytest.fixture
+def fresh_provider_health(monkeypatch):
+    """Izolează starea globală a providerilor pentru un singur test, ca eșecurile
+    înregistrate de alte teste (inclusiv cele existente, care declanșează acum
+    provider_failure prin efect de bord) să nu influențeze pragul de degradare."""
+    tracker = main._ProviderHealthTracker()
+    monkeypatch.setattr(main, "_PROVIDER_HEALTH", tracker)
+    return tracker
+
+
+def _anthropic_status_error(status_code, error_type=None, message="mesaj tehnic ascuns"):
+    request = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
+    response = httpx.Response(status_code, request=request)
+    body = {"error": {"type": error_type}} if error_type else None
+    return anthropic.APIStatusError(message, response=response, body=body)
+
+
+def _anthropic_request():
+    return httpx.Request("POST", "https://api.anthropic.com/v1/messages")
+
+
+def _db_error(cls, *, pgcode=None, message="mesaj tehnic ascuns de la Postgres"):
+    # `pgcode` e read-only pe excepțiile psycopg2 (extensie C); pentru teste, o
+    # subclasă locală care îl suprascrie ca proprietate rămâne totuși
+    # `isinstance` din `cls` (ex. `psycopg2.OperationalError`/`psycopg2.Error`),
+    # exact ce verifică `_classify_db_failure` din producție.
+    subclass = type(cls.__name__, (cls,), {"pgcode": property(lambda self: pgcode)})
+    return subclass(message)
+
+
+def test_voyage_client_lazy_este_construit_cu_timeout_si_max_retries_impliciti(monkeypatch):
+    monkeypatch.setenv("VOYAGE_API_KEY", "cheie-test")
+    calls = []
+
+    class ClientFake:
+        def __init__(self, **kwargs):
+            calls.append(kwargs)
+
+        def embed(self, *_args, **_kwargs):
+            return SimpleNamespace(embeddings=[[0.1, 0.2]])
+
+    monkeypatch.setattr(voyageai, "Client", ClientFake)
+
+    main.VoyageQueryEmbedder().embed_query("întrebare")
+
+    assert calls == [{"api_key": "cheie-test", "timeout": 15, "max_retries": 1}]
+
+
+def test_anthropic_client_lazy_este_construit_cu_timeout_si_max_retries_impliciti(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "cheie-test")
+    calls = []
+
+    class MessagesFake:
+        def create(self, **_kwargs):
+            return SimpleNamespace(
+                content=[SimpleNamespace(type="tool_use", name="return_grounded_answer", input={"raspuns": "ok", "pasaje": []})],
+                stop_reason="tool_use",
+            )
+
+    class ClientFake:
+        def __init__(self, **kwargs):
+            calls.append(kwargs)
+            self.messages = MessagesFake()
+
+    monkeypatch.setattr(main, "Anthropic", ClientFake)
+
+    main.AnthropicTextGenerator().generate("prompt", max_tokens=800)
+
+    assert calls == [{"api_key": "cheie-test", "timeout": 30, "max_retries": 1}]
+
+
+def test_open_db_connection_trimite_connect_timeout_si_sslmode_fara_options(monkeypatch):
+    for name, value in {
+        "DB_HOST": "host-test", "DB_NAME": "db-test", "DB_USER": "user-test",
+        "DB_PASSWORD": "parola-test", "DB_PORT": "6543",
+    }.items():
+        monkeypatch.setenv(name, value)
+    calls = []
+    monkeypatch.setattr(psycopg2, "connect", lambda **kwargs: calls.append(kwargs))
+
+    main._open_db_connection()
+
+    assert calls == [{
+        "host": "host-test", "dbname": "db-test", "user": "user-test", "password": "parola-test",
+        "port": "6543", "connect_timeout": 10, "sslmode": "require",
+    }]
+    assert "options" not in calls[0]
+    assert "statement_timeout" not in json.dumps(calls[0])
+
+
+@pytest.mark.parametrize(
+    ("error", "expected"),
+    [
+        (anthropic.APITimeoutError(request=_anthropic_request()), ("timeout", None)),
+        (_anthropic_status_error(400, "billing_error"), ("credit_exhausted", 400)),
+        (_anthropic_status_error(429), ("rate_limited", 429)),
+        (_anthropic_status_error(401), ("auth", 401)),
+        (_anthropic_status_error(403), ("auth", 403)),
+        (_anthropic_status_error(500), ("server_error", 500)),
+        (_anthropic_status_error(529), ("server_error", 529)),
+        (_anthropic_status_error(400), ("other", 400)),
+        (_anthropic_status_error(404), ("other", 404)),
+        (anthropic.APIConnectionError(request=_anthropic_request()), ("other", None)),
+    ],
+)
+def test_clasificarea_anthropic_acopera_toate_categoriile(error, expected):
+    assert main._classify_anthropic_failure(error) == expected
+
+
+@pytest.mark.parametrize(
+    ("error", "expected"),
+    [
+        (voyageai.error.Timeout("timeout tehnic"), ("timeout", None)),
+        (voyageai.error.AuthenticationError("auth tehnic", http_status=401), ("auth", 401)),
+        (voyageai.error.RateLimitError("limit tehnic", http_status=429), ("rate_limited", 429)),
+        (voyageai.error.ServerError("boom tehnic", http_status=500), ("server_error", 500)),
+        (voyageai.error.ServiceUnavailableError("boom tehnic", http_status=503), ("server_error", 503)),
+        (voyageai.error.InvalidRequestError("boom tehnic", http_status=400), ("other", 400)),
+        (voyageai.error.APIConnectionError("boom tehnic"), ("other", None)),
+    ],
+)
+def test_clasificarea_voyage_acopera_toate_categoriile(error, expected):
+    assert main._classify_voyage_failure(error) == expected
+
+
+@pytest.mark.parametrize(
+    ("error", "expected"),
+    [
+        (_db_error(psycopg2.OperationalError, pgcode="28P01"), ("auth", None)),
+        (_db_error(psycopg2.OperationalError, pgcode="28000"), ("auth", None)),
+        (_db_error(psycopg2.OperationalError, pgcode="57014"), ("timeout", None)),
+        (_db_error(psycopg2.OperationalError, message="connection timeout expired"), ("timeout", None)),
+        (_db_error(psycopg2.OperationalError, message="server closed the connection unexpectedly"), ("server_error", None)),
+        (_db_error(psycopg2.DataError, message="valoare invalidă"), ("other", None)),
+    ],
+)
+def test_clasificarea_db_acopera_pgcode_si_euristica_operationalerror(error, expected):
+    assert main._classify_db_failure(error) == expected
+
+
+def test_adaptorul_anthropic_logheaza_provider_failure_fara_date_sensibile(caplog, fresh_provider_health):
+    class MessagesFake:
+        def create(self, **_kwargs):
+            raise _anthropic_status_error(400, "billing_error", message="PROMPT_NU_TREBUIE_LOGAT")
+
+    class ClientFake:
+        messages = MessagesFake()
+
+    caplog.set_level(logging.WARNING, logger="main")
+
+    with pytest.raises(main.ProviderUnavailableError):
+        main.AnthropicTextGenerator(ClientFake()).generate("INTREBARE_SECRETA", max_tokens=800)
+
+    records = [record for record in caplog.records if record.name == "main"]
+    assert [record.getMessage() for record in records] == [
+        "provider_failure provider=anthropic category=credit_exhausted status=400"
+    ]
+    assert "INTREBARE_SECRETA" not in caplog.text
+    assert "PROMPT_NU_TREBUIE_LOGAT" not in caplog.text
+    assert fresh_provider_health.degraded_providers(now=main._utc_now()) == []
+
+
+def test_adaptorul_voyage_logheaza_provider_failure_fara_date_sensibile(caplog, fresh_provider_health):
+    class ClientFake:
+        def embed(self, *_args, **_kwargs):
+            raise voyageai.error.RateLimitError("DETALIU_TEHNIC_NU_TREBUIE_LOGAT", http_status=429)
+
+    caplog.set_level(logging.WARNING, logger="main")
+
+    with pytest.raises(main.ProviderUnavailableError):
+        main.VoyageQueryEmbedder(ClientFake()).embed_query("INTREBARE_SECRETA")
+
+    records = [record for record in caplog.records if record.name == "main"]
+    assert [record.getMessage() for record in records] == [
+        "provider_failure provider=voyage category=rate_limited status=429"
+    ]
+    assert "INTREBARE_SECRETA" not in caplog.text
+    assert "DETALIU_TEHNIC_NU_TREBUIE_LOGAT" not in caplog.text
+
+
+@pytest.mark.parametrize(("pgcode", "category"), [("28P01", "auth"), ("57014", "timeout")])
+def test_intreaba_db_pgcode_specific_logheaza_categoria_corecta_fara_intrebare(
+    api, caplog, fresh_provider_health, pgcode, category
+):
+    error = _db_error(psycopg2.OperationalError, pgcode=pgcode, message="MESAJ_POSTGRES_NU_TREBUIE_LOGAT")
+    connection = ConnectionFake(error=error)
+    caplog.set_level(logging.WARNING, logger="main")
+
+    response = configure(api, connection).post(
+        "/intreaba", json={"intrebare": "INTREBARE_CU_DATE_SECRETE"}
+    )
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Serviciul este temporar indisponibil."}
+    records = [record for record in caplog.records if record.name == "main"]
+    assert [record.getMessage() for record in records] == [
+        f"provider_failure provider=db category={category} status=-"
+    ]
+    assert "INTREBARE_CU_DATE_SECRETE" not in caplog.text
+    assert "MESAJ_POSTGRES_NU_TREBUIE_LOGAT" not in caplog.text
+    _assert_no_technical_identifiers(response)
+
+
+def test_generation_validation_error_nu_declanseaza_provider_failure_sau_starea_providerilor(
+    api, caplog, fresh_provider_health
+):
+    connection = R06TransactionConnection()
+    generator = RawGeneratorFake(json.dumps({
+        "raspuns": "răspuns [C1]", "pasaje": [{"id": "C1", "citat": "x" * 601}],
+    }))
+    caplog.set_level(logging.WARNING, logger="main")
+
+    response = configure(api, connection, generator=generator).post(
+        "/intreaba", json={"intrebare": "art. 4.4.7.2"}
+    )
+
+    assert response.status_code == 503
+    assert "provider_failure" not in caplog.text
+    assert fresh_provider_health.degraded_providers(now=main._utc_now()) == []
+
+
+def test_provider_health_tracker_prag_reset_si_fereastra_de_15_minute():
+    tracker = main._ProviderHealthTracker()
+    t0 = NOW
+
+    assert tracker.degraded_providers(now=t0) == []
+
+    tracker.record_failure("db", "timeout", now=t0)
+    tracker.record_failure("db", "timeout", now=t0)
+    assert tracker.degraded_providers(now=t0) == []
+
+    tracker.record_failure("db", "timeout", now=t0)
+    assert tracker.degraded_providers(now=t0) == [{"provider": "db", "category": "timeout"}]
+
+    tracker.record_success("db", now=t0)
+    assert tracker.degraded_providers(now=t0) == []
+
+    tracker.record_failure("db", "timeout", now=t0)
+    tracker.record_failure("db", "timeout", now=t0)
+    tracker.record_failure("db", "timeout", now=t0)
+    assert tracker.degraded_providers(now=t0 + timedelta(minutes=15)) == [
+        {"provider": "db", "category": "timeout"}
+    ]
+    assert tracker.degraded_providers(now=t0 + timedelta(minutes=15, seconds=1)) == []
+
+
+def test_health_provideri_200_fara_esecuri(fresh_provider_health, api):
+    response = api.get("/health/provideri")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
+def test_health_provideri_503_dupa_3_esecuri_consecutive_ale_unui_singur_provider(
+    fresh_provider_health, api, monkeypatch
+):
+    monkeypatch.setattr(main, "_utc_now", lambda: NOW)
+    for _ in range(3):
+        fresh_provider_health.record_failure("voyage", "server_error", now=NOW)
+
+    response = api.get("/health/provideri")
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "status": "degraded", "provideri": [{"provider": "voyage", "category": "server_error"}],
+    }
+
+
+def test_health_provideri_nu_face_apeluri_externe(fresh_provider_health, api, monkeypatch):
+    def _boom(*_args, **_kwargs):
+        raise AssertionError("nu ar trebui apelat")
+
+    monkeypatch.setattr(voyageai, "Client", _boom)
+    monkeypatch.setattr(main, "Anthropic", _boom)
+    monkeypatch.setattr(psycopg2, "connect", _boom)
+    for _ in range(3):
+        fresh_provider_health.record_failure("anthropic", "auth", now=main._utc_now())
+
+    response = api.get("/health/provideri")
+
+    assert response.status_code == 503
+
+
+def test_health_ramane_ok_chiar_cu_provideri_degradati(fresh_provider_health, api):
+    for _ in range(3):
+        fresh_provider_health.record_failure("db", "timeout", now=main._utc_now())
+
+    response = api.get("/health")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
+def test_un_succes_reseteaza_contorul_dupa_esecuri_repetate_prin_adaptoarele_reale(
+    fresh_provider_health, api, monkeypatch
+):
+    monkeypatch.setattr(main, "_utc_now", lambda: NOW)
+
+    class FailingMessages:
+        def create(self, **_kwargs):
+            raise _anthropic_status_error(429)
+
+    class FailingClient:
+        messages = FailingMessages()
+
+    generator = main.AnthropicTextGenerator(FailingClient())
+    for _ in range(3):
+        with pytest.raises(main.ProviderUnavailableError):
+            generator.generate("x", max_tokens=10)
+
+    degraded = api.get("/health/provideri")
+    assert degraded.status_code == 503
+    assert degraded.json() == {
+        "status": "degraded", "provideri": [{"provider": "anthropic", "category": "rate_limited"}],
+    }
+
+    class OkMessages:
+        def create(self, **_kwargs):
+            return SimpleNamespace(
+                content=[SimpleNamespace(type="tool_use", name="return_grounded_answer", input={"raspuns": "ok", "pasaje": []})],
+                stop_reason="tool_use",
+            )
+
+    class OkClient:
+        messages = OkMessages()
+
+    main.AnthropicTextGenerator(OkClient()).generate("y", max_tokens=10)
+
+    recovered = api.get("/health/provideri")
+    assert recovered.status_code == 200
+    assert recovered.json() == {"status": "ok"}
+
+
+def test_deploy_script_refuza_pe_conditii_nesigure_si_ruleaza_pytest_inaintea_lui_railway():
+    text = (Path(__file__).resolve().parent.parent / "scripts" / "deploy.ps1").read_text(encoding="utf-8")
+
+    assert "-ne 'main'" in text
+    assert "git status --porcelain" in text
+    assert "git fetch origin main" in text and "origin/main" in text
+    assert re.search(r"param\(\s*\)", text), "scriptul nu trebuie să accepte parametri de ocolire"
+
+    pytest_index = text.index("python -m pytest")
+    railway_index = text.index("railway up")
+    assert pytest_index < railway_index, "pytest trebuie să ruleze înaintea lui railway up"
+    assert "$LASTEXITCODE -ne 0" in text
