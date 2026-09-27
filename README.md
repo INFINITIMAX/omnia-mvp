@@ -104,7 +104,7 @@ python -m uvicorn main:app --reload
 - The current catalog contains 10 explicitly approved documents; the repository does not claim a current indexed-fragment total.
 - Explicit document references and approved document codes resolved from conversation context restrict semantic retrieval. A scoped miss becomes `not_found`; it never falls back to global retrieval.
 - Requests to perform engineering calculations or project sizing are rejected server-side before retrieval, Voyage, or Anthropic.
-- Known deferred work includes controlled external testing, physical cleanup scheduling for expired rate-limit records, an independent security review, and the future import of the complete P 118/2-2013 base text. Until then, only its approved amendment content is available.
+- Known deferred work includes controlled external testing, physical cleanup scheduling for expired rate-limit records, an independent security review, and the future import of the complete P 118/2-2013 and I 13-2015 base texts. Their amendment-only documents are `disabled` since 27-09-2026 (D23), so neither normative is currently covered.
 - Browser quota is cookie-based. Deleting the cookie resets the quota; this is an accepted MVP limitation.
 
 ## Additional documentation

@@ -4,6 +4,10 @@ Acest fișier separă deciziile explicite ale lui Lucian de propunerile agențil
 
 ## Decizii active
 
+### D23 — documentele doar de modificare ies din retrieval, aprobat Lucian (27-09-2026)
+
+`i13_2015_modificari` (I 13-2015, modificat 2023) și `p118_2_2013_modificari` (P 118/2-2013, Ordinul 966/2018) conțin numai ordinele de modificare, fără textul de bază: citire read-only 27-09-2026, 162/178 și 42/51 chunk-uri cu formule de tipul „se modifică și va avea următorul cuprins”. Ele încalcă regula de conținut din 04-09-2026 și trec în `disabled` prin migrarea `20260927120000_disable_modification_only_documents.sql`. Chunk-urile rămân în DB; revenirea cere decizie explicită. Decizia înlocuiește aprobarea lui `p118_2_2013_modificari` din lotul 2 (03-09-2026). Modul de import al normativelor modificate (text de bază + ordine de modificare) rămâne o decizie separată.
+
 ### D22 — output Anthropic structurat prin tool, aprobat Lucian (14-09-2026)
 
 Anthropic este forțat să apeleze toolul `return_grounded_answer`, cu schema pentru `raspuns` și `pasaje`. Backend-ul serializează numai inputul structurat al toolului și păstrează validările R06; textul liber, lipsa toolului, toolul multiplu/necunoscut, inputul invalid sau răspunsul trunchiat rămân fail-closed. Nu se adaugă retry, apel provider normal, DB sau migrare.
