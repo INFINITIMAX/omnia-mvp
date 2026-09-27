@@ -247,8 +247,15 @@ class ArticleParser:
 
     def _is_known_article(self, article: str, document_id: str | None) -> bool:
         if document_id is not None:
-            return article in self._known_articles.get(document_id, frozenset())
-        return any(article in articles for articles in self._known_articles.values())
+            return self._is_known_in(article, self._known_articles.get(document_id, frozenset()))
+        return any(self._is_known_in(article, articles) for articles in self._known_articles.values())
+
+    @staticmethod
+    def _is_known_in(article: str, articles: frozenset[str]) -> bool:
+        if article in articles:
+            return True
+        prefix = article + "."
+        return any(known.startswith(prefix) for known in articles)
 
 
 @dataclass(frozen=True)
@@ -317,24 +324,34 @@ class PostgresRetrievalRepository:
         self._connection = connection
 
     def find_exact(self, document_id: str | None, article_normalized: str) -> list[Evidence]:
+        """O singură interogare: potrivire exactă SAU copil de secțiune (`articol.%`).
+
+        Dacă există rânduri cu potrivire exactă, le păstrează doar pe acelea; altfel
+        întoarce copiii găsiți de LIKE — fallback-ul pentru „art. X” cerut de R14.
+        """
+        prefix_like = article_normalized + ".%"
         if document_id is None:
             sql = (
                 "SELECT " + self._SELECT_FIELDS + self._FROM_DOCUMENTS
-                + " WHERE document.status = 'approved' AND chunk.articol_normalizat = %s"
+                + " WHERE document.status = 'approved'"
+                + " AND (chunk.articol_normalizat = %s OR chunk.articol_normalizat LIKE %s)"
                 + " ORDER BY chunk.document_id, chunk.chunk_order, chunk.id"
             )
-            parameters = (article_normalized,)
+            parameters: tuple[object, ...] = (article_normalized, prefix_like)
         else:
             sql = (
                 "SELECT " + self._SELECT_FIELDS + self._FROM_DOCUMENTS
-                + " WHERE document.status = 'approved' AND chunk.document_id = %s AND chunk.articol_normalizat = %s"
+                + " WHERE document.status = 'approved' AND chunk.document_id = %s"
+                + " AND (chunk.articol_normalizat = %s OR chunk.articol_normalizat LIKE %s)"
                 + " ORDER BY chunk.chunk_order, chunk.id"
             )
-            parameters = (document_id, article_normalized)
+            parameters = (document_id, article_normalized, prefix_like)
         cursor = self._connection.cursor()
         try:
             cursor.execute(sql, parameters)
-            return [self._evidence_from_row(row) for row in cursor.fetchall()]
+            evidence = [self._evidence_from_row(row) for row in cursor.fetchall()]
+            exacte = [item for item in evidence if item.articol_normalizat == article_normalized]
+            return exacte if exacte else evidence
         finally:
             cursor.close()
 

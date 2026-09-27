@@ -17,26 +17,15 @@ import psycopg2
 import voyageai
 from dotenv import load_dotenv
 
+from chunking_core import creeaza_chunkuri
+
 ROOT_PROIECT = Path(__file__).resolve().parent
 FOLDER_DOCUMENTE = ROOT_PROIECT / "documente_noi"
 
-# Regex-ul actual pentru structura articolelor din normativele deja validate.
-# „?" opțional gestionează actele modificatoare, unde numărul articolului din
-# normativul modificat stă imediat după ghilimeaua de deschidere a citatului
-# (ex: „1.2. Domeniul de aplicare...”), nu la început de rând ca în normativele
-# de bază. Ghilimeaua nu intră în grupul capturat, deci nu strică normalizarea.
-PATTERN_ARTICOL = re.compile(
-    r"\n\s*„?\s*(\d+\.\d+\.\s*\([A-Za-z]\)\.\s*(?:[IVXLl]\.|\d+\.)?(?:\d+\.)?|ANEXA\s+\d+\.\d+\.|\d+\.\d+\.(?:\d+\.){0,4})"
-)
-PATTERN_LINIE_CUPRINS = re.compile(r"\.{2,}\s*\d{1,4}\s*(?=\n|$)")
-PATTERN_SUBPUNCT = re.compile(r"\n\s*\((\d+)\)\s+")
 PATTERN_ARTICOL_NORMALIZAT = re.compile(r"^[a-z0-9().-]+$")
 PATTERN_SPATIERE_ARTICOL = re.compile(r"[ \t\n\r\f\v\u00a0\u202f]+")
 CAMPURI_METADATA_TEXT = ("document_id", "source_key", "cod_oficial", "titlu_oficial", "status")
 STATUSURI_DOCUMENT_PERMISE = {"indexed_pending_validation", "approved", "disabled"}
-PROCENT_MAXIM_CAUTARE_CUPRINS = 0.20
-LUNGIME_MINIMA_CHUNK = 15
-LUNGIME_PENTRU_SPLIT_SECUNDAR = 2000
 
 MODEL_EMBEDDING = "voyage-3.5"
 # Limitele reale documentate de Voyage pentru un singur apel embed() cu
@@ -117,48 +106,6 @@ def gaseste_documente():
             yield valideaza_metadata(metadata), cale_text
         except (OSError, ValueError, json.JSONDecodeError) as eroare:
             print(f"  EROARE metadata: {folder.name} — {eroare}")
-
-
-def creeaza_chunkuri(continut):
-    """Aplica chunking-ul regex, deduplicarea si split-ul secundar."""
-    limita = int(len(continut) * PROCENT_MAXIM_CAUTARE_CUPRINS)
-    potriviri_cuprins = list(PATTERN_LINIE_CUPRINS.finditer(continut[:limita]))
-    if potriviri_cuprins:
-        continut = continut[potriviri_cuprins[-1].end():]
-
-    bucati = PATTERN_ARTICOL.split("\n" + continut)
-    chunkuri_dupa_articol = {}
-
-    for index in range(1, len(bucati), 2):
-        articol = bucati[index].strip()
-        text = bucati[index + 1].strip() if index + 1 < len(bucati) else ""
-        if len(text) < LUNGIME_MINIMA_CHUNK:
-            continue
-        if articol not in chunkuri_dupa_articol or len(text) > len(chunkuri_dupa_articol[articol]["text"]):
-            chunkuri_dupa_articol[articol] = {"articol": articol, "text": text}
-
-    chunkuri_finale = []
-    for chunk in chunkuri_dupa_articol.values():
-        if len(chunk["text"]) < LUNGIME_PENTRU_SPLIT_SECUNDAR:
-            chunkuri_finale.append(chunk)
-            continue
-
-        bucati_secundare = PATTERN_SUBPUNCT.split(chunk["text"])
-        if len(bucati_secundare) == 1:
-            chunkuri_finale.append(chunk)
-            continue
-
-        text_intro = bucati_secundare[0].strip()
-        if len(text_intro) >= LUNGIME_MINIMA_CHUNK:
-            chunkuri_finale.append({"articol": chunk["articol"], "text": text_intro})
-
-        for index in range(1, len(bucati_secundare), 2):
-            subpunct = bucati_secundare[index]
-            text_subpunct = bucati_secundare[index + 1].strip() if index + 1 < len(bucati_secundare) else ""
-            if len(text_subpunct) >= LUNGIME_MINIMA_CHUNK:
-                chunkuri_finale.append({"articol": f"{chunk['articol']}({subpunct})", "text": text_subpunct})
-
-    return chunkuri_finale
 
 
 def conecteaza_baza_de_date():
