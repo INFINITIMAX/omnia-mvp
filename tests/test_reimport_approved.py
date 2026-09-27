@@ -730,6 +730,30 @@ def test_restore_backup_invalid_e_refuzat(module, dirs):
         module.restore_from_backup("i5_2022", str(cale), write_connection_factory=forbidden)
 
 
+# --- R16: ieșirea finală a main() e ASCII, nu poate eșua pe consola cp1252 ------
+
+
+def test_main_tipareste_json_ascii_pentru_rezultat_cu_t_cu_sedila(module, monkeypatch, capsys):
+    """Ar pica dacă `json.dumps` ar reveni la `ensure_ascii=False`: linia stdout ar
+    conține caracterul „Ț” brut (non-ASCII), care ridică `UnicodeEncodeError` la
+    scriere pe o consolă Windows cp1252 (bug real, întâmplat la P 118/1, după un
+    commit reușit)."""
+    monkeypatch.setattr(
+        module,
+        "dry_run",
+        lambda *_a, **_k: {"poarta_trece": True, "motive_poarta": [], "titlu_oficial": "Documentul Ț"},
+    )
+
+    cod_iesire = module.main(["--document", "i5_2022"])
+    iesire = capsys.readouterr().out.strip()
+
+    assert cod_iesire == 0
+    # Ar arunca UnicodeEncodeError aici dacă linia ar conține vreun caracter non-ASCII.
+    iesire.encode("ascii")
+    assert json.loads(iesire)["titlu_oficial"] == "Documentul Ț"
+    assert "\\u021a" in iesire  # „Ț” escapat unicode, nu caracterul brut
+
+
 # --- CLI: modurile se exclud reciproc --------------------------------------------
 
 
