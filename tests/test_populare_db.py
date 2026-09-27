@@ -1,14 +1,48 @@
 """Teste locale pentru ingestie; toate serviciile externe sunt blocate."""
 
 import importlib.util
+import re
 import sys
 import types
 from pathlib import Path
 
 import pytest
 
+import chunking_core
+
 ROOT_PROIECT = Path(__file__).resolve().parents[1]
 CALE_MODUL = ROOT_PROIECT / "populare_db.py"
+
+_PATTERN_MARCAJ_ARTICOL = re.compile(r"(?:Art\.\s*)?\d+(?:\.\d+){1,6}\.?")
+_PATTERN_SUBPUNCT_PARANTEZA = re.compile(r"\(\d+\)")
+
+
+def _normalizeaza_pentru_acoperire(text):
+    """Elimină marcajele de articol și (N), colapsează spațiile — ca linia brută
+    din document să fie comparabilă cu textul concatenat al chunk-urilor, care nu
+    mai conține marcajul consumat ca delimitator."""
+    text = _PATTERN_MARCAJ_ARTICOL.sub("", text)
+    text = _PATTERN_SUBPUNCT_PARANTEZA.sub("", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _acoperire_continut_brut(modul_ingestie, cale_text):
+    text_brut = cale_text.read_text(encoding="utf-8")
+    chunkuri = modul_ingestie.creeaza_chunkuri(text_brut)
+    text_concatenat = _normalizeaza_pentru_acoperire(
+        " ".join(chunk["text"] for chunk in chunkuri)
+    )
+    total = 0
+    gasite = 0
+    for linie in text_brut.split("\n"):
+        linie = linie.strip()
+        if len(linie) < 50 or "MONITORUL OFICIAL" in linie:
+            continue
+        total += 1
+        prefix = _normalizeaza_pentru_acoperire(linie)[:45]
+        if prefix and prefix in text_concatenat:
+            gasite += 1
+    return gasite / total if total else 1.0
 
 
 @pytest.fixture
@@ -447,14 +481,14 @@ def test_creeaza_chunkuri_articol_nequotat_ramane_neschimbat(modul_ingestie):
 
 
 NUMAR_CHUNKURI_ASTEPTAT_PER_DOCUMENT = {
-    "i5_2022": 701,
-    "i7_2011": 1444,
-    "i9_2022": 650,
-    "np004_03": 81,
-    "np010_2022": 408,
-    "np057_02": 286,
-    "p118_1_2025": 1401,
-    "spitale_2022": 578,
+    "i5_2022": 786,
+    "i7_2011": 2229,
+    "i9_2022": 769,
+    "np004_03": 84,
+    "np010_2022": 438,
+    "np057_02": 300,
+    "p118_1_2025": 3005,
+    "spitale_2022": 634,
 }
 
 
@@ -474,6 +508,64 @@ def test_chunking_documentelor_deja_validate_ramane_neschimbat(modul_ingestie, n
     chunkuri = modul_ingestie.creeaza_chunkuri(continut)
 
     assert len(chunkuri) == numar_asteptat
+
+
+PRAG_ACOPERIRE_MINIM_PER_DOCUMENT = {
+    "i5_2022": 0.97,
+    "i7_2011": 0.95,
+    "i9_2022": 0.96,
+    "np004_03": 0.90,
+    "np010_2022": 0.99,
+    "np057_02": 0.87,
+    "p118_1_2025": 0.99,
+    "spitale_2022": 0.97,
+}
+
+
+@pytest.mark.skipif(
+    not (ROOT_PROIECT / "documente_noi").exists(),
+    reason="documente_noi nu e prezent în acest worktree (folder gitignored)",
+)
+@pytest.mark.parametrize(
+    "nume_document, prag_minim", sorted(PRAG_ACOPERIRE_MINIM_PER_DOCUMENT.items())
+)
+def test_acoperirea_continutului_brut_ramane_peste_prag(modul_ingestie, nume_document, prag_minim):
+    """Nicio regresie de pierdere de conținut: procentul de rânduri brute (≥50 caractere,
+    fără antete MO) regăsite (normalizat) în textul concatenat al chunk-urilor trebuie
+    să rămână peste pragul verificat de planner pe corpusul real. Ar pica dacă o regulă
+    de curățare (antet, cuprins, colofon, titlu) ar deveni prea agresivă și ar arunca
+    text real."""
+    cale_text = ROOT_PROIECT / "documente_noi" / nume_document / "extracted.txt"
+
+    acoperire = _acoperire_continut_brut(modul_ingestie, cale_text)
+
+    assert acoperire >= prag_minim
+
+
+@pytest.mark.skipif(
+    not (ROOT_PROIECT / "documente_noi").exists(),
+    reason="documente_noi nu e prezent în acest worktree (folder gitignored)",
+)
+def test_p118_toate_articolele_art_devin_chunk_propriu(modul_ingestie):
+    """P 118/1: fiecare marcaj „Art. N.N…” urmat de majusculă trebuie să apară ca
+    articol propriu — 811/811, conform cifrelor verificate de planner. Ar pica dacă
+    filtrele de trimitere-ruptă/dedup ar arunca vreun articol real marcat cu „Art.”."""
+    cale_text = ROOT_PROIECT / "documente_noi" / "p118_1_2025" / "extracted.txt"
+    continut = cale_text.read_text(encoding="utf-8")
+
+    articole_asteptate = {
+        match.group(1) for match in chunking_core.PATTERN_ARTICOL_ART.finditer("\n" + continut)
+    }
+    assert len(articole_asteptate) == 811
+
+    chunkuri = modul_ingestie.creeaza_chunkuri(continut)
+    # Articolele lungi pot fi împărțite pe subpuncte de split-ul secundar
+    # (ex. "2.3.2.1.6.(1)", "2.3.2.1.6.(2)") — comparăm identificatorul de bază,
+    # fără sufixul de subpunct, ca split-ul corect să nu fie confundat cu o pierdere.
+    articole_din_chunkuri = {chunk["articol"].split("(")[0] for chunk in chunkuri}
+
+    lipsa = articole_asteptate - articole_din_chunkuri
+    assert not lipsa, f"Articole „Art.” lipsă din chunk-uri: {sorted(lipsa)[:10]}"
 
 
 @pytest.mark.skipif(

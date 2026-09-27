@@ -2023,8 +2023,11 @@ def test_api_p1_restrictia_cu_articol_cunoscut_pastreaza_ruta_exacta(api, phrase
     assert len(exact_calls) == 1
     sql, parameters = exact_calls[0]
     assert "document.status = 'approved'" in sql
-    assert "chunk.document_id = %s AND chunk.articol_normalizat = %s" in sql
-    assert parameters == ("doc-1", "4.4.7.2")
+    assert (
+        "chunk.document_id = %s AND (chunk.articol_normalizat = %s OR chunk.articol_normalizat LIKE %s)"
+        in sql
+    )
+    assert parameters == ("doc-1", "4.4.7.2", "4.4.7.2.%")
     assert _interogari_semantice(connection) == []
     assert embedder.calls == 0
     assert generator.calls == int(has_evidence)

@@ -16,6 +16,8 @@ import uuid
 from pathlib import Path
 from typing import Callable, Mapping, Sequence
 
+from chunking_core import MAX_CHUNK_CHARS as _MAX_CHUNK_CHARS
+from chunking_core import creeaza_chunkuri as _creeaza_chunkuri_locale
 from procesare_documente import extrage_text
 
 
@@ -34,17 +36,8 @@ _PATTERN_TITLU = re.compile(
     r"INSTRUCȚIUNI(?:LE)?|INSTRUCTIUNI(?:LE)?|COD(?:UL)?|METODOLOGIA)\b[^\n]{12,500})\s*$"
 )
 _PATTERN_AN = re.compile(r"(?:^|[^0-9])(18[0-9]{2}|19[0-9]{2}|20[0-9]{2})(?:$|[^0-9])")
-_PATTERN_ARTICOL = re.compile(
-    r"\n\s*„?\s*(\d+\.\d+\.\s*\([A-Za-z]\)\.\s*(?:[IVXLl]\.|\d+\.)?(?:\d+\.)?|"
-    r"ANEXA\s+\d+\.\d+\.|\d+\.\d+\.(?:\d+\.){0,4})"
-)
-_PATTERN_LINIE_CUPRINS = re.compile(r"\.{2,}\s*\d{1,4}\s*(?=\n|$)")
-_PATTERN_SUBPUNCT = re.compile(r"\n\s*\((\d+)\)\s+")
 _PATTERN_SPATIERE_ARTICOL = re.compile(r"[ \t\n\r\f\v\u00a0\u202f]+")
 _PATTERN_ARTICOL_NORMALIZAT = re.compile(r"^[a-z0-9().-]+$")
-_LUNGIME_MINIMA_CHUNK = 15
-_LUNGIME_SPLIT_SECUNDAR = 2000
-_MAX_CHUNK_CHARS = 1000
 
 
 class PreflightError(ValueError):
@@ -297,77 +290,6 @@ def _normalizeaza_articol(articol: object) -> str:
     if not _PATTERN_ARTICOL_NORMALIZAT.fullmatch(normalizat):
         raise ValueError("articol invalid")
     return normalizat
-
-
-def _creeaza_chunkuri_locale(text: str) -> list[dict[str, str]]:
-    """Aplică local chunking-ul determinist pe articole, fără DB sau embeddings.
-
-    Este o copie restrânsă a regulii de structurare existente: sare peste un
-    cuprins inițial, păstrează articolele cu text suficient și divide numai
-    articolele foarte lungi după subpuncte. Rezultatul rămâne doar în memorie.
-    """
-    limita_cuprins = int(len(text) * 0.20)
-    aparitii_cuprins = list(_PATTERN_LINIE_CUPRINS.finditer(text[:limita_cuprins]))
-    continut = text[aparitii_cuprins[-1].end() :] if aparitii_cuprins else text
-    sursa = "\n" + continut
-    potriviri = list(_PATTERN_ARTICOL.finditer(sursa))
-    dupa_articol: dict[str, dict[str, str]] = {}
-
-    for index, potrivire in enumerate(potriviri):
-        articol = potrivire.group(1).strip()
-        # Dacă un caracter ne-separator urmează imediat identificatorului, îl
-        # păstrăm pentru validator. Astfel `1.1./` nu devine tăcut `1.1.`.
-        sufix = re.match(r"[^\s]+", sursa[potrivire.end(1) :])
-        if sufix is not None:
-            candidat = articol + sufix.group(0)
-            if candidat.endswith(","):
-                try:
-                    _normalizeaza_articol(candidat[:-1])
-                except ValueError:
-                    articol = candidat
-                else:
-                    articol = candidat[:-1]
-            else:
-                articol = candidat
-        inceput_text = potrivire.end()
-        sfarsit_text = potriviri[index + 1].start() if index + 1 < len(potriviri) else len(sursa)
-        text_articol = sursa[inceput_text:sfarsit_text].strip()
-        if len(text_articol) < _LUNGIME_MINIMA_CHUNK:
-            continue
-        existent = dupa_articol.get(articol)
-        if existent is None or len(text_articol) > len(existent["text"]):
-            dupa_articol[articol] = {"articol": articol, "text": text_articol}
-
-    rezultat: list[dict[str, str]] = []
-    for chunk in dupa_articol.values():
-        if len(chunk["text"]) < _LUNGIME_SPLIT_SECUNDAR:
-            rezultat.append(chunk)
-            continue
-        subpuncte = _PATTERN_SUBPUNCT.split(chunk["text"])
-        if len(subpuncte) == 1:
-            rezultat.append(chunk)
-            continue
-        introducere = subpuncte[0].strip()
-        if len(introducere) >= _LUNGIME_MINIMA_CHUNK:
-            rezultat.append({"articol": chunk["articol"], "text": introducere})
-        for index in range(1, len(subpuncte), 2):
-            numar = subpuncte[index]
-            text_subpunct = subpuncte[index + 1].strip() if index + 1 < len(subpuncte) else ""
-            if len(text_subpunct) >= _LUNGIME_MINIMA_CHUNK:
-                rezultat.append({"articol": f"{chunk['articol']}({numar})", "text": text_subpunct})
-    rezultat_limitat: list[dict[str, str]] = []
-    for chunk in rezultat:
-        text = chunk["text"]
-        while len(text) > _MAX_CHUNK_CHARS:
-            boundary = max(text.rfind("\n", 0, _MAX_CHUNK_CHARS + 1), text.rfind(" ", 0, _MAX_CHUNK_CHARS + 1))
-            if boundary < _LUNGIME_MINIMA_CHUNK:
-                boundary = _MAX_CHUNK_CHARS
-            piece, text = text[:boundary].strip(), text[boundary:].strip()
-            if piece:
-                rezultat_limitat.append({"articol": chunk["articol"], "text": piece})
-        if text:
-            rezultat_limitat.append({"articol": chunk["articol"], "text": text})
-    return rezultat_limitat
 
 
 def _valideaza_chunkuri_locale(chunkuri: Sequence[object]) -> Sequence[object]:
