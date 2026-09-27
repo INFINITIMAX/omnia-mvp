@@ -1,5 +1,24 @@
 # TASKS — Omnia
 
+## Stare curentă (27-09-2026)
+
+**Citește `HANDOFF.md` §0 pentru context complet.** Rezumat rapid:
+
+- **Live în producție** (Railway deployment `15cbb8b7`, `main` `f5fbbc1`, verificat 27-09): R11 (pasaj verificat D20 restaurat), R08 (articole lungi consecutive acceptate), R12 (răspuns pe fiecare document + conflicte; formule lipsă nereconstruite), D23 (I 13-2015 și P 118/2-2013 `disabled`; 9 documente `approved`). Smoke real `/intreaba` 200, 7 normative, citate literale scurte.
+- **Următoarele task-uri, în ordine:** (1) foldere recursive în `documente_noi/`; (2) chunker-ul salvează titluri de secțiune ca articole; (3) politică de import pentru normative modificate (readucere I 13, P 118/2); (4) ruta semantică R08 (goluri top-k, ordine după `chunk_order`); (5) extensie AutoCAD.
+- Rapoarte: R07, R09, R10 (audit Opus), R11 (pilot) în `docs/handoff/`. Manifestele/rapoartele locale R05 sunt în `D:\_scratch\omnia\` (în afara Git).
+
+### Istoric 25-09-2026
+
+- **Audit complet Opus (R10, 25-09-2026):** `docs/handoff/R10-audit-complet-opus-raport.md`. Blocaj principal: contractul de citare s-a schimbat pe 15-09 fără decizie scrisă (F1) — rezolvat prin R11 pe 27-09.
+
+- `main` la `132f7f4`, curat, pushed. Cea mai recentă lucrare confirmată: R05 pilot finalizat operațional (15-09-2026), D22/D21/D20 live în producție.
+- Verificare proaspătă azi: `python -m pytest -q` → **1021 passed, 1 warning** (avertisment extern, nu al proiectului).
+- Curățenie repo azi: 31 worktree-uri + 51 branch-uri orfane (deja merge-uite) șterse. Rămân 5 worktree-uri cu muncă reală ne-merge-uită: `feat/context-conversatie`, `feat/mobil-varianta-b`, `fix/blocheaza-calcule-proiectare` (are și modificări necommise local), `fix/i7-glife-corupte`, `fix/r08-split-article-retrieval`.
+- **Decizie explicită Lucian (25-09-2026): NU reluăm `fix/blocheaza-calcule-proiectare` acum.**
+- Deploy producție ultima dată verificat manual pe 13-09-2026 (SHA `4bc4973`); SHA-ul exact rulat acum pe Railway **nu e reconfirmat** față de `main` curent — gap de risc semnalat, nu urgent (site-ul funcționează).
+- **Ordinea de lucru stabilită de Lucian:** (1) confirmă Omnia e curată/funcțională — în lucru acum, cele două audit-uri R07 (operations + security, brief-uite dar niciodată rulate) sunt pasul natural următor; (2) verifică ingestia RAG; (3) construiește o extensie AutoCAD ca Omnia să poată fi deschisă din ACAD.
+
 ## R05 finalizat operațional — pilot real izolat (15-09-2026)
 
 Manifest local: 20 cazuri (8 exacte, 8 semantice, 4 negative). Rulare reală readonly: 20 cazuri, 8 embedding-uri, 16 generări; 16 `answered` cu 20 citări, 4 negative `ambiguous_reference`, fără răspuns `answered` fără citare. Verdictul semantic al conținutului rămâne revizie umană; raportul local nu este în Git.
