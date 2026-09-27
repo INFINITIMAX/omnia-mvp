@@ -456,14 +456,14 @@ def test_creeaza_chunkuri_articol_nequotat_ramane_neschimbat(modul_ingestie):
 
 
 NUMAR_CHUNKURI_ASTEPTAT_PER_DOCUMENT = {
-    "i5_2022": 786,
-    "i7_2011": 2226,
-    "i9_2022": 769,
-    "np004_03": 84,
-    "np010_2022": 438,
-    "np057_02": 300,
-    "p118_1_2025": 3005,
-    "spitale_2022": 634,
+    "i5_2022": 768,
+    "i7_2011": 2214,
+    "i9_2022": 790,
+    "np004_03": 85,
+    "np010_2022": 356,
+    "np057_02": 298,
+    "p118_1_2025": 2862,
+    "spitale_2022": 616,
 }
 
 
@@ -515,6 +515,35 @@ def test_acoperirea_continutului_brut_ramane_peste_prag(modul_ingestie, nume_doc
     acoperire = _acoperire_continut_brut(modul_ingestie, cale_text)
 
     assert acoperire >= prag_minim
+
+
+@pytest.mark.skipif(
+    not (ROOT_PROIECT / "documente_noi").exists(),
+    reason="documente_noi nu e prezent în acest worktree (folder gitignored)",
+)
+@pytest.mark.parametrize("nume_document", sorted(NUMAR_CHUNKURI_ASTEPTAT_PER_DOCUMENT))
+def test_articole_normalizate_nu_apar_in_pozitii_neconsecutive(modul_ingestie, nume_document):
+    """R16: după fix-ul de dedup pe identificatorul normalizat, niciun articol nu
+    trebuie să mai apară fragmentat în bucăți neconsecutive ale listei de chunk-uri
+    (un al doilea grup separat, rupt de primul de alte articole la mijloc). Ar pica
+    dacă dedup-ul ar reveni la cheia brută (nenormalizată) sau dacă vreo regulă nouă
+    ar reintroduce coliziuni de identificator la distanță."""
+    cale_text = ROOT_PROIECT / "documente_noi" / nume_document / "extracted.txt"
+    continut = cale_text.read_text(encoding="utf-8")
+
+    chunkuri = modul_ingestie.creeaza_chunkuri(continut)
+    normalizate = [modul_ingestie.normalizeaza_articol(chunk["articol"]) for chunk in chunkuri]
+
+    pozitii: dict[str, list[int]] = {}
+    for index, articol_normalizat in enumerate(normalizate):
+        pozitii.setdefault(articol_normalizat, []).append(index)
+
+    neconsecutive = {
+        articol: indici
+        for articol, indici in pozitii.items()
+        if indici != list(range(indici[0], indici[0] + len(indici)))
+    }
+    assert not neconsecutive, f"Articole normalizate în poziții neconsecutive: {sorted(neconsecutive)[:10]}"
 
 
 @pytest.mark.skipif(

@@ -2,6 +2,8 @@
 fără dependențe de documente_noi. Fiecare test reproduce o singură regulă din R14.
 """
 
+import pytest
+
 from chunking_core import creeaza_chunkuri, ultimele_statistici
 
 
@@ -501,6 +503,213 @@ def test_numar_lipit_de_majuscula_nu_se_lipeste_de_articol():
     assert len(rezultat) == 1
     assert rezultat[0]["articol"] == "3.0.1."
     assert rezultat[0]["text"].startswith("Condiții")
+
+
+# --- R16: dedup pe identificatorul normalizat ---------------------------------
+
+
+def test_dedup_pe_forma_normalizata_variante_care_difera_doar_prin_majuscula():
+    """Regresia R16 (I5): două variante ale aceluiași articol care diferă doar prin
+    litera din paranteză (majusculă/minusculă) trebuie deduplicate ca o singură
+    cheie normalizată — dedup-ul pe identificatorul brut (case-sensitiv) le-ar fi
+    tratat ca articole diferite. Ar pica dacă dedup-ul ar reveni la cheia brută."""
+    text = (
+        "\n3.2.(B). Titlu scurt neinformativ.\n"
+        "3.2.(b). Textul real, mult mai detaliat, cu prevederi tehnice suplimentare complete pentru acest articol.\n"
+    )
+
+    rezultat = creeaza_chunkuri(text)
+
+    assert len(rezultat) == 1
+    assert "Textul real, mult mai detaliat" in rezultat[0]["text"]
+    assert ultimele_statistici()["duplicate_eliminate"] == 1
+
+
+def test_dedup_forme_diferite_dar_neechivalente_normalizat_raman_separate():
+    """Control negativ: litere diferite în paranteză (nu doar caz diferit) rămân
+    chei diferite. Ar pica dacă normalizarea le-ar confunda greșit."""
+    text = (
+        "\n3.2.(b). Primul articol cu litera b, text suficient de lung pentru a fi un chunk valid complet aici.\n"
+        "3.2.(c). Al doilea articol cu litera c, text suficient de lung pentru a fi un chunk valid complet aici.\n"
+    )
+
+    rezultat = creeaza_chunkuri(text)
+
+    assert {c["articol"] for c in rezultat} == {"3.2.(b).", "3.2.(c)."}
+
+
+def test_dedup_exemplul_din_handoff_varianta_fara_punct_si_cu_punct():
+    """Exemplul literal din handoff R16: „6.1.1 Titlu…” și „6.1.1. Text real…” trebuie
+    să rămână un singur articol, cu varianta mai lungă câștigând. Ar pica dacă
+    vreuna dintre variante ar rămâne chunk separat sau dacă textul scurt ar câștiga."""
+    text = (
+        "\n6.1.1 Titlu scurt neinformativ aici.\n"
+        "6.1.1. Text real mult mai lung, cu detalii tehnice suplimentare importante pentru acest articol complet aici.\n"
+    )
+
+    rezultat = creeaza_chunkuri(text)
+
+    assert len(rezultat) == 1
+    assert "Text real mult mai lung" in rezultat[0]["text"]
+
+
+# --- R16: titlu de capitol cu un singur nivel de numerotare --------------------
+
+
+def test_titlu_capitol_simplu_cu_copil_direct_devine_context_iar_introducerea_nu_se_lipeste():
+    """Regresia I5: „4. Elemente generale de calcul” urmat de introducere „(1)…” și
+    apoi „4.1. …” — introducerea nu trebuie să se lipească de articolul anterior
+    (3.2.5.2.), titlul devine context pentru 4.1., iar introducerea rămâne chunk
+    propriu cu articolul „4.”. Ar pica dacă „4.” nu ar fi recunoscut ca marcaj, dacă
+    introducerea s-ar lipi de 3.2.5.2., sau dacă titlul nu s-ar propaga la 4.1."""
+    text = (
+        "\n3.2.5.2. Ultimul subpunct al capitolului anterior cu text suficient de lung pentru a fi valid complet clar.\n"
+        "4. Elemente generale de calcul\n"
+        "(1) Introducerea capitolului patru cu text detaliat suficient pentru a forma un chunk valid complet corect.\n"
+        "4.1. Parametrii interiori trebuie stabiliti conform normelor tehnice in vigoare pentru acest tip de cladire.\n"
+    )
+
+    rezultat = creeaza_chunkuri(text)
+
+    assert [c["articol"] for c in rezultat] == ["3.2.5.2.", "4.", "4.1."]
+
+    chunk_325 = next(c for c in rezultat if c["articol"] == "3.2.5.2.")
+    assert "Elemente generale de calcul" not in chunk_325["text"]
+    assert "Introducerea capitolului patru" not in chunk_325["text"]
+
+    chunk_4 = next(c for c in rezultat if c["articol"] == "4.")
+    assert chunk_4["text"].startswith("(1) Introducerea capitolului patru")
+
+    chunk_41 = next(c for c in rezultat if c["articol"] == "4.1.")
+    assert chunk_41["text"].startswith("4. Elemente generale de calcul")
+    assert "Parametrii interiori" in chunk_41["text"]
+
+
+def test_enumerare_simpla_fara_copil_1_1_nu_e_tratata_ca_titlu_de_capitol():
+    """O enumerare „1. text… 2. text…” din corpul unui articol, fără un copil de
+    tip „1.1.”, nu trebuie tratată ca titlu de capitol cu un singur nivel. Ar pica
+    dacă implementarea ar recunoaște orice „N. Majusculă…” ca titlu, indiferent
+    dacă are sau nu un copil direct imediat următor."""
+    text = (
+        "\n2.1. Introducere articol cu text suficient de lung pentru a forma un chunk valid complet corect aici bine.\n"
+        "1. Primul element enumerat in corpul articolului fara copil de tip subpunct sau alt nivel afisat\n"
+        "2. Al doilea element enumerat continuand lista fara sa formeze un titlu nou de capitol distinct\n"
+    )
+
+    rezultat = creeaza_chunkuri(text)
+
+    assert [c["articol"] for c in rezultat] == ["2.1."]
+    assert "1. Primul element enumerat" in rezultat[0]["text"]
+    assert "2. Al doilea element enumerat" in rezultat[0]["text"]
+
+
+# --- R16 (task 3b): subpuncte care reîncep nu se mai împart -------------------
+
+
+def test_subpuncte_care_reincep_nu_se_imparte_pe_subpuncte():
+    """Regresia NP 010/P 118/1/NP 015/I7: dacă numerotarea „(1)(2)…” reîncepe în
+    același articol (sub-secțiuni nenumerotate), articolul nu se mai împarte pe
+    subpuncte — rămâne o unitate, tăiată doar de limita de 1000 caractere. Ar pica
+    dacă split-ul secundar ar continua să taie pe „(1)”/„(2)” chiar și cu reluare."""
+    subpunct = _text_lung(
+        "Text de subpunct detaliat pentru testarea renumerotarii care se repeta in acelasi articol lung de test.",
+        6,
+    )
+    text = (
+        "\n5.1. Sectiune cu subpuncte care se renumeroteaza\n"
+        f"(1) {subpunct}\n(2) {subpunct}\n(1) {subpunct}\n(2) {subpunct}\n"
+    )
+
+    rezultat = creeaza_chunkuri(text)
+
+    assert len(rezultat) >= 2
+    assert all(c["articol"] == "5.1." for c in rezultat)
+    assert all(len(c["text"]) <= 1000 for c in rezultat)
+
+
+def test_subpuncte_strict_crescatoare_neconsecutive_se_impart_normal():
+    """Control pozitiv: o numerotare strict crescătoare, chiar dacă nu e consecutivă
+    (1, 2, 4, 7), tot se împarte pe subpuncte ca înainte — regula respinge doar
+    reluarea/repetarea, nu salturile. Ar pica dacă implementarea ar cere pași de
+    exact +1 între subpuncte, sau dacă nu ar mai împărți deloc."""
+    subpunct = _text_lung(
+        "Text de subpunct detaliat privind cerintele tehnice aplicabile acestei sectiuni a normativului curent.",
+        6,
+    )
+    text = (
+        "\n6.1. Titlu sectiune diverse cerinte tehnice\n"
+        f"(1) {subpunct}\n(2) {subpunct}\n(4) {subpunct}\n(7) {subpunct}\n"
+    )
+
+    rezultat = creeaza_chunkuri(text)
+
+    assert [c["articol"] for c in rezultat] == ["6.1.(1)", "6.1.(2)", "6.1.(4)", "6.1.(7)"]
+    assert all(len(c["text"]) <= 1000 for c in rezultat)
+
+
+# --- R16 Runda 2: cifră lipită după marcaj nu e articol -------------------------
+
+
+def test_cifra_lipita_dupa_marcaj_precedat_de_punctele_nu_e_articol():
+    """Regresia NP 010: „…de la punctele\\n4.2.4.5 și 4.2.4.6” nu trebuie să producă
+    un articol fals „4.2.4.5”, care ar fura, prin dedup normalizat, articolul real
+    „4.2.4.5.”. Ar pica dacă un al doilea chunk „4.2.4.5.” ar apărea, sau dacă
+    textul real ar fi înlocuit de „Tabelul 4.21…”."""
+    text = (
+        "\n4.2.4.5. Prevederi specifice de siguranta pentru zonele de recreatie la exterior trebuie respectate clar.\n"
+        "Detalii suplimentare importante pentru aceasta sectiune tehnica continua mai jos in text detaliat complet.\n"
+        "Masuri generale cu respectarea prevederilor de la punctele\n"
+        "4.2.4.5 si 4.2.4.6 Tabelul 4.21 prezinta valorile de referinta pentru acest tip de instalatie tehnica.\n"
+    )
+
+    rezultat = creeaza_chunkuri(text)
+
+    assert [c["articol"] for c in rezultat] == ["4.2.4.5."]
+    assert "Prevederi specifice de siguranta" in rezultat[0]["text"]
+    assert "Tabelul 4.21 prezinta valorile" in rezultat[0]["text"]
+
+
+def test_cifra_lipita_dupa_marcaj_fara_cuvant_de_trimitere_tot_nu_e_articol():
+    """Izolează regula generică (cifră lipită la distanță zero de marcaj), fără
+    niciun cuvânt din lista de trimitere rupta pe rândul anterior — regăsit de coder
+    pe NP 010 rândul 2817 („…la\\n4.2.2, (30)…”). Ar pica dacă doar lista de cuvinte
+    ar respinge trimiterile rupte, fără regula generică pe cifra lipită."""
+    text = (
+        "\n4.2.4.5. Prevederi specifice de siguranta pentru zonele de joaca a copiilor trebuie respectate cu strictete.\n"
+        "Alte detalii tehnice suplimentare relevante pentru aceasta sectiune continua in acest exemplu mai jos aici.\n"
+        "Valorile stabilite sunt\n"
+        "4.2.4.5 si 4.2.4.6 reprezinta limitele minime acceptate conform tabelului de referinta anexat prezentei norme.\n"
+    )
+
+    rezultat = creeaza_chunkuri(text)
+
+    assert [c["articol"] for c in rezultat] == ["4.2.4.5."]
+    assert "reprezinta limitele minime acceptate" in rezultat[0]["text"]
+
+
+# --- R16 Runda 2: cuvinte noi de final de rând ----------------------------------
+
+
+@pytest.mark.parametrize(
+    "cuvant",
+    ["punctele", "punctul", "punctelor", "articolele", "articolelor", "prevederile", "prevederilor"],
+)
+def test_cuvinte_noi_de_trimitere_rupta_fac_marcajul_urmator_trimitere(cuvant):
+    """Fiecare cuvânt nou adăugat la lista de final de rând (Runda 2) trebuie să facă
+    marcajul de pe rândul următor o trimitere ruptă, chiar dacă acel marcaj ar fi
+    altfel valid (spațiu + majusculă după număr). Ar pica dacă vreunul dintre
+    cuvinte ar lipsi din listă în implementare."""
+    text = (
+        f"\n2.1. Introducere initiala cu suficient text pentru a forma un chunk valid corect aici sigur bine clar.\n"
+        f"Se aplica conform {cuvant}\n"
+        "5.5. Text ce nu trebuie sa devina articol nou din cauza cuvantului anterior de trimitere rupta.\n"
+    )
+
+    rezultat = creeaza_chunkuri(text)
+
+    assert [c["articol"] for c in rezultat] == ["2.1."]
+    assert f"conform {cuvant}" in rezultat[0]["text"]
+    assert "5.5. Text ce nu trebuie" in rezultat[0]["text"]
 
 
 def test_numar_lipit_de_caracter_ne_majuscul_ramane_referinta_rupta():
