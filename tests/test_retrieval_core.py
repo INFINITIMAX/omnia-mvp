@@ -183,6 +183,35 @@ def test_articol_nemarcat_cunoscut_in_doua_documente_ramane_exact():
     assert not parsed.requires_clarification
 
 
+def test_articol_sectiune_fara_chunk_propriu_e_cunoscut_prin_copiii_lui():
+    """R14: „art. 4.4.7” fără chunk propriu, dar cu copii cunoscuți (4.4.7.2, 4.4.7.9),
+    trebuie recunoscut ca articol cunoscut prin API-ul public `parse`. Ar pica dacă
+    `_is_known_article`/`_is_known_in` ar cere potrivire exactă, fără fallback pe prefix."""
+    parser = ArticleParser(
+        {"doc-a": ("DOCA",)}, {"doc-a": ("4.4.7.2", "4.4.7.9")}
+    )
+
+    parsed = parser.parse("consulta 4.4.7")
+
+    assert parsed.article_normalized == "4.4.7"
+    assert not parsed.requires_clarification
+
+
+def test_prefix_fara_punct_nu_e_confundat_cu_articol_cunoscut():
+    """R14: „4.4.1” nu trebuie recunoscut ca fiind cunoscut doar pentru că e prefix de
+    caractere al lui „4.4.11.2” — verificarea corectă cere separator de punct după
+    prefix. Ar pica dacă `_is_known_in` ar verifica `known.startswith(article)` fără
+    să adauge punctul de separare (`article + "."`)."""
+    parser = ArticleParser(
+        {"doc-a": ("DOCA",)}, {"doc-a": ("4.4.11.2",)}
+    )
+
+    parsed = parser.parse("consulta 4.4.1")
+
+    assert parsed.article_normalized is None
+    assert not parsed.requires_clarification
+
+
 def test_catalogul_approved_foloseste_numai_metadata_oficiala_si_inchide_cursorul():
     connection = ConnectionFake([
         ("doc-1", "NP 010-2022", "4.4.7.2"),
@@ -204,14 +233,21 @@ def test_catalogul_approved_foloseste_numai_metadata_oficiala_si_inchide_cursoru
 
 
 def test_repository_exact_foloseste_numai_sql_parametrizat_cu_document_optional():
+    """Ruta exactă unificată: (articol_normalizat = %s OR articol_normalizat LIKE %s),
+    parametrizat cu articolul și prefixul de copii (`articol + ".%"`), cu și fără
+    document_id. Ar pica dacă interogarea revine la text neparametrizat sau dacă
+    dispare filtrul `approved` ori parametrul LIKE."""
     connection = ConnectionFake([(1, "doc", "COD", "Titlu", "1.1", "1.1", "text", "hash", 7)])
     repository = PostgresRetrievalRepository(connection)
 
     found = repository.find_exact("doc", "1.1")
 
     sql, parameters = connection.cursor_instance.calls[0]
-    assert "document.status = 'approved' AND chunk.document_id = %s AND chunk.articol_normalizat = %s" in sql
-    assert parameters == ("doc", "1.1")
+    assert (
+        "document.status = 'approved' AND chunk.document_id = %s "
+        "AND (chunk.articol_normalizat = %s OR chunk.articol_normalizat LIKE %s)" in sql
+    )
+    assert parameters == ("doc", "1.1", "1.1.%")
     assert "FROM public.documente_chunks" in sql
     assert "chunk.chunk_order" in sql
     assert "WHERE chunk.document_id = 'doc'" not in sql
@@ -221,8 +257,57 @@ def test_repository_exact_foloseste_numai_sql_parametrizat_cu_document_optional(
 
     repository.find_exact(None, "1.1")
     sql, parameters = connection.cursor_instance.calls[1]
-    assert "document.status = 'approved' AND chunk.articol_normalizat = %s" in sql
-    assert parameters == ("1.1",)
+    assert (
+        "document.status = 'approved' "
+        "AND (chunk.articol_normalizat = %s OR chunk.articol_normalizat LIKE %s)" in sql
+    )
+    assert parameters == ("1.1", "1.1.%")
+    assert "ORDER BY chunk.document_id, chunk.chunk_order, chunk.id" in sql
+
+
+def test_repository_exact_cu_potrivire_exacta_ignora_copiii_din_acelasi_rezultat():
+    """Dacă mock-ul DB întoarce atât rândul exact, cât și copii (cum ar întoarce
+    interogarea unificată cu OR), Python trebuie să păstreze doar rândurile exacte.
+    Ar pica dacă find_exact ar întoarce toate rândurile, inclusiv copiii, în prezența
+    unei potriviri exacte."""
+    connection = ConnectionFake([
+        (1, "doc", "COD", "Titlu", "4.4", "4.4", "text exact", "hash-a", 5),
+        (2, "doc", "COD", "Titlu", "4.4.1", "4.4.1", "text copil", "hash-b", 6),
+    ])
+
+    found = PostgresRetrievalRepository(connection).find_exact("doc", "4.4")
+
+    assert len(found) == 1
+    assert found[0].articol_normalizat == "4.4"
+    assert found[0].content == "text exact"
+
+
+def test_repository_exact_fara_potrivire_exacta_intoarce_copiii_in_ordinea_data_de_db():
+    """Fără potrivire exactă, cad pe copii (rezultatul LIKE al DB-ului), păstrați exact
+    în ordinea întoarsă de cursor — Python nu re-sortează, se bazează pe ORDER BY din SQL.
+    Ar pica dacă find_exact ar întoarce listă goală când există doar copii, sau dacă ar
+    reordona rândurile."""
+    connection = ConnectionFake([
+        (2, "doc", "COD", "Titlu", "4.4.2", "4.4.2", "copil doi", "hash-b", 6),
+        (1, "doc", "COD", "Titlu", "4.4.1", "4.4.1", "copil unu", "hash-a", 5),
+    ])
+
+    found = PostgresRetrievalRepository(connection).find_exact("doc", "4.4")
+
+    assert [item.articol_normalizat for item in found] == ["4.4.2", "4.4.1"]
+    sql, parameters = connection.cursor_instance.calls[0]
+    assert parameters == ("doc", "4.4", "4.4.%")
+    assert "OR chunk.articol_normalizat LIKE %s" in sql
+
+
+def test_repository_exact_fara_niciun_rand_intoarce_lista_goala():
+    """Nici potrivire exactă, nici copii: find_exact întoarce listă goală, nu ridică
+    eroare. Ar pica dacă implementarea ar presupune că `evidence` are minimum un element."""
+    connection = ConnectionFake([])
+
+    found = PostgresRetrievalRepository(connection).find_exact("doc", "9.9.9")
+
+    assert found == []
 
 
 def test_repository_propaga_eroarea_db_si_inchide_cursorul():
