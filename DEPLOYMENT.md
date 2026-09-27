@@ -182,6 +182,7 @@ Fiecare răspuns (inclusiv erorile și fișierele din `/assets/*`) primește:
 | --- | --- |
 | `GET /` | Aplicația web; emite cookie-ul anonim dacă lipsește sau este invalid. |
 | `GET /health` | Healthcheck-ul platformei. |
+| `GET /health/provideri` | Diagnostic intern al providerilor (Anthropic, Voyage, DB) pentru monitorizare externă; nu face apeluri externe. |
 | `GET /termeni` | Pagina juridică Termeni și condiții; fișier lipsă înseamnă `503` generic. |
 | `GET /confidentialitate` | Politica de confidențialitate; fișier lipsă înseamnă `503` generic. |
 | `GET /assets/*` | Fișiere statice read-only servite strict din `static/assets/` (fonturi self-hostate, favicon). |
@@ -229,6 +230,48 @@ schimbare de infrastructură, nu doar cod):
 - Scripturile de ingestion (`populare_db.py`, `procesare_documente.py`) nu fac parte din
   procesul web și nu trebuie rulate automat la deploy; importul de documente rămâne o
   operație manuală, decisă explicit.
+
+## 6.1 Deploy și rollback
+
+**Deploy:** exclusiv prin `scripts/deploy.ps1`, rulat din rădăcina proiectului. Scriptul
+refuză să ruleze dacă branch-ul curent nu este `main`, dacă există modificări necommise sau
+fișiere netracked, sau dacă `HEAD` diferă de `origin/main` după `git fetch`. Abia apoi rulează
+`python -m pytest -q` (se oprește la primul eșec) și `railway up --detach`, afișând la final
+SHA-ul commit-ului publicat. Nu are parametri care ocolesc aceste verificări.
+
+**Rollback:** din panoul Railway → Deployments → alege deployment-ul anterior funcțional →
+Redeploy. Nu se face rollback prin `git revert` + deploy nou decât dacă e nevoie și de o
+schimbare de cod.
+
+**Monitorizare externă:** un monitor extern (ex. UptimeRobot, cron simplu) trebuie să verifice
+periodic ambele:
+
+- `GET /health` — healthcheck ieftin al platformei (Railway); un `200` înseamnă doar că
+  procesul rulează, nu că DB-ul sau providerii externi funcționează.
+- `GET /health/provideri` — nu face niciun apel extern; reflectă eșecurile deja observate în
+  timpul cererilor reale. `200 {"status": "ok"}` dacă niciun provider nu are ≥3 eșecuri
+  consecutive în ultimele 15 minute; altfel `503 {"status": "degraded", "provideri": [...]}`
+  cu providerul și categoria eșecului, fără alte detalii sau timestamp-uri.
+
+**Categoriile din logul `provider_failure` (nivel `WARNING`, fără mesaj de eroare, fără
+întrebare, fără chei):**
+
+| Categorie | Înseamnă |
+| --- | --- |
+| `credit_exhausted` | Anthropic a refuzat cererea din lipsă de credit (`billing_error`, HTTP 400). |
+| `rate_limited` | Providerul a răspuns cu HTTP 429. |
+| `timeout` | Cererea a depășit timeout-ul configurat al clientului (`timeout=30` Anthropic, `timeout=15` Voyage) sau, pentru DB, timeout-ul de conectare (`connect_timeout=10`). |
+| `auth` | Cheia API sau credențialele DB au fost respinse (HTTP 401/403, respectiv eroare de autentificare Postgres). |
+| `server_error` | Eroare la nivelul serverului providerului (HTTP 5xx) sau eroare operațională DB fără legătură cu autentificarea/timeout-ul. |
+| `other` | Orice altă eroare a SDK-ului sau a conexiunii DB, neîncadrată mai sus. |
+
+**Limită de timp pentru interogări SQL (`statement_timeout`):** `DB_PORT` (6543) e pooler-ul
+Supabase (Supavisor) în modul transaction, care ignoră parametrul de pornire `options` trimis
+la conectare — verificat manual 27-09-2026, `SHOW statement_timeout` a întors `2min`, nu
+valoarea cerută. Un `SET statement_timeout` de sesiune ar fi periculos în acest mod, pentru că
+o conexiune de backend e partajată între clienți diferiți între tranzacții. Limita efectivă
+rămâne cea implicită a rolului în Supabase (2 minute); o limită mai strictă se poate seta doar
+la nivel de rol Postgres, printr-o migrare aprobată separat.
 
 ## 7. Restanțe cunoscute înainte de lansare publică
 
