@@ -35,3 +35,11 @@ CLI cu un singur document per rulare: `--document <document_id>`, opțional `--p
 
 ## Predare
 `docs/handoff/R15-coder-raport.md`: fișiere, fluxul fiecărui mod, token-urile de eroare, ce ai reutilizat, riscuri deschise.
+
+## Runda 2 — număr de articol lipit de cuvânt (27-09-2026)
+
+Dovezi planner: import, `--help` și `pytest` OK (1071 passed cu `documente_noi` local). Dry-run: `configuration_error` la 7 documente = lipsa `.env` în worktree (comportament corect, nu schimba). **Bug real în `chunking_core.py`:** dry-run pe `i7_2011` și `np057_02` → `invalid_chunks`. În textul brut numărul e lipit de primul cuvânt, fără spațiu: I7 `3.0.1.CondiĠii`, `4.1.5.3.1.Legătura`, `5.5.1.GeneralităĠi`, `7.23.10.1.InstalaĠiile` (5 chunk-uri); NP 057 `3.1.2.3.3.Mentenanța`, `3.1.4.1.5.Acoperișurile,` (19 chunk-uri). Logica de sufix („un caracter ne-separator lipit de identificator se păstrează pentru validator”) lipește cuvântul la `articol`, iar validatorul îl respinge.
+
+1. În `chunking_core.py`: când identificatorul numeric (cu punct final) e urmat **direct** de o majusculă (inclusiv diacritice și `Ġ`/`ú`-urile corupte din I7 care urmează unei majuscule inițiale), articolul este numărul, iar cuvântul lipit devine începutul textului articolului. Toate celelalte reguli rămân: `1.1./` și `1.1.,text` trebuie în continuare să producă `invalid_chunks` în preflight (testul D18 existent trebuie să treacă neschimbat); virgula delimitatoare D18 la final de rând rămâne validă.
+2. Verifică prin citire că pe I7 și NP 057 nu mai rămâne niciun `articol` care nu trece `_normalizeaza_articol`.
+3. Nu schimba altceva. Actualizează raportul cu „Runda 2”. Nu rula comenzi, nu atinge `tests/`.

@@ -54,6 +54,13 @@ PATTERN_DATA_ZI_LUNA_AN = re.compile(r"^(0[1-9]|[12]\d|3[01])\.(0[1-9]|1[0-2])\.
 _PATTERN_SPATIERE_ARTICOL = re.compile(r"[ \t\n\r\f\v  ]+")
 _PATTERN_ARTICOL_NORMALIZAT = re.compile(r"^[a-z0-9().-]+$")
 
+# Folosite doar de acoperire_text_brut, pentru a compara textul brut cu textul
+# concatenat al chunk-urilor fără marcajele de articol/subpunct pe care
+# extragerea le consumă ca delimitatoare (nu mai apar în chunk-uri).
+_PATTERN_MARCAJ_ARTICOL_ACOPERIRE = re.compile(r"(?:Art\.\s*)?\d+(?:\.\d+){1,6}\.?")
+_PATTERN_SUBPUNCT_PARANTEZA_ACOPERIRE = re.compile(r"\(\d+\)")
+LUNGIME_MINIMA_LINIE_ACOPERIRE = 50
+
 LUNGIME_MINIMA_CHUNK = 15
 LUNGIME_PENTRU_SPLIT_SECUNDAR = 2000
 MAX_CHUNK_CHARS = 1000
@@ -291,6 +298,14 @@ def _este_data_zi_luna_an(potrivire: re.Match[str], sursa: str) -> bool:
 
 _PATTERN_SPATII_INLINE = re.compile(r"[ \t  ]*")
 _PATTERN_CARACTER_VALID_DUPA_NUMAR = re.compile(r"^[A-ZĂÂÎȘȚŞŢ„(0-9]")
+# Runda 2 (I7/NP 057): extragerea PDF lipește uneori cuvântul de primul articol,
+# fără spațiu ("3.0.1.CondiĠii", "3.1.2.3.3.Mentenanța"). Când primul caracter
+# lipit e o majusculă (inclusiv diacritice), acel caracter deschide un cuvânt
+# real, nu un sufix de articol — cuvântul întreg rămâne text, nu se lipește de
+# identificator. Verificăm doar primul caracter lipit; eventuale caractere
+# corupte de OCR (ex. „Ġ”, „ú”) mai departe în același cuvânt nu contează aici,
+# fiindcă acel cuvânt nu mai ajunge deloc în `articol`.
+_PATTERN_MAJUSCULA_LIPITA = re.compile(r"[A-ZĂÂÎȘȚŞŢ]")
 # Cuvintele care, la finalul ultimului rând nevid dinaintea marcajului, arată că
 # numărul de pe rândul următor e continuarea unei trimiteri rupte de extragerea PDF
 # ("...prevederile Art.\n2.1.3.5. (1) alin. a);"), nu un articol nou. Comparate cu
@@ -381,13 +396,15 @@ def _extrage_segmente(continut: str) -> list[dict[str, object]]:
     for index, potrivire in enumerate(potriviri):
         articol_baza = _baza_articol(potrivire)
         articol = articol_baza
-        sufix = re.match(r"[^\s]+", sursa[potrivire.end(1):])
-        if sufix is not None:
-            candidat = articol + sufix.group(0)
-            if candidat.endswith(","):
-                articol = candidat[:-1] if _este_articol_normalizabil(candidat[:-1]) else candidat
-            else:
-                articol = candidat
+        urmator_direct = sursa[potrivire.end(1):potrivire.end(1) + 1]
+        if not _PATTERN_MAJUSCULA_LIPITA.match(urmator_direct):
+            sufix = re.match(r"[^\s]+", sursa[potrivire.end(1):])
+            if sufix is not None:
+                candidat = articol + sufix.group(0)
+                if candidat.endswith(","):
+                    articol = candidat[:-1] if _este_articol_normalizabil(candidat[:-1]) else candidat
+                else:
+                    articol = candidat
         inceput_text = potrivire.end()
         sfarsit_text = potriviri[index + 1].start() if index + 1 < len(potriviri) else len(sursa)
         text_segment = sursa[inceput_text:sfarsit_text].strip()
@@ -486,6 +503,34 @@ def _aplica_split_secundar(
             if len(text_subpunct) >= LUNGIME_MINIMA_CHUNK:
                 rezultat.append({"articol": f"{chunk['articol']}({numar})", "text": text_subpunct})
     return rezultat, titluri_contopite
+
+
+def _normalizeaza_pentru_acoperire(text: str) -> str:
+    """Elimină marcajele de articol și (N), colapsează spațiile — ca linia brută
+    din document să fie comparabilă cu textul concatenat al chunk-urilor, care nu
+    mai conține marcajul consumat ca delimitator."""
+    text = _PATTERN_MARCAJ_ARTICOL_ACOPERIRE.sub("", text)
+    text = _PATTERN_SUBPUNCT_PARANTEZA_ACOPERIRE.sub("", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def acoperire_text_brut(text: str, chunkuri: list[dict[str, str]]) -> float:
+    """Procentul de rânduri brute (≥50 caractere, fără antete MO) regăsite
+    (normalizat) în textul concatenat al chunk-urilor. Folosită atât de testul
+    de regresie `test_acoperirea_continutului_brut_ramane_peste_prag`, cât și
+    de poarta automată de reimport (D24) — aceeași metrică în ambele locuri."""
+    text_concatenat = _normalizeaza_pentru_acoperire(" ".join(chunk["text"] for chunk in chunkuri))
+    total = 0
+    gasite = 0
+    for linie in text.split("\n"):
+        linie = linie.strip()
+        if len(linie) < LUNGIME_MINIMA_LINIE_ACOPERIRE or "MONITORUL OFICIAL" in linie:
+            continue
+        total += 1
+        prefix = _normalizeaza_pentru_acoperire(linie)[:45]
+        if prefix and prefix in text_concatenat:
+            gasite += 1
+    return gasite / total if total else 1.0
 
 
 def _aplica_limita_caractere(chunkuri: list[dict[str, str]]) -> list[dict[str, str]]:

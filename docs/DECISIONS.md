@@ -4,6 +4,10 @@ Acest fișier separă deciziile explicite ale lui Lucian de propunerile agențil
 
 ## Decizii active
 
+### D24 — reimport `approved` cu poartă automată, aprobat Lucian (27-09-2026)
+
+Documentele `approved` pot primi chunk-urile produse de chunker-ul unificat (R14) prin `reimport_approved.py --commit`, fără aprobare manuală a raportului per document, **numai** dacă poarta automată trece: acoperire față de textul brut ≥ pragul documentului, zero antete de pagină MO în chunk-uri, chunk-uri valide, iar pentru P 118/1 toate articolele „Art.” ca articole proprii. Înlocuirea se face într-o singură tranzacție, fără schimbare de status, după un backup local al chunk-urilor vechi (inclusiv embeddings); `--restore` revine din backup fără cost Voyage. Pragurile se schimbă doar prin PR. Execuția în producție (scriere DB + Voyage) rămâne o aprobare separată a lui Lucian.
+
 ### D23 — documentele doar de modificare ies din retrieval, aprobat Lucian (27-09-2026)
 
 `i13_2015_modificari` (I 13-2015, modificat 2023) și `p118_2_2013_modificari` (P 118/2-2013, Ordinul 966/2018) conțin numai ordinele de modificare, fără textul de bază: citire read-only 27-09-2026, 162/178 și 42/51 chunk-uri cu formule de tipul „se modifică și va avea următorul cuprins”. Ele încalcă regula de conținut din 04-09-2026 și trec în `disabled` prin migrarea `20260927120000_disable_modification_only_documents.sql`. Chunk-urile rămân în DB; revenirea cere decizie explicită. Decizia înlocuiește aprobarea lui `p118_2_2013_modificari` din lotul 2 (03-09-2026). Modul de import al normativelor modificate (text de bază + ordine de modificare) rămâne o decizie separată.
