@@ -161,9 +161,20 @@ class AnthropicTextGenerator:
         "input_schema": {
             "type": "object",
             "additionalProperties": False,
-            "required": ["raspuns"],
+            "required": ["raspuns", "pasaje"],
             "properties": {
                 "raspuns": {"type": "string"},
+                "pasaje": {
+                    "type": "array",
+                    "items": {
+                        "type": "object", "additionalProperties": False,
+                        "required": ["id", "citat"],
+                        "properties": {"id": {"type": "string"}, "citat": {
+                            "type": "string", "minLength": 1, "maxLength": 600,
+                            "description": "O singură frază copiată literal din dovadă, ideal sub 300 de caractere; niciodată articolul întreg.",
+                        }},
+                    },
+                },
             },
         },
     }

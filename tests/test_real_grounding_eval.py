@@ -247,6 +247,23 @@ def test_adaptor_real_numara_apelurile_din_wrapuri_si_publica_numai_citarea_publ
     assert "source_key" not in json.dumps(rezultat, ensure_ascii=False)
 
 
+def test_adaptor_real_blocheaza_calculul_inainte_de_retrieval_ca_ruta_publica():
+    embedder = EmbedderCounter()
+    generator = GeneratorCounter()
+    executor = executor_real_controlat(SimpleNamespace(status="found", evidence=(object(),)), embedder, generator)
+
+    rezultat = executor(
+        evaluation.RealEvaluationCase("N04", "negative", "Calculează consumul orar de clor pentru 50 m³/h."),
+        ConnectionFake(),
+    )
+
+    assert rezultat["status"] == "out_of_scope"
+    assert rezultat["answer"] == ""
+    assert rezultat["citations"] == []
+    assert (rezultat["embedding_calls"], rezultat["generation_calls"]) == (0, 0)
+    assert (embedder.calls, generator.calls) == (0, 0)
+
+
 @pytest.mark.parametrize("status", ("not_found", "ambiguous_article", "ambiguous_reference", "unsupported_answer"))
 def test_adaptor_real_nu_genereaza_pentru_status_fara_dovezi(status):
     embedder = EmbedderCounter()

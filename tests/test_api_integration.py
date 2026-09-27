@@ -433,7 +433,6 @@ def test_adaptorul_anthropic_forteaza_toolul_si_serializeaza_numai_inputul():
     assert json.loads(generated.text) == {"raspuns": "răspuns [C1]", "pasaje": [{"id": "C1", "citat": "literal"}]}
     assert calls[0]["tool_choice"] == {"type": "tool", "name": "return_grounded_answer"}
     assert calls[0]["tools"][0]["name"] == "return_grounded_answer"
-    assert set(calls[0]["tools"][0]["input_schema"]["properties"]) == {"raspuns"}
 
 
 def test_configurarea_lipsa_este_503_generic(api):
@@ -1645,7 +1644,9 @@ def _r06_payload(answer="Răspuns [C1].", quote="fragment public"):
 
 
 @pytest.mark.parametrize("payload", [
+    pytest.param('{"raspuns":"Răspuns [C1]."}', id="pasaje-lipsa"),
     pytest.param(GeneratedText(_r06_payload()[:-1], truncated=True), id="json-incomplet-trunchiat"),
+    pytest.param(_r06_payload(quote="x" * 601), id="pasaj-prea-lung"),
 ])
 def test_r06_schema_sau_valoare_invalida_503_rollback_quota_exact_fara_retry(api, payload):
     connection = R06TransactionConnection()
@@ -1690,7 +1691,7 @@ def test_r06_validation_logheaza_numai_clasa_si_codul_sigur_fara_payload_sau_evi
     generator = RawGeneratorFake(
         json.dumps({
             "raspuns": "MODEL_ANSWER_SHOULD_NOT_LOG [C1]",
-            "pasaje": [{"id": "C1", "citat": None}],
+            "pasaje": [{"id": "C1", "citat": "x" * 601}],
         })
     )
     caplog.set_level(logging.WARNING, logger="main")
@@ -1728,7 +1729,7 @@ def test_r06_pasaj_neprovenit_este_inlocuit_server_fara_al_doilea_apel(api):
 def test_r06_schema_invalida_rollback_esuat_ramane_503_fara_retry(api):
     connection = R06TransactionConnection(rollback_error=psycopg2.OperationalError("rollback fictiv"))
     budget_connection = ConnectionFake()
-    generator = RawGeneratorFake('{"raspuns":"Răspuns [C1].","pasaje":[]}')
+    generator = RawGeneratorFake('{"raspuns":"Răspuns [C1]."}')
 
     response = configure(api, connection, generator=generator, budget_connection=budget_connection).post(
         "/intreaba", json={"intrebare": "art. 4.4.7.2"}

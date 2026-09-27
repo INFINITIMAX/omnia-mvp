@@ -251,6 +251,9 @@ def test_citation_passages_text_simplu_vechi_nu_devine_fallback(evidence_pair, r
     pytest.param(True, id="bool"),
     pytest.param([PASSAGE_C1], id="lista"),
     pytest.param({"text": PASSAGE_C1}, id="obiect"),
+    pytest.param("", id="gol"),
+    pytest.param(" \t\n ", id="numai-whitespace"),
+    pytest.param("x" * 601, id="601-caractere-literale"),
 ])
 def test_citation_passages_respinge_schema_sau_valoare_invalida_fara_retry(evidence_pair, quote, reference_suffix):
     payload = encode_payload(
@@ -264,9 +267,6 @@ def test_citation_passages_respinge_schema_sau_valoare_invalida_fara_retry(evide
     pytest.param("Carcasa fictiva este turcoaz.", id="diacritice-eliminate"),
     pytest.param("Carcasa fictivă este turcoaz!", id="punctuatie-schimbata"),
     pytest.param("Carcasa fictivă este roz.", id="text-fabricat"),
-    pytest.param("", id="gol"),
-    pytest.param(" \t\n ", id="numai-whitespace"),
-    pytest.param("x" * 601, id="601-caractere"),
 ])
 def test_citation_passages_neprovenit_este_inlocuit_literal_din_propria_dovada(evidence_pair, quote):
     payload = encode_payload(f"{PASSAGE_C1} [C1]", [{"id": "C1", "citat": quote}])
@@ -295,15 +295,6 @@ def test_citation_passages_neprovenit_deriva_de_la_primul_caracter_util_si_limit
     assert result.citari[0].citat in content
 
 
-def test_citation_passages_absente_sunt_derivate_server_din_idurile_raspunsului(evidence_pair):
-    generator = RawGenerator(json.dumps({"raspuns": PASSAGE_C1 + " [C1]"}, ensure_ascii=False))
-
-    result = GenerationService(generator).generate(QUESTION, evidence_pair)
-
-    assert result.citari[0].citat == evidence_pair[0].content[:600]
-    assert generator.calls == 1
-
-
 def test_citation_passages_neprovenit_fara_text_in_dovada_ramane_fail_closed():
     evidence = (make_evidence(1, " \t\n "),)
     payload = encode_payload("Afirmație [C1]", [{"id": "C1", "citat": "pasaj fabricat"}])
@@ -327,6 +318,7 @@ def test_citation_passages_accepta_numai_whitespace_normalizat(evidence_pair, qu
 
 @pytest.mark.parametrize("reference_suffix", ["", INVENTED_REFERENCE], ids=["fara-referinta", "inainte-de-retry"])
 @pytest.mark.parametrize("raw_template", [
+    pytest.param('{"raspuns":ANSWER}', id="pasaje-absente"),
     pytest.param('{"pasaje":PASSAGES}', id="raspuns-absent"),
     pytest.param('{"raspuns":ANSWER,"pasaje":PASSAGES,"extra":true}', id="top-level-extra"),
     pytest.param('{"raspuns":ANSWER,"raspuns":ANSWER,"pasaje":PASSAGES}', id="raspuns-duplicat"),

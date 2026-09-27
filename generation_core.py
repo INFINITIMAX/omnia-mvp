@@ -310,11 +310,7 @@ class GenerationService:
         if not isinstance(answer, str) or not answer.strip():
             raise EmptyGeneratedAnswerError("generatorul a returnat un răspuns gol")
         used_ids = self._validated_used_ids(answer, set(evidence_by_id))
-        passages = (
-            self._validated_passages(payload["pasaje"], used_ids, evidence_by_id)
-            if "pasaje" in payload
-            else {citation_id: _literal_evidence_excerpt(evidence_by_id[citation_id].content) for citation_id in used_ids}
-        )
+        passages = self._validated_passages(payload["pasaje"], used_ids, evidence_by_id)
         return GeneratedText(answer, truncated=generated.truncated), used_ids, passages
 
     @staticmethod
@@ -337,7 +333,7 @@ class GenerationService:
             )
         except (ValueError, RecursionError) as error:
             raise InvalidGenerationPayloadError("pachet JSON invalid") from error
-        if not isinstance(payload, dict) or set(payload) not in ({"raspuns"}, {"raspuns", "pasaje"}):
+        if not isinstance(payload, dict) or set(payload) != {"raspuns", "pasaje"}:
             raise InvalidGenerationPayloadError("schema pachetului este invalidă")
         return payload
 
@@ -359,9 +355,9 @@ class GenerationService:
             if citation_id not in used_ids or citation_id in passages:
                 raise InvalidGenerationPayloadError("mapare de pasaje invalidă")
             quote = entry["citat"]
-            if not isinstance(quote, str):
+            if not isinstance(quote, str) or not quote.strip() or len(quote) > MAX_CITATION_CHARS:
                 raise InvalidGenerationPayloadError("pasaj invalid")
-            if not quote.strip() or len(quote) > MAX_CITATION_CHARS or _normalized_whitespace(quote) not in _normalized_whitespace(evidence_by_id[citation_id].content):
+            if _normalized_whitespace(quote) not in _normalized_whitespace(evidence_by_id[citation_id].content):
                 quote = _literal_evidence_excerpt(evidence_by_id[citation_id].content)
             # Păstrăm citatul valid al modelului; pentru nepotrivire, pasajul vine literal din dovadă.
             passages[citation_id] = quote
@@ -428,10 +424,20 @@ class GenerationService:
             "7. Pentru fiecare ID folosit în raspuns, furnizează exact un pasaj în pasaje, "
             "numai pentru ID-urile folosite, fără duplicate (C1 și c1 sunt același ID). "
             "Citatul trebuie să fie text nevid de maximum 600 caractere, copiat ca subșir literal "
-            "din textul dovezii cu acel ID. Păstrează exact spațiile și diacriticele; nu concatena "
+            "din textul dovezii cu acel ID. Citează o singură frază, cea mai scurtă care susține "
+            "răspunsul, ideal sub 300 de caractere; nu copia niciodată articolul întreg sau mai multe "
+            "alineate. Păstrează exact spațiile și diacriticele; nu concatena "
             "bucăți separate, nu parafraza citatul și nu inventa metadata. Alege pasajul care "
             "susține răspunsul, chiar dacă apare târziu în dovadă. "
             "Încadrează răspunsul și pasajele împreună în buget și închide complet JSON-ul.\n"
+            "8. Dacă dovezile relevante provin din mai multe documente, nu alege unul singur: "
+            "răspunde separat pentru fiecare document, cu codul lui și citarea lui, apoi semnalează "
+            "explicit orice diferență sau conflict între prevederi. Nu decide tu care prevedere "
+            "prevalează.\n"
+            "9. Dacă o dovadă anunță o formulă, un tabel sau o figură care lipsește din text "
+            "(de exemplu „cu formula:” urmat direct de explicația termenilor), spune explicit că "
+            "acestea nu sunt disponibile în textul dovezii și nu le reconstrui din termeni sau "
+            "din cunoștințe generale.\n"
             "<intrebare_json>\n"
             f"{serialized_question}\n"
             "</intrebare_json>\n"
