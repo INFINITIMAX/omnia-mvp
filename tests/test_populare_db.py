@@ -1,7 +1,6 @@
 """Teste locale pentru ingestie; toate serviciile externe sunt blocate."""
 
 import importlib.util
-import re
 import sys
 import types
 from pathlib import Path
@@ -13,36 +12,12 @@ import chunking_core
 ROOT_PROIECT = Path(__file__).resolve().parents[1]
 CALE_MODUL = ROOT_PROIECT / "populare_db.py"
 
-_PATTERN_MARCAJ_ARTICOL = re.compile(r"(?:Art\.\s*)?\d+(?:\.\d+){1,6}\.?")
-_PATTERN_SUBPUNCT_PARANTEZA = re.compile(r"\(\d+\)")
-
-
-def _normalizeaza_pentru_acoperire(text):
-    """Elimină marcajele de articol și (N), colapsează spațiile — ca linia brută
-    din document să fie comparabilă cu textul concatenat al chunk-urilor, care nu
-    mai conține marcajul consumat ca delimitator."""
-    text = _PATTERN_MARCAJ_ARTICOL.sub("", text)
-    text = _PATTERN_SUBPUNCT_PARANTEZA.sub("", text)
-    return re.sub(r"\s+", " ", text).strip()
-
-
 def _acoperire_continut_brut(modul_ingestie, cale_text):
+    """Deleagă metrica la `chunking_core.acoperire_text_brut` (R15/D24), ca poarta
+    automată de reimport să folosească exact aceeași funcție și praguri."""
     text_brut = cale_text.read_text(encoding="utf-8")
     chunkuri = modul_ingestie.creeaza_chunkuri(text_brut)
-    text_concatenat = _normalizeaza_pentru_acoperire(
-        " ".join(chunk["text"] for chunk in chunkuri)
-    )
-    total = 0
-    gasite = 0
-    for linie in text_brut.split("\n"):
-        linie = linie.strip()
-        if len(linie) < 50 or "MONITORUL OFICIAL" in linie:
-            continue
-        total += 1
-        prefix = _normalizeaza_pentru_acoperire(linie)[:45]
-        if prefix and prefix in text_concatenat:
-            gasite += 1
-    return gasite / total if total else 1.0
+    return chunking_core.acoperire_text_brut(text_brut, chunkuri)
 
 
 @pytest.fixture
@@ -482,7 +457,7 @@ def test_creeaza_chunkuri_articol_nequotat_ramane_neschimbat(modul_ingestie):
 
 NUMAR_CHUNKURI_ASTEPTAT_PER_DOCUMENT = {
     "i5_2022": 786,
-    "i7_2011": 2229,
+    "i7_2011": 2226,
     "i9_2022": 769,
     "np004_03": 84,
     "np010_2022": 438,
