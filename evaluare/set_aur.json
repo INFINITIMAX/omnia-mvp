@@ -8,7 +8,7 @@
   {"id": "I7-02", "tip": "semantic", "intrebare": "Cum trebuie amplasate contoarele de energie electrică la blocurile de locuințe?", "asteptat": [{"document_id": "i7_2011", "articol": "3.1.5.7"}]},
   {"id": "I7-03", "tip": "semantic", "intrebare": "Care este rolul instalației exterioare de protecție împotriva trăsnetului?", "asteptat": [{"document_id": "i7_2011", "articol": "6.2.3.1"}]},
   {"id": "I7-04", "tip": "semantic", "intrebare": "Ce trebuie să facă persoana responsabilă când lucrarea de întreținere la o instalație electrică se întrerupe temporar?", "asteptat": [{"document_id": "i7_2011", "articol": "9.4.5"}]},
-  {"id": "I5-01", "tip": "semantic", "intrebare": "Cum se alege filtrarea aerului exterior în funcție de gradul de poluare?", "asteptat": [{"document_id": "i5_2022", "articol": "5.7"}]},
+  {"id": "I5-01", "tip": "semantic", "intrebare": "Cum se alege filtrarea aerului exterior în funcție de gradul de poluare?", "asteptat": [{"document_id": "i5_2022", "articol": "5.4"}, {"document_id": "i5_2022", "articol": "5.7"}]},
   {"id": "I5-02", "tip": "semantic", "intrebare": "Ce sisteme se folosesc pentru climatizarea spațiilor comerciale mici?", "asteptat": [{"document_id": "i5_2022", "articol": "6.4"}]},
   {"id": "I9-01", "tip": "exact", "intrebare": "Ce prevede art. 6.44 din I9-2022?", "asteptat": [{"document_id": "i9_2022", "articol": "6.44"}]},
   {"id": "I9-02", "tip": "semantic", "intrebare": "Când se prevăd două sau mai multe branșamente de apă pentru o clădire?", "asteptat": [{"document_id": "i9_2022", "articol": "6.13"}]},

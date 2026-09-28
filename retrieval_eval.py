@@ -236,6 +236,8 @@ def _vizibil_utilizator(rezultat_final: str) -> dict[str, object] | None:
     """Ce ar vedea utilizatorul pe site, după maparea din `main.py` (`/intreaba`)."""
     if rezultat_final == "refuz_generare_unsupported":
         return {"http_status": 200, "status_api": "unsupported_answer"}
+    if rezultat_final == "refuz_generare_not_found":
+        return {"http_status": 200, "status_api": "not_found"}
     if rezultat_final.startswith("eroare_generare:"):
         return {"http_status": 503, "status_api": None}
     return None
@@ -269,6 +271,9 @@ def _run_generation(
         return _refused_generation_result(f"eroare_generare:{type(error).__name__}")
     except GenerationValidationError as error:
         return _refused_generation_result(f"eroare_generare:{type(error).__name__}")
+    if getattr(generated, "status", "answered") == "not_found":
+        # D26: modelul a declarat structurat că dovezile nu conțin răspunsul.
+        return _refused_generation_result("refuz_generare_not_found")
     return {
         "rezultat_final": "raspuns",
         "raspuns": generated.raspuns,
