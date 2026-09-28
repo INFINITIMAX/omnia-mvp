@@ -1,8 +1,16 @@
 # TASKS — Omnia
 
-## Stare curentă (27-09-2026)
+## Stare curentă (28-09-2026)
 
-**Citește `HANDOFF.md` §0 pentru context complet.** Rezumat rapid:
+- **Live în producție** (Railway `21ab8418`, `main` `fe4b0fc`, smoke 28-09: `/health` 200, `/health/provideri` 200, întrebare I7 → `answered` cu citare, întrebare fără răspuns în corpus → `not_found` fără citări):
+  - R17 fiabilitate (timeout-uri provideri, `/health/provideri`, `scripts/deploy.ps1` = singura cale de deploy); R18 evaluare permanentă `retrieval_eval.py` + `evaluare/set_aur.json` (30 întrebări); R19/R20 (D25: cod necunoscut → `ambiguous_reference`, top_k 10, alias cu zerouri); R21 anexe P 118/1; R22 diacritice I7 (date reimportate).
+  - R23: `retrieval_eval.py --run --generare` = evaluare completă căutare + generare (≤30 generări plătite).
+  - R24/D26: `MAX_ANSWER_TOKENS` 2000; câmpul `gasit` în tool; `gasit=false` → `not_found` fără citări.
+  - Evaluare completă: căutare 28/30; 0 erori de generare; toate răspunsurile cu citate literale. Rămâne NP015-03 sub prag (acceptat, D25).
+- Handoff-uri R17–R24 în `docs/handoff/`. Deploy: Lucian rulează `scripts/deploy.ps1` (asistentul e blocat de classifier).
+- **Următoarele, de decis cu Lucian:** adăugarea normativelor locale noi; politica pentru normative modificate (I 13, P 118/2); numerotarea „(A).2.” din NP 057; monitor extern pe `/health/provideri` (UptimeRobot, Lucian); PR-urile dependabot.
+
+### Stare 27-09-2026 (istoric)
 
 - **Live în producție** (Railway deployment `15cbb8b7`, `main` `f5fbbc1`, verificat 27-09): R11 (pasaj verificat D20 restaurat), R08 (articole lungi consecutive acceptate), R12 (răspuns pe fiecare document + conflicte; formule lipsă nereconstruite), D23 (I 13-2015 și P 118/2-2013 `disabled`; 9 documente `approved`). Smoke real `/intreaba` 200, 7 normative, citate literale scurte.
 - **Următoarele task-uri, în ordine:** (1) foldere recursive în `documente_noi/`; (2) chunker-ul salvează titluri de secțiune ca articole; (3) politică de import pentru normative modificate (readucere I 13, P 118/2); (4) ruta semantică R08 (goluri top-k, ordine după `chunk_order`); (5) extensie AutoCAD.
