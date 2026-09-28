@@ -14,5 +14,17 @@ Evaluare pe `evaluare/set_aur.json` (setul curent, 30 cazuri, inclusiv 3 negativ
 2. **`SEMANTIC_TOP_K = 10`.**
 3. Nu atinge: `main.py`, `chunking_core.py`, `static/`, `supabase/`, `.env`, `documente_noi/`, `evaluare/`, pragul semantic.
 
+## Runda 2 — ambiguitate falsă pe ruta semantică (28-09-2026)
+
+Dovezi planner după runda 1 (evaluare reală, același set): P118-02 găsit (locul 9) ✓, NEG-01 refuzat (`ambiguous_reference`) ✓; **dar P118-04 și NP091-01 devin `ambiguous_article`** (înainte găsite pe locurile 2 și 1). Total tot 25/30; semantic 17 → 16; recall@5 0,875 → 0,79. Cauza: cu 10 rezultate, top-k conține mai des fragmente **neconsecutive** ale aceluiași articol lung (ex. bucățile 1 și 3), iar `_has_ambiguous_article` refuză tot răspunsul (limitarea R08 pe ruta semantică, semnalată în R10).
+
+Pytest: 104 eșecuri, **toate așteptate**: testele verifică `top_k == 5`, iar 3 cazuri din `test_multi_document_alias_slash_nu_potriveste_interiorul_altui_token` verificau explicit că un cod necunoscut *nu* cere clarificare (politica nouă). Le actualizează Tester-ul; nu le atinge.
+
+Justificare: după R16, fiecare `articol_normalizat` al unui document e un **singur bloc continuu** de chunk-uri (garantat de testul permanent `test_articole_normalizate_nu_apar_in_pozitii_neconsecutive` și verificat în DB: 0 cazuri). Pe ruta semantică, mai multe fragmente din același articol nu mai pot însemna conținut conflictual — sunt doar context în plus.
+
+1. În `RetrievalService.retrieve`, **ruta semantică** nu mai refuză cu `ambiguous_article`. Ruta exactă păstrează verificarea exact ca acum.
+2. Pe ruta semantică, dovezile aceluiași `(document_id, articol_normalizat)` se grupează și se ordonează după `chunk_order`, grupul fiind plasat pe poziția celui mai bun scor al său; restul ordinii (după scor) și `_limit_context` rămân neschimbate.
+3. Nu schimba altceva. Actualizează raportul cu „Runda 2”.
+
 ## Constrângeri dure
 Nu rula comenzi. Nu scrie teste noi (Tester-ul). Fără comentarii inutile. Raport: `docs/handoff/R19-coder-raport.md` (fișiere, cum ai evitat importul circular, riscuri: fals-pozitive ale tiparelor pe întrebări obișnuite).
