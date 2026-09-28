@@ -933,3 +933,43 @@ def test_acoperire_text_brut_elimina_marcajul_intern_de_anexa():
     acoperire = acoperire_text_brut(text, rezultat)
 
     assert acoperire == 1.0
+
+
+# --- R22: substituiri PDF (I7) corectate la chunking și la acoperire -----------
+
+
+def test_creeaza_chunkuri_corecteaza_substituirile_pdf_din_text():
+    """Ar pica dacă `creeaza_chunkuri` nu ar aplica `corecteaza_substituiri_pdf`
+    înainte de parsare — chunk-urile ar conține Ġ/ú/ğ/U+070A/U+0708 în loc de
+    ț/ș/Ț, ca în extragerea reală a I7."""
+    text = (
+        "\n1.1. ProtecĠia úi securitatea instalaĠiilor electrice trebuie sa respecte "
+        "prevederile prezentei norme tehnice in vigoare pentru acest tip de cladire.\n"
+        "1.2. Construc܊ii ܈i instala܊ii trebuie verificate periodic conform "
+        "programului de mentenanta stabilit prin prezenta reglementare tehnica aici.\n"
+    )
+
+    rezultat = creeaza_chunkuri(text)
+
+    assert len(rezultat) == 2
+    text_complet = " ".join(c["text"] for c in rezultat)
+    for caracter_corupt in ("Ġ", "ú", "܊", "܈"):
+        assert caracter_corupt not in text_complet
+    assert "Protecția și securitatea instalațiilor" in text_complet
+    assert "Construcții și instalații" in text_complet
+
+
+def test_acoperire_text_brut_pe_text_corupt_ramane_simetrica():
+    """Regresia I7: textul brut cu substituiri PDF și chunk-urile lui (deja
+    corectate) trebuie să dea acoperire 1.0 — altfel poarta D24 ar vedea pierderi
+    false, doar din cauza diferenței de codare între cele două forme comparate.
+    Ar pica dacă `acoperire_text_brut` nu ar corecta și ea textul brut."""
+    text = (
+        "\n1.1. ProtecĠia úi securitatea instalaĠiilor electrice trebuie sa respecte "
+        "prevederile prezentei norme tehnice in vigoare pentru acest tip de cladire.\n"
+    )
+
+    rezultat = creeaza_chunkuri(text)
+    acoperire = acoperire_text_brut(text, rezultat)
+
+    assert acoperire == 1.0

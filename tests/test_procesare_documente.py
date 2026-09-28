@@ -65,6 +65,30 @@ def test_repara_np091_verificat_esueaza_la_numar_neasteptat(tmp_path, monkeypatc
         procesare_documente._repara_np091_verificat("A?B", cale_pdf)
 
 
+def test_extrage_text_corecteaza_substituirile_pdf_i7_impreuna_cu_sedila(tmp_path, monkeypatch):
+    """Runda R22: textul extras poate conține atât substituiri specifice I7
+    (Ġ/ú/ğ/U+070A/U+0708) cât și sedilă (ţ/ş/Ţ/Ş) — ambele corecturi trebuie
+    aplicate pe același text, indiferent de ordine (mulțimile de caractere vizate
+    sunt disjuncte). Ar pica dacă `corecteaza_substituiri_pdf` nu ar fi aplicată
+    deloc în `extrage_text`, lăsând caracterele I7 necorectate în extracted.txt."""
+    monkeypatch.setattr(procesare_documente, "incarca_tabela", lambda: {})
+    monkeypatch.setattr(procesare_documente, "invata_proxy_glife", lambda document, tabela: {})
+    monkeypatch.setattr(
+        procesare_documente,
+        "corecteaza_text_pagina",
+        lambda pagina, tabela, proxy=None: "protecĠia úi securitatea instalaĠiilor, cu şi fara sedila",
+    )
+
+    cale_pdf = tmp_path / "i7_sintetic.pdf"
+    _scrie_pdf_gol(cale_pdf)
+
+    text, _ = procesare_documente.extrage_text(cale_pdf)
+
+    for caracter_corupt in ("Ġ", "ú", "ğ", "ţ", "ş"):
+        assert caracter_corupt not in text
+    assert text == "protecția și securitatea instalațiilor, cu și fara sedila\n"
+
+
 def test_extrage_text_nu_modifica_simbolurile_matematice_si_literele_grecesti(tmp_path, monkeypatch):
     """Textul reconstruit din formule CambriaMath (radical, litere grecesti,
     punctul suprapus combinat) trece nemodificat prin normalizarea de

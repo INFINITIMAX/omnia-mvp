@@ -457,7 +457,7 @@ def test_creeaza_chunkuri_articol_nequotat_ramane_neschimbat(modul_ingestie):
 
 NUMAR_CHUNKURI_ASTEPTAT_PER_DOCUMENT = {
     "i5_2022": 768,
-    "i7_2011": 2214,
+    "i7_2011": 2215,
     "i9_2022": 800,
     "np004_03": 85,
     "np010_2022": 356,
@@ -643,6 +643,30 @@ def test_p118_toate_titlurile_de_anexa_din_corp_produc_chunk_si_niciun_identific
     assert not texte_false_in_afara_anexelor, (
         f"Chunk-uri din corp cu text provenit din identificatori falși: "
         f"{texte_false_in_afara_anexelor[:3]}"
+    )
+
+
+@pytest.mark.skipif(
+    not (ROOT_PROIECT / "documente_noi").exists(),
+    reason="documente_noi nu e prezent în acest worktree (folder gitignored)",
+)
+def test_i7_niciun_chunk_nu_contine_substituirile_pdf_necorectate(modul_ingestie):
+    """Runda R22: I7 conține (în sursă) Ġ/ú/ğ/U+070A/U+0708 în loc de ț/ș/Ț —
+    niciunul dintre ele nu are voie să supraviețuiască în chunk-urile finale. Ar
+    pica dacă `corecteaza_substituiri_pdf` nu ar fi aplicată (sau ar fi aplicată
+    incomplet) înainte de chunking pe documentul real."""
+    cale_text = ROOT_PROIECT / "documente_noi" / "i7_2011" / "extracted.txt"
+    continut = cale_text.read_text(encoding="utf-8")
+
+    chunkuri = modul_ingestie.creeaza_chunkuri(continut)
+
+    caractere_interzise = ("Ġ", "ú", "ğ", "܊", "܈")
+    chunkuri_cu_probleme = [
+        chunk["text"] for chunk in chunkuri
+        if any(caracter in chunk["text"] for caracter in caractere_interzise)
+    ]
+    assert not chunkuri_cu_probleme, (
+        f"Chunk-uri I7 cu substituiri PDF necorectate: {chunkuri_cu_probleme[:3]}"
     )
 
 

@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import re
 
+from diacritice import corecteaza_substituiri_pdf
+
 # Regex-ul pentru structura articolelor din normativele deja validate. „?"
 # opțional gestionează actele modificatoare, unde numărul articolului din
 # normativul modificat stă imediat după ghilimeaua de deschidere a citatului
@@ -123,6 +125,7 @@ def ultimele_statistici() -> dict[str, int]:
 
 def creeaza_chunkuri(text: str) -> list[dict[str, str]]:
     """Transformă textul unui normativ în chunk-uri deterministe, fără I/O."""
+    text = corecteaza_substituiri_pdf(text)
     continut, antete_eliminate = _elimina_antete_mo(text)
     continut = _elimina_colofon_mo(continut)
     continut = _elimina_cuprins(continut)
@@ -748,7 +751,13 @@ def acoperire_text_brut(text: str, chunkuri: list[dict[str, str]]) -> float:
     """Procentul de rânduri brute (≥50 caractere, fără antete MO) regăsite
     (normalizat) în textul concatenat al chunk-urilor. Folosită atât de testul
     de regresie `test_acoperirea_continutului_brut_ramane_peste_prag`, cât și
-    de poarta automată de reimport (D24) — aceeași metrică în ambele locuri."""
+    de poarta automată de reimport (D24) — aceeași metrică în ambele locuri.
+
+    Textul brut e trecut prin `corecteaza_substituiri_pdf` (Runda R22) înainte
+    de comparație, ca substituirile din PDF-uri precum I7 să nu producă
+    diferențe false între linia brută și textul deja normalizat al
+    chunk-urilor."""
+    text = corecteaza_substituiri_pdf(text)
     text_concatenat = _normalizeaza_pentru_acoperire(" ".join(chunk["text"] for chunk in chunkuri))
     total = 0
     gasite = 0
