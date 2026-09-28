@@ -2394,6 +2394,84 @@ def test_health_provideri_503_dupa_3_esecuri_consecutive_ale_unui_singur_provide
     }
 
 
+class _HealthDbConnection:
+    def __init__(self, row=(1,), error=None):
+        self.row, self.error, self.queries, self.closed = row, error, [], False
+
+    def cursor(self):
+        return self
+
+    def execute(self, sql):
+        if self.error:
+            raise self.error
+        self.queries.append(sql)
+
+    def fetchone(self):
+        return self.row
+
+    def close(self):
+        self.closed = True
+
+
+def _configure_health_db(api, monkeypatch, factory, now=NOW):
+    monkeypatch.setattr(main, "_db_health_last", None)
+    main.app.state.runtime_dependencies = main.RuntimeDependencies(
+        connection_factory=factory,
+        embedder_factory=lambda: pytest.fail("embedder nu trebuie construit"),
+        text_generator_factory=lambda: pytest.fail("generator nu trebuie construit"),
+        now_factory=lambda: now,
+    )
+
+
+def test_health_db_200_face_select_1_si_inchide_conexiunea(api, monkeypatch):
+    connection = _HealthDbConnection()
+    _configure_health_db(api, monkeypatch, lambda: connection)
+
+    response = api.get("/health/db")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+    assert connection.queries == ["SELECT 1"]
+    assert connection.closed is True
+
+
+@pytest.mark.parametrize("factory", [
+    lambda: (_ for _ in ()).throw(main.psycopg2.OperationalError("secret-host refuzat")),
+    lambda: _HealthDbConnection(error=main.psycopg2.OperationalError("secret-host")),
+    lambda: _HealthDbConnection(row=None),
+])
+def test_health_db_503_generic_la_orice_esec_fara_detalii(api, monkeypatch, factory):
+    _configure_health_db(api, monkeypatch, factory)
+
+    response = api.get("/health/db")
+
+    assert response.status_code == 503
+    assert response.json() == {"status": "degraded"}
+    assert "secret" not in response.text
+
+
+def test_health_db_refoloseste_rezultatul_60_de_secunde(api, monkeypatch):
+    calls = []
+
+    def factory():
+        calls.append(1)
+        return _HealthDbConnection()
+
+    _configure_health_db(api, monkeypatch, factory)
+    api.get("/health/db")
+    api.get("/health/db")
+    assert len(calls) == 1
+
+    main.app.state.runtime_dependencies = main.RuntimeDependencies(
+        connection_factory=factory,
+        embedder_factory=lambda: None,
+        text_generator_factory=lambda: None,
+        now_factory=lambda: NOW + timedelta(seconds=60),
+    )
+    api.get("/health/db")
+    assert len(calls) == 2
+
+
 def test_health_provideri_nu_face_apeluri_externe(fresh_provider_health, api, monkeypatch):
     def _boom(*_args, **_kwargs):
         raise AssertionError("nu ar trebui apelat")
