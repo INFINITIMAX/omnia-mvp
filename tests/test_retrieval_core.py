@@ -166,6 +166,23 @@ def test_d25_cod_de_normativ_aprobat_cu_articol_ramane_neschimbat():
     assert parsed.article_normalized == "4.4.7.2"
 
 
+@pytest.mark.parametrize("cod", ["NP10-2022", "NP 10-2022", "NP 0010-2022", "np010/2022"])
+def test_d25_cod_aprobat_fara_sau_cu_zerouri_initiale_e_recunoscut(cod):
+    parsed = ArticleParser(ALIASES, KNOWN).parse(f"{cod}, art. 4.4.7.2")
+
+    assert not parsed.requires_clarification
+    assert parsed.document_id == "doc-np010"
+    assert parsed.article_normalized == "4.4.7.2"
+
+
+@pytest.mark.parametrize("cod", ["NP 100-2022", "NP 101-2022", "NP 010-2020"])
+def test_d25_cod_cu_alte_cifre_semnificative_nu_e_confundat_cu_aliasul(cod):
+    parsed = ArticleParser(ALIASES, KNOWN).parse(f"{cod}, art. 4.4.7.2")
+
+    assert parsed.requires_clarification
+    assert parsed.document_id is None
+
+
 def test_d25_intrebare_fara_niciun_cod_ramane_neschimbata():
     parsed = ArticleParser(ALIASES, KNOWN).parse("art. 4.4.7.2, ce prevede?")
 
