@@ -4,7 +4,7 @@ fără dependențe de documente_noi. Fiecare test reproduce o singură regulă d
 
 import pytest
 
-from chunking_core import creeaza_chunkuri, ultimele_statistici
+from chunking_core import acoperire_text_brut, creeaza_chunkuri, ultimele_statistici
 
 
 # --- 1a: antete MO ----------------------------------------------------------
@@ -726,3 +726,210 @@ def test_numar_lipit_de_caracter_ne_majuscul_ramane_referinta_rupta():
 
     assert [c["articol"] for c in rezultat] == ["2.1."]
     assert "1.1./ceva trimitere rupta" in rezultat[0]["text"]
+
+
+# --- R21: prag de marcaje „Art.” dezactivează numărul fără punct final ----------
+
+
+def test_numar_fara_punct_final_nu_incepe_articol_in_document_cu_multe_art():
+    """Regresia P 118/1: într-un document cu ≥50 marcaje „Art.” recunoscute, numerele
+    fără punct final din text („48.6 Substrat…”, „27.3 Mj/kg…”) nu trebuie să mai
+    deschidă articole proprii — trebuie să rămână text atașat articolului „Art.”
+    curent. Ar pica dacă PATTERN_ARTICOL_FARA_PUNCT ar rămâne activ peste prag: ar
+    apărea chunk-uri „48.6.”/„27.3.” separate, iar numărul total de chunk-uri ar
+    depăși 50."""
+    parti = []
+    for i in range(1, 51):
+        bloc = (
+            f"\nArt. {i}.1. Continut articol numarul {i} cu text suficient pentru a fi "
+            "valid complet aici clar bine sigur si corect stabilit.\n"
+        )
+        if i == 1:
+            bloc += (
+                "48.6 Substrat - material component al structurii, prevazut sa reziste "
+                "la actiuni conform proiectului tehnic aprobat pentru aceasta lucrare.\n"
+                "27.3 Mj/kg, in orice fel de conditii ramane parte a textului articolului "
+                "curent fara sa il desparta in vreun fel de continutul principal real.\n"
+            )
+        parti.append(bloc)
+    text = "".join(parti)
+
+    rezultat = creeaza_chunkuri(text)
+
+    assert len(rezultat) == 50
+    assert not any(c["articol"] in ("48.6.", "27.3.") for c in rezultat)
+    chunk_1_1 = next(c for c in rezultat if c["articol"] == "1.1.")
+    assert "48.6 Substrat" in chunk_1_1["text"]
+    assert "27.3 Mj/kg" in chunk_1_1["text"]
+
+
+def test_cuprins_de_titluri_anexa_inaintea_primului_art_este_ignorat():
+    """Regresia rundelor 2-3 (R21): într-un document cu ≥50 marcaje „Art.”, un bloc de
+    titluri „ANEXA …” aflat înaintea primului articol „Art.” real (cuprinsul anexelor)
+    nu trebuie să producă niciun chunk și nu trebuie să deschidă o regiune de anexă
+    care să înghită tot corpul. Ar pica dacă vreun chunk „ANEXA …” ar apărea, sau dacă
+    numărul total de chunk-uri „Art.” ar scădea sub 50 (regiune de anexă înghițind
+    corpul, ca în runda 2)."""
+    cuprins = "\nANEXA 1 - TITLU UNU\nANEXA 2 - TITLU DOI\nANEXA 3 - TITLU TREI\n"
+    corp = "".join(
+        f"\nArt. {i}.1. Continut articol numarul {i} cu text suficient pentru a fi "
+        "valid complet aici clar bine sigur si corect stabilit pentru acest test.\n"
+        for i in range(1, 51)
+    )
+    text = cuprins + corp
+
+    rezultat = creeaza_chunkuri(text)
+
+    assert len(rezultat) == 50
+    assert not any(c["articol"].startswith("ANEXA") for c in rezultat)
+
+
+# --- R21: regiuni de anexă ------------------------------------------------------
+
+
+def test_titlu_de_anexa_urmat_de_continut_devine_chunk_propriu():
+    """Ar pica dacă titlul „ANEXA 2.1 - TITLU” nu ar deschide o regiune de anexă, sau
+    dacă textul care îl urmează nu ar deveni chunk-ul „ANEXA 2.1.”."""
+    text = (
+        "\nANEXA 2.1 - TITLU ANEXA\n"
+        "Text continut anexa cu detalii tehnice suficiente pentru a forma un chunk "
+        "complet valid pentru acest exemplu sintetic de test automatizat aici bine.\n"
+    )
+
+    rezultat = creeaza_chunkuri(text)
+
+    assert len(rezultat) == 1
+    assert rezultat[0]["articol"] == "ANEXA 2.1."
+    assert "Text continut anexa" in rezultat[0]["text"]
+
+
+def test_marcaj_intern_de_anexa_devine_copil_si_nu_coincide_cu_articol_din_corp():
+    """Regresia P 118/1 (Anexa 10): marcajul intern „A.10. 2.7.7. Text…” trebuie să
+    devină un copil al anexei curente („ANEXA 10.2.7.7.”), distinct de un articol
+    real din corp cu același număr („2.7.7.”, în afara oricărei anexe). Ar pica dacă
+    marcajul intern nu ar primi prefixul anexei, sau dacă cele două identificatoare
+    (corp vs. copil de anexă) ar coincide și s-ar contopi prin dedup."""
+    text = (
+        "\n2.7.7. Articol real din corpul documentului cu text detaliat suficient "
+        "pentru validare corecta a acestui exemplu de test automatizat scris aici.\n"
+        "ANEXA 10\n"
+        "A.10. 2.7.7. Pentru interventia la cladiri existente trebuie respectate "
+        "urmatoarele conditii tehnice speciale stabilite prin prezenta reglementare.\n"
+    )
+
+    rezultat = creeaza_chunkuri(text)
+
+    articole = {c["articol"]: c["text"] for c in rezultat}
+    assert set(articole) == {"2.7.7.", "ANEXA 10.2.7.7."}
+    assert "Articol real din corpul documentului" in articole["2.7.7."]
+    assert "Pentru interventia la cladiri existente" in articole["ANEXA 10.2.7.7."]
+
+
+def test_bloc_de_titluri_anexa_cu_pagina_intre_ele_e_cuprins_si_e_ignorat():
+    """Regresia runda 2 (R21), stilul NP 010/I9 (fără prag de „Art.” atins): un titlu
+    „ANEXA …” e o intrare de cuprins — deci ignorat — dacă rândul nevid următor e tot
+    un titlu „ANEXA …” sau doar un număr de pagină. Aici al doilea titlu e urmat de un
+    număr de pagină izolat, nu de conținut real. Ar pica dacă vreunul dintre cele două
+    titluri ar deschide totuși o regiune de anexă reală."""
+    text = (
+        "\nANEXA 1 - TITLU UNU\n"
+        "ANEXA 2 - TITLU DOI\n"
+        "3\n"
+        "1.1. Primul articol real al corpului cu text suficient de lung pentru a fi "
+        "un chunk valid complet si corect stabilit pentru acest exemplu de test aici.\n"
+    )
+
+    rezultat = creeaza_chunkuri(text)
+
+    assert not any(c["articol"].startswith("ANEXA") for c in rezultat)
+    assert any(c["articol"] == "1.1." for c in rezultat)
+
+
+def test_trimiteri_cu_virgula_sau_rupte_pe_rand_nou_nu_deschid_regiune_de_anexa():
+    """Regresia I9 (R21, runda 2): o trimitere „ANEXA 2.1, au caracter…” (virgulă
+    după număr) sau o frază ruptă pe rând nou care se termină cu „și” înaintea
+    „ANEXA 5.3.” nu sunt titluri reale — nu trebuie să deschidă o regiune de anexă.
+    Ar pica dacă vreunul dintre cele două ar produce un chunk „ANEXA 2.1.”/„ANEXA 5.3.”."""
+    text = (
+        "\n1.1. Introducere initiala cu suficient text pentru a forma un chunk valid "
+        "corect aici sigur bine clar si complet pentru acest exemplu de test scris.\n"
+        "Masurile conform ANEXA 2.1, au caracter de recomandare pentru proiectantii "
+        "care aplica prezenta reglementare tehnica in activitatea curenta desfasurata.\n"
+        "Cerintele tehnice se stabilesc utilizand standardul mentionat mai sus și\n"
+        "ANEXA 5.3.\n"
+        "Alte prevederi tehnice suplimentare raman atasate primului articol real de "
+        "mai sus in acest exemplu de test scris pentru validarea corecta a regulii.\n"
+    )
+
+    rezultat = creeaza_chunkuri(text)
+
+    assert [c["articol"] for c in rezultat] == ["1.1."]
+    assert "ANEXA 2.1, au caracter" in rezultat[0]["text"]
+    assert "ANEXA 5.3." in rezultat[0]["text"]
+
+
+def test_titlu_de_anexa_precedat_de_legenda_terminata_in_litera_mica_deschide_regiune():
+    """Regresia runda 4 (R21): o legendă de figură terminată cu literă mică
+    („Figura 173 - Acces pe scara verticală”) nu trebuie să respingă titlul real de
+    anexă care o urmează — doar virgula sau cuvintele de trimitere/continuare
+    respectă respingerea. Ar pica dacă „ANEXA 4.5” ar rămâne text atașat articolului
+    anterior în loc să devină chunk propriu."""
+    text = (
+        "\n1.1. Introducere cu text detaliat suficient pentru a forma un chunk valid "
+        "corect si complet pentru acest exemplu de test automatizat scris aici bine.\n"
+        "Figura 173 - Acces pe scara verticala\n"
+        "ANEXA 4.5 - INCAPERI DE DEPOZITARE\n"
+        "Continut anexa patru cinci cu detalii tehnice suficiente pentru validare "
+        "completa a acestui exemplu sintetic de test automatizat scris pentru regula.\n"
+    )
+
+    rezultat = creeaza_chunkuri(text)
+
+    articole = {c["articol"]: c["text"] for c in rezultat}
+    assert "ANEXA 4.5." in articole
+    assert "Continut anexa patru cinci" in articole["ANEXA 4.5."]
+    assert "1.1." in articole
+    assert "ANEXA 4.5" not in articole["1.1."]
+
+
+def test_marcaj_art_in_interiorul_unei_anexe_nu_inchide_regiunea():
+    """Regresia runda 4 (R21): un rând „Art. 2.4.9.4. (2).” în interiorul unei anexe
+    reale e o trimitere internă, nu un semnal de ieșire din regiune — nu trebuie să
+    închidă anexa curentă. Ar pica dacă acest marcaj ar produce un chunk „2.4.9.4.”
+    fără prefixul anexei, sau dacă marcajul intern de după el nu ar mai fi recunoscut
+    ca aparținând aceleiași anexe."""
+    text = (
+        "\nANEXA 6 - TITLU SASE\n"
+        "Introducere anexa sase cu text detaliat suficient de lung pentru a fi valid "
+        "complet corect pentru acest exemplu sintetic de test automatizat scris aici.\n"
+        "Art. 2.4.9.4. (2). Text trimitere in interiorul anexei care nu trebuie sa "
+        "inchida regiunea curenta a acestei anexe conform regulii stabilite prin R21.\n"
+        "A.6. 3.1.1. Continutul final al anexei sase cu detalii tehnice suplimentare "
+        "suficiente pentru validare completa a acestui exemplu de test scris aici bine.\n"
+    )
+
+    rezultat = creeaza_chunkuri(text)
+
+    articole = {c["articol"] for c in rezultat}
+    assert articole == {"ANEXA 6.", "ANEXA 6.2.4.9.4.", "ANEXA 6.3.1.1."}
+    assert "2.4.9.4." not in articole
+
+
+# --- R21: acoperire_text_brut elimină marcajele interne de anexă ----------------
+
+
+def test_acoperire_text_brut_elimina_marcajul_intern_de_anexa():
+    """Regresia P 118/1 (runda 3, R21): marcajul intern de anexă „A.<nr>.” trebuie
+    eliminat și din textul brut la calculul acoperirii, la fel cum e mutat de chunker
+    în identificator — altfel liniile din interiorul anexelor raportează fals
+    acoperire scăzută. Ar pica dacă acoperirea nu ar fi 1.0 pe acest exemplu minim."""
+    text = (
+        "\nANEXA 10\n"
+        "A.10. 2.2.9. Pentru limitarea propagarii fumului in caz de incendiu trebuie "
+        "respectate urmatoarele conditii tehnice speciale stabilite prin normativ.\n"
+    )
+
+    rezultat = creeaza_chunkuri(text)
+    acoperire = acoperire_text_brut(text, rezultat)
+
+    assert acoperire == 1.0

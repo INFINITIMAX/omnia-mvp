@@ -458,11 +458,11 @@ def test_creeaza_chunkuri_articol_nequotat_ramane_neschimbat(modul_ingestie):
 NUMAR_CHUNKURI_ASTEPTAT_PER_DOCUMENT = {
     "i5_2022": 768,
     "i7_2011": 2214,
-    "i9_2022": 790,
+    "i9_2022": 800,
     "np004_03": 85,
     "np010_2022": 356,
-    "np057_02": 298,
-    "p118_1_2025": 2862,
+    "np057_02": 290,
+    "p118_1_2025": 3554,
     "spitale_2022": 616,
 }
 
@@ -570,6 +570,80 @@ def test_p118_toate_articolele_art_devin_chunk_propriu(modul_ingestie):
 
     lipsa = articole_asteptate - articole_din_chunkuri
     assert not lipsa, f"Articole „Art.” lipsă din chunk-uri: {sorted(lipsa)[:10]}"
+
+
+@pytest.mark.skipif(
+    not (ROOT_PROIECT / "documente_noi").exists(),
+    reason="documente_noi nu e prezent în acest worktree (folder gitignored)",
+)
+def test_p118_toate_titlurile_de_anexa_din_corp_produc_chunk_si_niciun_identificator_fals(
+    modul_ingestie,
+):
+    """P 118/1 (Runda R21): fiecare titlu „ANEXA N[.M] -” aflat după primul marcaj
+    „Art.” real al documentului (adică în corp, nu în cuprins) trebuie să producă
+    cel puțin un chunk cu identificatorul lui sau al unui copil direct; niciun chunk
+    din afara unei anexe nu are voie să conțină textul specific care provenea din
+    numerele fals recunoscute ca articole înaintea R21 (dovezile R21-coder.md), iar
+    identificatorii 27.3/48.6/29.1/2.940 (fără corespondent legitim de titlu de
+    secțiune cu punct final, spre deosebire de 7.8., care e un titlu real — „7.8.
+    INSTALAȚII AFERENTE CONSTRUCȚIILOR” — și nu trebuie interzis) nu au voie să mai
+    apară. Ar pica dacă vreun titlu de anexă din corp ar rămâne fără chunk propriu
+    (regresia rundelor 2-4), sau dacă oricare dintre semnele identificatorilor falși
+    ar reapărea."""
+    cale_text = ROOT_PROIECT / "documente_noi" / "p118_1_2025" / "extracted.txt"
+    continut = cale_text.read_text(encoding="utf-8")
+    sursa = "\n" + continut
+
+    prim_art = chunking_core.PATTERN_ARTICOL_ART.search(sursa)
+    assert prim_art is not None, "P 118/1 trebuie să conțină cel puțin un marcaj „Art.”"
+    corp = sursa[prim_art.start():]
+
+    titluri_anexa_corp = sorted(
+        {match.group(1) for match in chunking_core.PATTERN_TITLU_ANEXA.finditer(corp)}
+    )
+    assert len(titluri_anexa_corp) == 43, (
+        f"Așteptate 43 de titluri de anexă în corp (verificate de planner), găsite "
+        f"{len(titluri_anexa_corp)}: {titluri_anexa_corp}"
+    )
+
+    chunkuri = modul_ingestie.creeaza_chunkuri(continut)
+    identificatori = {modul_ingestie.normalizeaza_articol(c["articol"]) for c in chunkuri}
+
+    lipsa = [
+        titlu for titlu in titluri_anexa_corp
+        if not any(
+            ident == f"anexa{titlu.lower()}"
+            or ident.startswith(f"anexa{titlu.lower()}.")
+            or ident.startswith(f"anexa{titlu.lower()}(")
+            for ident in identificatori
+        )
+    ]
+    assert not lipsa, f"Titluri de anexă din corp fără niciun chunk (propriu sau copil): {lipsa}"
+
+    for identificator_fals in ("27.3", "48.6", "29.1", "2.940"):
+        assert identificator_fals not in identificatori, (
+            f"Identificator fals '{identificator_fals}' a reapărut ca articol în corp"
+        )
+
+    # 7.8. e un titlu de secțiune real din corp ("7.8. INSTALAȚII AFERENTE
+    # CONSTRUCȚIILOR"); falsul semnalat inițial venea din rândul 29752, „7.8
+    # Prevenirea descărcărilor electrostatice…” (fără punct final, dintr-o anexă).
+    # Verificăm sursa (textul), nu identificatorul: niciun chunk din afara unei
+    # anexe nu are voie să înceapă cu textele care proveneau din numerele fals
+    # recunoscute ca articole înaintea R21.
+    texte_false_in_afara_anexelor = [
+        chunk["text"] for chunk in chunkuri
+        if not chunk["articol"].startswith("ANEXA")
+        and chunk["text"].startswith((
+            "Prevenirea descărcărilor electrostatice",
+            "Substrat - material",
+            "Mj/kg",
+        ))
+    ]
+    assert not texte_false_in_afara_anexelor, (
+        f"Chunk-uri din corp cu text provenit din identificatori falși: "
+        f"{texte_false_in_afara_anexelor[:3]}"
+    )
 
 
 @pytest.mark.skipif(

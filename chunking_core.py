@@ -16,9 +16,11 @@ import re
 # normativul modificat stă imediat după ghilimeaua de deschidere a citatului
 # (ex: „1.2. Domeniul de aplicare...”), nu la început de rând ca în normativele
 # de bază. Ghilimeaua nu intră în grupul capturat, deci nu strică normalizarea.
+# Titlurile de anexă (ex. „ANEXA 3.1.”) nu mai sunt tratate aici (Runda R21):
+# `PATTERN_TITLU_ANEXA` le detectează pe toate, cu o singură logică de regiune.
 PATTERN_ARTICOL = re.compile(
     r"\n\s*„?\s*(\d+\.\d+\.\s*\([A-Za-z]\)\.\s*(?:[IVXLl]\.|\d+\.)?(?:\d+\.)?|"
-    r"ANEXA\s+\d+\.\d+\.|\d+\.\d+\.(?:\d+\.){0,4})"
+    r"\d+\.\d+\.(?:\d+\.){0,4})"
 )
 # Format alternativ folosit doar de P 118/1: articolele încep cu „Art. N.N....”, nu direct
 # cu numărul. Cerem explicit spațiu + majusculă/paranteză după număr, altfel rândul e o
@@ -32,6 +34,24 @@ PATTERN_ARTICOL_ART = re.compile(
 # valori zecimale ("0.4 kV", "2.5 m") cu articole noi.
 PATTERN_ARTICOL_FARA_PUNCT = re.compile(
     r"\n\s*„?\s*(\d+\.\d+(?:\.\d+){0,4})[ \t  ]+(?=[A-ZĂÂÎȘȚŞŢ„(])"
+)
+# Titlu de anexă (Runda R21): rând care începe cu „ANEXA N”, opțional „.M”, opțional
+# un sufix „.(X)” sau o literă lipită, urmat de sfârșit de rând, cratimă/en dash sau un
+# titlu cu majuscule. O virgulă sau text cu literă mică după număr e o trimitere din
+# corp („ANEXA 2.1, au caracter de recomandare...”, I9), nu un titlu — niciuna dintre
+# variantele de continuare acceptate mai jos nu se potrivește cu ele, deci rămân excluse
+# fără nicio verificare suplimentară.
+PATTERN_TITLU_ANEXA = re.compile(
+    r"\n[ \t]*ANEXA[ \t]+(\d+(?:\.\d+)?(?:\.?\([A-Za-z]\))?[A-Za-z]?)\.?[ \t]*"
+    r"(?=[\-–]|[A-ZĂÂÎȘȚŞŢ]|$)",
+    re.MULTILINE,
+)
+# Marcaj intern de anexă (Runda R21, P 118/1/Anexa 10 „Construcții existente”):
+# „A.10. 2.7.7. Pentru intervenția...” repetă numărul anexei curente ca prefix literal;
+# grupul capturat e numărul propriu-zis, cu punctul final inclus (ca la PATTERN_ARTICOL_ART),
+# ca să nu se dubleze punctul la compunerea identificatorului cu prefixul anexei.
+PATTERN_MARCAJ_ANEXA_INTERN = re.compile(
+    r"\n[ \t]*A\.\d+\.[ \t]*(\d+(?:\.\d+){1,4}\.)[ \t]+(?=[A-ZĂÂÎȘȚŞŢ„(])"
 )
 # Titlu de capitol cu un singur nivel de numerotare ("4. Elemente generale de calcul"),
 # nerecunoscut de PATTERN_ARTICOL (cere >=2 componente). Grupul 1 include punctul final,
@@ -65,8 +85,17 @@ _PATTERN_ARTICOL_NORMALIZAT = re.compile(r"^[a-z0-9().-]+$")
 # concatenat al chunk-urilor fără marcajele de articol/subpunct pe care
 # extragerea le consumă ca delimitatoare (nu mai apar în chunk-uri).
 _PATTERN_MARCAJ_ARTICOL_ACOPERIRE = re.compile(r"(?:Art\.\s*)?\d+(?:\.\d+){1,6}\.?")
+# Runda R21/3: marcajul intern de anexă („A.10. 2.7.7.”) e mutat de chunker în
+# identificator (ca și marcajele obișnuite) și nu mai apare în textul chunk-urilor —
+# trebuie eliminat și din textul brut, altfel liniile din Anexa 10 P 118/1 raportează
+# fals acoperire scăzută.
+_PATTERN_MARCAJ_ANEXA_INTERN_ACOPERIRE = re.compile(r"A\.\d+\.")
 _PATTERN_SUBPUNCT_PARANTEZA_ACOPERIRE = re.compile(r"\(\d+\)")
 LUNGIME_MINIMA_LINIE_ACOPERIRE = 50
+
+# Runda R21: sub acest prag de marcaje „Art.” recunoscute, documentul nu folosește
+# convenția P 118/1 — PATTERN_ARTICOL_FARA_PUNCT rămâne activ ca până acum (I7 etc.).
+PRAG_MARCAJE_ART = 50
 
 LUNGIME_MINIMA_CHUNK = 15
 LUNGIME_PENTRU_SPLIT_SECUNDAR = 2000
@@ -332,6 +361,17 @@ _CUVINTE_TRIMITERE_RUPTA = (
 )
 
 
+# Runda R21/5: ultimul cuvânt întreg al unui rând (precedat de început de rând sau de
+# un caracter care nu e literă) — folosit ca să nu se mai confunde un sufix de cuvânt
+# ("...stabilit." conține "lit.") cu un cuvânt de trimitere/legătură real.
+_PATTERN_ULTIMUL_CUVANT_RAND = re.compile(r"(?:^|[^A-Za-zĂÂÎȘȚăâîșț])([A-Za-zĂÂÎȘȚăâîșț]+\.?)$")
+
+
+def _ultimul_cuvant(linie: str) -> str:
+    potrivire = _PATTERN_ULTIMUL_CUVANT_RAND.search(linie)
+    return potrivire.group(1).lower() if potrivire else ""
+
+
 def _linia_anterioara_se_termina_cu_trimitere(sursa: str, pozitie_marcaj: int) -> bool:
     """Caută înapoi, sărind rândurile goale, ultimul rând nevid dinaintea marcajului."""
     capat = pozitie_marcaj
@@ -339,12 +379,64 @@ def _linia_anterioara_se_termina_cu_trimitere(sursa: str, pozitie_marcaj: int) -
         inceput = sursa.rfind("\n", 0, capat) + 1
         linie = sursa[inceput:capat].strip()
         if linie:
-            cuvant = linie.lower()
-            return any(cuvant.endswith(sufix) for sufix in _CUVINTE_TRIMITERE_RUPTA)
+            return _ultimul_cuvant(linie) in _CUVINTE_TRIMITERE_RUPTA
         if inceput == 0:
             return False
         capat = inceput - 1
     return False
+
+
+# Runda R21/2: cuvinte de legătură care, la finalul rândului anterior unui titlu de
+# anexă, arată o frază întreruptă pe rând nou ("...utilizând standardul SR EN 12056-2 și
+# ↵ ANEXA 5.3.", I9), nu un titlu real — pe lângă lista deja existentă de trimiteri rupte.
+_CUVINTE_CONTINUARE_ANEXA = ("și", "sau", "din", "la", "în")
+
+
+def _linia_anterioara_indica_continuare_anexa(sursa: str, pozitie_marcaj: int) -> bool:
+    """Rândul nevid anterior arată că marcajul „ANEXA…” e o continuare de frază ruptă pe
+    rând nou, nu un titlu: se termină cu virgulă sau cu unul dintre cuvintele din
+    `_CUVINTE_CONTINUARE_ANEXA`/`_CUVINTE_TRIMITERE_RUPTA`. Runda R21/4: nu mai respinge
+    doar pentru că se termină cu literă mică — legendele de figuri („Figura 173 - Stație
+    de pompare - Acces pe scara verticală”) se termină așa și precedă titluri reale."""
+    capat = pozitie_marcaj
+    while capat >= 0:
+        inceput = sursa.rfind("\n", 0, capat) + 1
+        linie = sursa[inceput:capat].strip()
+        if linie:
+            if linie[-1] == ",":
+                return True
+            cuvant = _ultimul_cuvant(linie)
+            return cuvant in _CUVINTE_TRIMITERE_RUPTA or cuvant in _CUVINTE_CONTINUARE_ANEXA
+        if inceput == 0:
+            return False
+        capat = inceput - 1
+    return False
+
+
+def _urmatorul_rand_nevid(sursa: str, pozitie: int) -> str | None:
+    """Textul (fără spații) al primului rând nevid care începe după `pozitie`, sau
+    `None` dacă textul se termină înainte de un asemenea rând."""
+    inceput = sursa.find("\n", pozitie)
+    while inceput != -1:
+        sfarsit = sursa.find("\n", inceput + 1)
+        capat_linie = sfarsit if sfarsit != -1 else len(sursa)
+        linie = sursa[inceput + 1:capat_linie].strip()
+        if linie:
+            return linie
+        inceput = sfarsit
+    return None
+
+
+def _este_titlu_anexa_de_cuprins(potrivire: re.Match[str], sursa: str) -> bool:
+    """Un titlu de anexă e o intrare de cuprins, nu un titlu real din corp, dacă
+    rândul nevid următor e tot un titlu de anexă sau doar un număr de pagină (bloc de
+    minimum 2 intrări de cuprins consecutive)."""
+    urmator = _urmatorul_rand_nevid(sursa, potrivire.end())
+    if urmator is None:
+        return False
+    if PATTERN_NUMAR_PAGINA.match(urmator):
+        return True
+    return PATTERN_TITLU_ANEXA.match("\n" + urmator) is not None
 
 
 def _este_referinta_rupta(potrivire: re.Match[str], sursa: str) -> bool:
@@ -408,19 +500,44 @@ def _este_titlu_capitol_simplu_valid(
 def _extrage_segmente(continut: str) -> list[dict[str, object]]:
     """Parsează articolele în ordinea din text, cu numărul brut și cel cu sufix.
 
-    Combină marcajul numeric obișnuit, marcajul „Art. N.N....” (P 118/1) și
-    marcajul fără punct pe ultima componentă (I7/I5/NP 057). Când două marcaje
-    pornesc din exact aceeași poziție (ex. varianta cu punct prinde doar
-    `3.1.5.`, cea fără punct prinde `3.1.5.7` întreg), câștigă potrivirea cu
-    numărul mai lung — cealaltă e doar un prefix parțial al aceleiași cifre.
+    Combină marcajul numeric obișnuit, marcajul „Art. N.N....” (P 118/1), marcajul
+    fără punct pe ultima componentă (I7/I5/NP 057) și titlurile/marcajele interne de
+    anexă (Runda R21). Când două marcaje pornesc din exact aceeași poziție (ex.
+    varianta cu punct prinde doar `3.1.5.`, cea fără punct prinde `3.1.5.7` întreg),
+    câștigă potrivirea cu numărul mai lung — cealaltă e doar un prefix parțial al
+    aceleiași cifre.
+
+    Runda R21: în documentele care folosesc convenția „Art. N.N....” ca marcaj
+    principal (≥ `PRAG_MARCAJE_ART` marcaje), `PATTERN_ARTICOL_FARA_PUNCT` nu mai
+    produce începuturi de articol — sursa falșilor identificatori din P 118/1
+    („27.3”, „48.6” etc., numere sau valori rupte pe rând nou în anexe). În restul
+    documentelor (I7) rămâne activ ca până acum.
     """
     sursa = "\n" + continut
+    marcaje_art = list(PATTERN_ARTICOL_ART.finditer(sursa))
+    fara_punct_activ = len(marcaje_art) < PRAG_MARCAJE_ART
+    # Runda R21/4: în documentele cu convenția „Art. N.N....” (≥ prag), tot ce precede
+    # primul marcaj „Art.” ACCEPTAT (nu trimitere ruptă/dată) e cuprins/front-matter —
+    # inclusiv titlurile de anexă rupte pe două rânduri din cuprins, pe care regulile de
+    # continuare de frază nu le prind (ex. rândul 414 P 118/1). Nu „ultimul” marcaj: în
+    # regiunea reală a anexelor apar și trimiteri „Art.” (ex. rândurile 26351, 29484,
+    # 35900), care ar împinge greșit limita până la sfârșitul documentului.
+    prim_art_acceptat = next(
+        (
+            potrivire for potrivire in marcaje_art
+            if not (_este_data_zi_luna_an(potrivire, sursa) or _este_referinta_rupta(potrivire, sursa))
+        ),
+        None,
+    ) if not fara_punct_activ else None
+    prim_art_start = prim_art_acceptat.start() if prim_art_acceptat is not None else None
     toate = sorted(
         (
             *PATTERN_ARTICOL.finditer(sursa),
-            *PATTERN_ARTICOL_ART.finditer(sursa),
-            *PATTERN_ARTICOL_FARA_PUNCT.finditer(sursa),
+            *marcaje_art,
+            *(PATTERN_ARTICOL_FARA_PUNCT.finditer(sursa) if fara_punct_activ else ()),
             *PATTERN_TITLU_CAPITOL_SIMPLU.finditer(sursa),
+            *PATTERN_TITLU_ANEXA.finditer(sursa),
+            *PATTERN_MARCAJ_ANEXA_INTERN.finditer(sursa),
         ),
         key=lambda potrivire: (potrivire.start(), -(potrivire.end(1) - potrivire.start(1))),
     )
@@ -434,6 +551,21 @@ def _extrage_segmente(continut: str) -> list[dict[str, object]]:
 
     potriviri = []
     for index, potrivire in enumerate(candidate):
+        # Runda R21/2: un titlu de anexă e o intrare de cuprins (bloc de titluri
+        # consecutive/pagini) sau o continuare de frază ruptă pe rând nou — niciuna
+        # dintre ele nu deschide o regiune de anexă reală.
+        if potrivire.re is PATTERN_TITLU_ANEXA and (
+            _este_titlu_anexa_de_cuprins(potrivire, sursa)
+            or _linia_anterioara_indica_continuare_anexa(sursa, potrivire.start())
+            or (prim_art_start is not None and potrivire.start() < prim_art_start)
+        ):
+            continue
+        # Marcajele interne de anexă au propria validare (lookahead-ul din regex),
+        # independentă de trimiterile rupte pe rând nou sau de datele calendaristice
+        # specifice marcajelor numerice obișnuite.
+        if potrivire.re in (PATTERN_TITLU_ANEXA, PATTERN_MARCAJ_ANEXA_INTERN):
+            potriviri.append(potrivire)
+            continue
         if _este_data_zi_luna_an(potrivire, sursa) or _este_referinta_rupta(potrivire, sursa):
             continue
         if potrivire.re is PATTERN_TITLU_CAPITOL_SIMPLU and not _este_titlu_capitol_simplu_valid(
@@ -442,21 +574,33 @@ def _extrage_segmente(continut: str) -> list[dict[str, object]]:
             continue
         potriviri.append(potrivire)
     segmente = []
+    anexa_curenta: str | None = None
     for index, potrivire in enumerate(potriviri):
-        articol_baza = _baza_articol(potrivire)
-        articol = articol_baza
-        titlu_capitol = (
-            potrivire.group(2).rstrip() if potrivire.re is PATTERN_TITLU_CAPITOL_SIMPLU else None
-        )
-        urmator_direct = sursa[potrivire.end(1):potrivire.end(1) + 1]
-        if not _PATTERN_MAJUSCULA_LIPITA.match(urmator_direct):
-            sufix = re.match(r"[^\s]+", sursa[potrivire.end(1):])
-            if sufix is not None:
-                candidat = articol + sufix.group(0)
-                if candidat.endswith(","):
-                    articol = candidat[:-1] if _este_articol_normalizabil(candidat[:-1]) else candidat
-                else:
-                    articol = candidat
+        este_titlu_anexa = potrivire.re is PATTERN_TITLU_ANEXA
+        if este_titlu_anexa:
+            anexa_curenta = potrivire.group(1)
+            articol = articol_baza = f"ANEXA {anexa_curenta}."
+            titlu_capitol = None
+        else:
+            articol_baza = _baza_articol(potrivire)
+            if anexa_curenta is not None:
+                # Marcajele interne dintr-o anexă (numere simple sau „A.N. X.Y.Z.”)
+                # devin copii ai anexei curente, ca să nu mai poată coincide cu
+                # articolele din corp (regula copiilor din `find_exact`/R14).
+                articol_baza = f"ANEXA {anexa_curenta}.{articol_baza}"
+            articol = articol_baza
+            titlu_capitol = (
+                potrivire.group(2).rstrip() if potrivire.re is PATTERN_TITLU_CAPITOL_SIMPLU else None
+            )
+            urmator_direct = sursa[potrivire.end(1):potrivire.end(1) + 1]
+            if not _PATTERN_MAJUSCULA_LIPITA.match(urmator_direct):
+                sufix = re.match(r"[^\s]+", sursa[potrivire.end(1):])
+                if sufix is not None:
+                    candidat = articol + sufix.group(0)
+                    if candidat.endswith(","):
+                        articol = candidat[:-1] if _este_articol_normalizabil(candidat[:-1]) else candidat
+                    else:
+                        articol = candidat
         inceput_text = potrivire.end()
         sfarsit_text = potriviri[index + 1].start() if index + 1 < len(potriviri) else len(sursa)
         text_segment = sursa[inceput_text:sfarsit_text].strip()
@@ -594,6 +738,7 @@ def _normalizeaza_pentru_acoperire(text: str) -> str:
     """Elimină marcajele de articol și (N), colapsează spațiile — ca linia brută
     din document să fie comparabilă cu textul concatenat al chunk-urilor, care nu
     mai conține marcajul consumat ca delimitator."""
+    text = _PATTERN_MARCAJ_ANEXA_INTERN_ACOPERIRE.sub("", text)
     text = _PATTERN_MARCAJ_ARTICOL_ACOPERIRE.sub("", text)
     text = _PATTERN_SUBPUNCT_PARANTEZA_ACOPERIRE.sub("", text)
     return re.sub(r"\s+", " ", text).strip()
