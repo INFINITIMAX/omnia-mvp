@@ -19,5 +19,15 @@ Worktree: `D:\Omnia-MVP-r23-gen`, branch `feat/r23-evaluare-completa` (din `main
 4. Sumar nou (doar cu `--generare`): pozitive — câte `raspuns` și câte `citeaza_asteptat`; negative — distribuția `rezultat_final` și câte `declara_lipsa`; număr total de erori de generare pe clasă; `citate_literale` (câte răspunsuri au toate citatele literale); numărul de embedding-uri și generări. Stdout ASCII.
 5. Nu atinge `generation_core.py`, `retrieval_core.py`, `main.py`, `chunking_core.py`, `real_grounding_eval.py` (doar import), `evaluare/set_aur.json`, `supabase/`, `.env`, `documente_noi/`.
 
+## Runda 2 — adaptorul de producție, erorile nu opresc rularea (28-09-2026)
+
+Dovezi planner: `--generare` fără `--run` → `generare_requires_run`, exit 2 ✓; fără `--generare` → `set_valid` ✓; pytest 1217 passed ✓. Rularea reală `--run --generare` s-a oprit cu `invalid_generation`: adaptorul din `real_grounding_eval._RuntimeGenerator` ridică `RealEvaluationError("invalid_generation")` când răspunsul nu e exact un bloc `tool_use` sau când `stop_reason == "max_tokens"`, iar runner-ul o tratează ca eroare fatală.
+
+Cerințe:
+1. Evaluarea trebuie să măsoare **exact producția**: folosește adaptorul din `main.py` (`AnthropicTextGenerator`, cu clientul construit ca în producție: `timeout` și `max_retries` ale runtime-ului R17), nu `_RuntimeGenerator` din R05. Păstrează contorul și plafonul de 30 de generări.
+2. Orice eroare pe care producția o transformă în răspuns pentru utilizator (inclusiv validarea răspunsului tool-ului, trunchierea la `max_tokens`, `MissingCitationError`, pasaje invalide, `UngroundedReferenceError`) devine `rezultat_final` = `eroare_generare:<ClasaExceptiei>` sau `refuz_generare_unsupported` și **nu oprește** rularea. Doar indisponibilitatea providerului/DB (ex. `ProviderUnavailableError`, erori de rețea, credit) și plafonul de cost opresc rularea.
+3. În raport, pentru `eroare_generare`, adaugă și ce ar vedea utilizatorul pe site (status HTTP/status API, după maparea din `main.py`).
+4. Actualizează raportul cu „Runda 2”.
+
 ## Constrângeri dure
 Nu rula comenzi. Nu scrie teste noi (Tester-ul). Fără chei sau secrete în raport. Raport: `docs/handoff/R23-coder-raport.md`.
