@@ -31,7 +31,7 @@ from scope_core import is_engineering_calculation_request
 MAX_CASES = 30
 MAX_EMBEDDING_CALLS = 30
 _TYPES = frozenset({"exact", "semantic", "negativ"})
-_REFUSAL_STATUSES = frozenset({"not_found", "ambiguous_reference", "out_of_scope"})
+_REFUSAL_STATUSES = frozenset({"not_found", "ambiguous_reference", "ambiguous_article", "out_of_scope"})
 
 
 @dataclass(frozen=True)

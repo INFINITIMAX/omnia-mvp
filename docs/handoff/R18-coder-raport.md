@@ -40,3 +40,7 @@ Din `real_grounding_eval.py`: `RealEvaluationError`, `_build_runtime_embedder` (
 - Rulare cu `--run` (cost real Voyage) pe un set mic, verificând: raportul apare în `evaluare/rapoarte/` (gitignored), stdout e ASCII, plafonul de 30 embeddings chiar blochează al 31-lea apel dacă testat separat.
 - Verifică dacă pragul minim de 1 caz (setul nu poate fi gol) e acceptabil sau trebuie relaxat.
 - Verifică dacă agregarea `pe_document` pe cazuri cu `asteptat` multi-document (dacă vor exista în set) dă cifre utile sau ar trebui restrânsă la primul document așteptat.
+
+## Runda 2
+
+Tester a găsit că `_REFUSAL_STATUSES` excludea `ambiguous_article`. Planner a decis: pentru cazurile negative, orice refuz (`not_found`, `ambiguous_reference`, `ambiguous_article`, `out_of_scope`) e corect. Am adăugat `ambiguous_article` în `_REFUSAL_STATUSES` din `retrieval_eval.py`; nimic altceva schimbat.
