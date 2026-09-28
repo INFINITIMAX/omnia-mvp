@@ -25,5 +25,39 @@ Worktree: `D:\Omnia-MVP-r21-anexe`, branch `fix/r21-anexe-p118` (din `main` `911
 - Toate cele 9 documente: acoperirea față de textul brut nu scade sub valorile curente; 0 articole normalizate neconsecutive; testele existente trec (numerele fixe de chunk-uri le actualizează Tester-ul).
 - Evaluarea pe setul de aur rămâne ≥ 27/30 după reimport (o rulează planner-ul).
 
+## Runda 2 — regiunea de anexă începe prea devreme (28-09-2026)
+
+Dovezi planner după runda 1 (textele reale):
+- **P 118/1: 0/811 articole „Art.” proprii** (înainte 811/811); 3528 din 3694 chunk-uri au `articol` „ANEXA …” (ex. `ANEXA 1.(1)`, `ANEXA 10.1.1.1.`); acoperire 0,993 → **0,941** (sub pragul D24 de 0,99). Cauza: **cuprinsul anexelor** de la rândurile 408–435 (`ANEXA 1  - AMPLASARE CONSTRUCȚII`, `ANEXA 2  - …`, `ANEXA 2.1 - …`, câte un titlu pe rând, fără conținut între ele) e luat drept titlu real; tot corpul (rândurile 435–26219) devine „anexă”.
+- **I9:** apar `ANEXA 2.1.11.1.` … `ANEXA 2.1.11.17.` — articole din corp înghițite de o anexă începută prea devreme (inclusiv cazul semnalat de tine, rândul 3036–3037 `…și` ↵ `ANEXA 5.3.`). Anexele reale ale I9 încep la rândul 5162.
+- Celelalte documente: neconsecutive 0 peste tot; NP 057 290 chunk-uri (era 298), acoperire 0,882 neschimbată.
+
+Reguli suplimentare pentru titlul de anexă (toate trebuie să fie adevărate):
+1. **Nu e intrare de cuprins:** următorul rând nevid **nu** e tot un titlu `ANEXA …` și nu e doar un număr de pagină; un bloc de ≥2 titluri de anexă consecutive (doar rânduri goale între ele) e cuprins, nu corp.
+2. **Nu e continuarea unei fraze:** rândul nevid anterior nu se termină cu literă mică, virgulă, `și`, `sau`, `din`, `la`, `în`, `conform`, `prevederile` (sau orice cuvânt din lista existentă de trimiteri rupte).
+3. Rămân valabile excluderile din runda 1 (virgulă sau literă mică după număr).
+
+Acceptare: P 118/1 811/811 „Art.” proprii și acoperire ≥ 0,993; I9 fără identificatori `ANEXA` pentru conținutul de dinainte de rândul 5162; celelalte documente cu acoperire ≥ valorile de dinainte de R21 (i5 0,979; i7 0,971; i9 0,969; np004 0,923; np010 0,999; np057 0,882; spitale 0,982; np091 0,989) și 0 neconsecutive. Actualizează raportul cu „Runda 2”.
+
+## Runda 3 — metrica de acoperire și cuprinsul anexelor P 118/1 (28-09-2026)
+
+Dovezi planner după runda 2: P 118/1 **811/811** „Art.” proprii ✓ (plasa ta pe `PATTERN_ARTICOL_ART` e acceptată); I9 anexe corecte, acoperire 0,969 ✓; 0 neconsecutive peste tot ✓. Rămân două probleme:
+
+1. **Metrica `acoperire_text_brut` raportează fals 0,942 pentru P 118/1.** Toate cele 1050 de rânduri „lipsă” încep cu marcajul intern `A.10. x.y.z.` (rândurile 36000–43000); conținutul e prezent și corect etichetat (verificat: „Pentru limitarea propagării fumului…” → `ANEXA 10.2.2.9.`). Metrica elimină doar marcajele `(Art. )N.N.` și `(N)`, nu și `A.N.`. Cu `A.N.` eliminat din textul brut, acoperirea e **0,995**. Cerință: `acoperire_text_brut` elimină, la normalizarea textului brut, și marcajele interne de anexă `A.<nr>.` (aceleași pe care chunker-ul le mută în identificator). Nu schimba pragurile D24.
+2. **Intrările din cuprinsul anexelor câștigă dedup-ul:** chunk-ul `ANEXA 2.3.` (309 caractere) conține textul cuprinsului („- PEREȚI DE SECTORIZARE … ANEXA 2.4 - PEREȚI ANTIFOC … ANEXA 3 - LIMITAREA…”); la fel `ANEXA 3.2.`, `ANEXA 7.6.`. Titlurile din cuprinsul P 118/1 sunt pe două rânduri (rândul 414 → continuare 415), deci regula „următorul rând e alt titlu ANEXA” nu le prinde. Cerință: **în documentele cu ≥ 50 de marcaje „Art.”**, un titlu de anexă aflat **înaintea ultimului marcaj „Art.”** din document este intrare de cuprins și se ignoră complet (nu produce chunk, nu deschide regiune). În celelalte documente, regulile din runda 2 rămân cum sunt.
+
+Acceptare: P 118/1 — 811/811 „Art.”, `acoperire_text_brut` ≥ 0,993, niciun chunk `ANEXA …` al cărui text conține un alt titlu `ANEXA N -`; celelalte documente neschimbate față de runda 2. Actualizează raportul cu „Runda 3”.
+
+## Runda 4 — „ultimul Art.” e greșit; anexele conțin trimiteri „Art.” (28-09-2026)
+
+Dovezi planner după runda 3: P 118/1 acoperire 0,996 și 811/811 „Art.” ✓; dar **18 din 43 de titluri de anexă din corp nu produc niciun chunk** (ANEXA 1, 2, 2.1–2.4, 3, 3.1–3.3 …; conținutul lor ajunge sub alte identificatori). Cauza: în regiunea anexelor există 3 rânduri „Art.” care sunt **trimiteri**: rândul 26351 `Art. 7.1.3.);`, 29484 `Art. 2.4.9.4. (2).`, 35900 `Art. 2.1.3..`. Ultimul „Art.” brut e la 35900, deci regula din runda 3 ignoră toate titlurile de anexă de dinainte. În plus, `ANEXA 4.5 - ÎNCĂPERI DE DEPOZITARE` e respins pentru că rândul anterior e o legendă de figură terminată cu literă mică („Figura 173 - Stație de pompare - Acces pe scara verticală”).
+
+Cerințe:
+1. Înlocuiește „înainte de ultimul marcaj Art.” cu **„înainte de primul marcaj Art. acceptat”** (primul articol real al corpului; în P 118/1 rândul 776; cuprinsul anexelor e la 408–600).
+2. **Scoate plasa din runda 2** (resetarea regiunii de anexă la un marcaj `PATTERN_ARTICOL_ART`): cu punctul 1 nu mai e necesară și poate închide o anexă la o trimitere „Art.” din interiorul ei.
+3. Regula „continuare de frază” pentru titlul de anexă (runda 2, punctul 2): respinge doar dacă rândul anterior se termină cu **virgulă** sau cu unul dintre cuvintele de trimitere (`și`, `sau`, `din`, `la`, `în`, `conform`, `prevederile`, lista existentă) — **nu** simplu cu literă mică (legendele de figuri se termină cu literă mică). Cazul I9 rândul 3036–3037 („…și” ↵ `ANEXA 5.3.`) trebuie să rămână respins.
+
+Acceptare: P 118/1 — toate cele 43 de titluri de anexă din corp (după rândul 26220) produc cel puțin un chunk cu prefixul lor; 811/811 „Art.”; acoperire ≥ 0,993; niciun chunk `ANEXA …` al cărui text conține titlul altei anexe; I9 neschimbat față de runda 3 (anexe de la 5162, acoperire 0,969); restul documentelor neschimbate. Actualizează raportul cu „Runda 4”.
+
 ## Constrângeri dure
 Nu rula comenzi. Nu scrie teste noi. Fără comentarii inutile. Raport: `docs/handoff/R21-coder-raport.md` (reguli, praguri, cazuri limită observate în I9 și NP 057).
