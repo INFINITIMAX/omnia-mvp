@@ -10,6 +10,7 @@ import pytest
 
 import retrieval_eval as evaluation
 from retrieval_eval import GoldCase, GoldExpectation
+from generation_core import MissingCitationError, PublicCitation, UngroundedReferenceError
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -414,3 +415,347 @@ def test_raportul_nu_publica_textul_normativ_al_dovezilor(monkeypatch, tmp_path)
     serialized = json.dumps(report, ensure_ascii=False)
     assert "TEXT NORMATIV NEPUBLICABIL" not in serialized
     assert report["cazuri"][0]["dovezi"] == [{"document_id": "doc_a", "articol_normalizat": "2.1"}]
+
+
+# --- 7. Generare (R23) -------------------------------------------------------------------
+
+
+def test_generare_fara_run_respinge_cu_exit_2_fara_niciun_apel(tmp_path, capsys, monkeypatch):
+    cale = scrie_set(tmp_path, [caz_valid()])
+
+    def _pica(*_args, **_kwargs):
+        raise AssertionError("nu ar trebui apelat fără --run")
+
+    monkeypatch.setattr(evaluation, "_open_db_connection", _pica)
+    monkeypatch.setattr(evaluation, "_build_runtime_embedder", _pica)
+    monkeypatch.setattr(evaluation, "_build_production_generator", _pica)
+
+    exit_code = evaluation.main(["--set", str(cale), "--generare"])
+
+    assert exit_code == 2
+    assert "generare_requires_run" in capsys.readouterr().err
+
+
+def test_fara_generare_nu_construieste_generator_si_raportul_ramane_neschimbat(monkeypatch, tmp_path):
+    evidence = (make_evidence(document_id="doc_a", articol_normalizat="2.1"),)
+    case = GoldCase("C1", "exact", "întrebare?", (GoldExpectation("doc_a", "2.1"),))
+    install_fakes(monkeypatch, results={"întrebare?": SimpleNamespace(status="found", evidence=evidence)})
+
+    def _pica():
+        raise AssertionError("generator_factory nu trebuie apelat fără generation=True")
+
+    report = evaluation.run_evaluation(
+        [case], tmp_path / "raport.json",
+        connection_factory=ConnectionFake,
+        embedder_factory=EmbedderDelegateFake,
+        generation=False,
+        generator_factory=_pica,
+    )
+
+    assert "generare" not in report["sumar"]
+    assert "generation_calls" not in report["sumar"]
+    assert set(report["cazuri"][0]) == {"id", "tip", "status", "gasit", "rang", "dovezi"}
+
+
+class _GenerationServiceStub:
+    """Nivelul înalt (`GenerationService.generate`) izolat, pentru testarea directă a `_run_generation`."""
+
+    def __init__(self, outcome):
+        self._outcome = outcome
+
+    def generate(self, _question, _evidence):
+        if isinstance(self._outcome, Exception):
+            raise self._outcome
+        return self._outcome
+
+
+def _generated(raspuns, citari=()):
+    return SimpleNamespace(raspuns=raspuns, citari=citari)
+
+
+def test_run_generation_raspuns_normal_devine_raspuns_cu_metrici_corecte():
+    case = GoldCase("C1", "exact", "?", (GoldExpectation("doc_a", "2.1"),))
+    evidence = (make_evidence(document_id="doc_a", articol_normalizat="2.1", content="Textul complet al art 2.1."),)
+    citare = PublicCitation(id="C1", cod_document="X", titlu_document="Y", articol="2.1", citat="Textul complet al art 2.1.")
+    service = _GenerationServiceStub(_generated("Răspuns [C1].", (citare,)))
+
+    info = evaluation._run_generation(case, evidence, service)
+
+    assert info["rezultat_final"] == "raspuns"
+    assert info["citeaza_asteptat"] is True
+    assert info["citate_literale"] is True
+    assert info["vizibil_utilizator"] is None
+
+
+def test_run_generation_ungrounded_reference_devine_refuz_generare_unsupported():
+    case = GoldCase("C1", "exact", "?", ())
+    evidence = (make_evidence(),)
+    service = _GenerationServiceStub(UngroundedReferenceError("referință neatestată"))
+
+    info = evaluation._run_generation(case, evidence, service)
+
+    assert info["rezultat_final"] == "refuz_generare_unsupported"
+    assert info["raspuns"] is None
+    assert info["vizibil_utilizator"] == {"http_status": 200, "status_api": "unsupported_answer"}
+
+
+def test_run_generation_not_found_structurat_devine_refuz_generare_not_found():
+    case = GoldCase("N1", "negativ", "?", ())
+    evidence = (make_evidence(),)
+    service = _GenerationServiceStub(SimpleNamespace(status="not_found", raspuns="Nu am găsit.", citari=()))
+
+    info = evaluation._run_generation(case, evidence, service)
+
+    assert info["rezultat_final"] == "refuz_generare_not_found"
+    assert info["raspuns"] is None
+    assert info["vizibil_utilizator"] == {"http_status": 200, "status_api": "not_found"}
+
+
+def test_run_generation_missing_citation_devine_eroare_generare_cu_clasa_si_continua():
+    case = GoldCase("C1", "exact", "?", ())
+    evidence = (make_evidence(),)
+    service = _GenerationServiceStub(MissingCitationError("fără citare"))
+
+    info = evaluation._run_generation(case, evidence, service)
+
+    assert info["rezultat_final"] == "eroare_generare:MissingCitationError"
+    assert info["vizibil_utilizator"] == {"http_status": 503, "status_api": None}
+
+
+def test_run_generation_provider_unavailable_fara_cauza_devine_eroare_generare_si_continua():
+    case = GoldCase("C1", "exact", "?", ())
+    evidence = (make_evidence(),)
+    eroare = evaluation.ProviderUnavailableError("răspuns trunchiat la max_tokens")
+    assert eroare.__cause__ is None
+    service = _GenerationServiceStub(eroare)
+
+    info = evaluation._run_generation(case, evidence, service)
+
+    assert info["rezultat_final"] == "eroare_generare:ProviderUnavailableError"
+    assert info["vizibil_utilizator"] == {"http_status": 503, "status_api": None}
+
+
+def test_run_generation_provider_unavailable_cu_cauza_se_propaga_si_opreste_rularea():
+    case = GoldCase("C1", "exact", "?", ())
+    evidence = (make_evidence(),)
+    try:
+        raise evaluation.ProviderUnavailableError("Anthropic indisponibil") from RuntimeError("rețea")
+    except evaluation.ProviderUnavailableError as ridicata:
+        service = _GenerationServiceStub(ridicata)
+        with pytest.raises(evaluation.ProviderUnavailableError):
+            evaluation._run_generation(case, evidence, service)
+
+
+def test_vizibil_utilizator_mapeaza_fiecare_clasa_de_rezultat_final():
+    assert evaluation._vizibil_utilizator("raspuns") is None
+    assert evaluation._vizibil_utilizator("refuz_cautare") is None
+    assert evaluation._vizibil_utilizator("refuz_generare_unsupported") == {
+        "http_status": 200, "status_api": "unsupported_answer"
+    }
+    assert evaluation._vizibil_utilizator("eroare_generare:MissingCitationError") == {
+        "http_status": 503, "status_api": None
+    }
+    assert evaluation._vizibil_utilizator("eroare_generare:ProviderUnavailableError") == {
+        "http_status": 503, "status_api": None
+    }
+
+
+def test_citeaza_asteptat_fals_daca_documentul_citat_e_gresit():
+    case = GoldCase("C1", "exact", "?", (GoldExpectation("doc_a", "2.1"),))
+    evidence = (make_evidence(document_id="doc_b", articol_normalizat="2.1"),)
+    citare = PublicCitation(id="C1", cod_document="X", titlu_document="Y", articol="2.1", citat="x")
+    assert evaluation._citeaza_asteptat(case, evidence, (citare,)) is False
+
+
+def test_citeaza_asteptat_adevarat_pentru_articol_copil_citat():
+    case = GoldCase("C1", "exact", "?", (GoldExpectation("doc_a", "2.1"),))
+    evidence = (make_evidence(document_id="doc_a", articol_normalizat="2.1.(1)"),)
+    citare = PublicCitation(id="C1", cod_document="X", titlu_document="Y", articol="2.1.(1)", citat="x")
+    assert evaluation._citeaza_asteptat(case, evidence, (citare,)) is True
+
+
+def test_citate_literale_fals_daca_citatul_nu_apare_in_dovada():
+    evidence = (make_evidence(content="Textul real din dovadă normativă."),)
+    citare = PublicCitation(id="C1", cod_document="X", titlu_document="Y", articol="2.1", citat="Text inventat.")
+    assert evaluation._citate_literale(evidence, (citare,)) is False
+
+
+def test_citate_literale_adevarat_cu_whitespace_normalizat():
+    evidence = (make_evidence(content="Textul   real\ndin dovadă."),)
+    citare = PublicCitation(id="C1", cod_document="X", titlu_document="Y", articol="2.1", citat="Textul real din dovadă.")
+    assert evaluation._citate_literale(evidence, (citare,)) is True
+
+
+@pytest.mark.parametrize("text", [
+    "Informația nu se regăsește în documentele furnizate.",
+    "Informatia nu se regaseste in documentele furnizate.",
+])
+def test_declara_lipsa_functioneaza_indiferent_de_diacritice(text):
+    assert evaluation._declara_lipsa(text) is True
+
+
+def test_declara_lipsa_fals_pentru_un_raspuns_obisnuit():
+    assert evaluation._declara_lipsa("Articolul 2.1 prevede grosimea minimă de perete.") is False
+
+
+def install_generation_fake(monkeypatch, outcomes: dict[str, tuple[object, int]]):
+    """Înlocuiește `GenerationService` cu un fake care numără apelurile de nivel jos
+    (`generator.generate`), la fel cum face `_CountingGenerator` în producție, fără să
+    depindă de validarea reală din `generation_core` (deja acoperită în alte teste)."""
+
+    class GenerationServiceFake:
+        def __init__(self, generator):
+            self._generator = generator
+
+        def generate(self, question, _evidence):
+            outcome, n_apeluri_brute = outcomes[question]
+            for _ in range(n_apeluri_brute):
+                self._generator.generate("prompt", max_tokens=1)
+            if isinstance(outcome, Exception):
+                raise outcome
+            return outcome
+
+    monkeypatch.setattr(evaluation, "GenerationService", GenerationServiceFake)
+
+
+def test_refuz_de_cautare_nu_declanseaza_nicio_generare(monkeypatch, tmp_path):
+    case = GoldCase("N1", "negativ", "q1", ())
+    install_fakes(monkeypatch, results={"q1": SimpleNamespace(status="not_found", evidence=())})
+    install_generation_fake(monkeypatch, outcomes={})
+
+    report = evaluation.run_evaluation(
+        [case], tmp_path / "raport.json",
+        connection_factory=ConnectionFake,
+        embedder_factory=EmbedderDelegateFake,
+        generation=True,
+        generator_factory=lambda: SimpleNamespace(generate=lambda *a, **k: "nu ar trebui apelat"),
+    )
+
+    assert report["cazuri"][0]["rezultat_final"] == "refuz_cautare"
+    assert report["cazuri"][0]["vizibil_utilizator"] is None
+    assert report["sumar"]["generation_calls"] == 0
+    assert report["sumar"]["generare"]["rezultat_final_distributie"] == {"refuz_cautare": 1}
+
+
+def test_gasit_cu_generare_reusita_devine_raspuns_si_numara_apelul(monkeypatch, tmp_path):
+    evidence = (make_evidence(document_id="doc_a", articol_normalizat="2.1", content="text"),)
+    case = GoldCase("C1", "exact", "intrebare?", (GoldExpectation("doc_a", "2.1"),))
+    install_fakes(monkeypatch, results={"intrebare?": SimpleNamespace(status="found", evidence=evidence)})
+    citare = PublicCitation(id="C1", cod_document="X", titlu_document="Y", articol="2.1", citat="text")
+    outcome = SimpleNamespace(raspuns="Răspuns [C1].", citari=(citare,))
+    install_generation_fake(monkeypatch, outcomes={"intrebare?": (outcome, 1)})
+
+    report = evaluation.run_evaluation(
+        [case], tmp_path / "raport.json",
+        connection_factory=ConnectionFake,
+        embedder_factory=EmbedderDelegateFake,
+        generation=True,
+        generator_factory=lambda: SimpleNamespace(generate=lambda *a, **k: "ok"),
+    )
+
+    assert report["cazuri"][0]["rezultat_final"] == "raspuns"
+    assert report["sumar"]["generation_calls"] == 1
+    assert report["sumar"]["generare"]["raspunsuri"] == 1
+    assert report["sumar"]["generare"]["citeaza_asteptat"] == 1
+    assert report["sumar"]["generare"]["citate_literale"] == 1
+
+
+def test_citatul_publicat_in_raport_este_taiat_la_300_de_caractere(monkeypatch, tmp_path):
+    evidence = (make_evidence(document_id="doc_a", articol_normalizat="2.1", content="a" * 400),)
+    case = GoldCase("C1", "exact", "intrebare?", (GoldExpectation("doc_a", "2.1"),))
+    install_fakes(monkeypatch, results={"intrebare?": SimpleNamespace(status="found", evidence=evidence)})
+    citare = PublicCitation(id="C1", cod_document="X", titlu_document="Y", articol="2.1", citat="a" * 400)
+    outcome = SimpleNamespace(raspuns="Răspuns [C1].", citari=(citare,))
+    install_generation_fake(monkeypatch, outcomes={"intrebare?": (outcome, 1)})
+
+    report = evaluation.run_evaluation(
+        [case], tmp_path / "raport.json",
+        connection_factory=ConnectionFake,
+        embedder_factory=EmbedderDelegateFake,
+        generation=True,
+        generator_factory=lambda: SimpleNamespace(generate=lambda *a, **k: "ok"),
+    )
+
+    citat_raport = report["cazuri"][0]["citari"][0]["citat"]
+    assert len(citat_raport) == 300
+    assert citat_raport == "a" * 300
+
+
+def test_raportul_de_generare_nu_publica_textul_intern_al_dovezii(monkeypatch, tmp_path):
+    evidence = (make_evidence(document_id="doc_a", articol_normalizat="2.1", content="TEXT NORMATIV SECRET"),)
+    case = GoldCase("C1", "exact", "intrebare?", (GoldExpectation("doc_a", "2.1"),))
+    install_fakes(monkeypatch, results={"intrebare?": SimpleNamespace(status="found", evidence=evidence)})
+    citare = PublicCitation(id="C1", cod_document="X", titlu_document="Y", articol="2.1", citat="fragment public")
+    outcome = SimpleNamespace(raspuns="Răspuns [C1].", citari=(citare,))
+    install_generation_fake(monkeypatch, outcomes={"intrebare?": (outcome, 1)})
+
+    report = evaluation.run_evaluation(
+        [case], tmp_path / "raport.json",
+        connection_factory=ConnectionFake,
+        embedder_factory=EmbedderDelegateFake,
+        generation=True,
+        generator_factory=lambda: SimpleNamespace(generate=lambda *a, **k: "ok"),
+    )
+
+    assert "TEXT NORMATIV SECRET" not in json.dumps(report, ensure_ascii=False)
+
+
+def test_sumarul_generare_distribuie_si_numara_erorile_pe_clasa(monkeypatch, tmp_path):
+    evidence = (make_evidence(document_id="doc_a", articol_normalizat="2.1"),)
+    cases = [
+        GoldCase("C1", "exact", "q1", (GoldExpectation("doc_a", "2.1"),)),
+        GoldCase("C2", "exact", "q2", (GoldExpectation("doc_a", "2.1"),)),
+        GoldCase("N1", "negativ", "q3", ()),
+    ]
+    install_fakes(monkeypatch, results={
+        "q1": SimpleNamespace(status="found", evidence=evidence),
+        "q2": SimpleNamespace(status="found", evidence=evidence),
+        "q3": SimpleNamespace(status="out_of_scope", evidence=()),
+    })
+    citare = PublicCitation(id="C1", cod_document="X", titlu_document="Y", articol="2.1", citat="text")
+    outcome_ok = SimpleNamespace(raspuns="Răspuns [C1].", citari=(citare,))
+    install_generation_fake(monkeypatch, outcomes={
+        "q1": (outcome_ok, 1),
+        "q2": (MissingCitationError("fără citare"), 1),
+    })
+
+    report = evaluation.run_evaluation(
+        cases, tmp_path / "raport.json",
+        connection_factory=ConnectionFake,
+        embedder_factory=EmbedderDelegateFake,
+        generation=True,
+        generator_factory=lambda: SimpleNamespace(generate=lambda *a, **k: "ok"),
+    )
+
+    sumar_generare = report["sumar"]["generare"]
+    assert sumar_generare["rezultat_final_distributie"] == {
+        "raspuns": 1, "eroare_generare:MissingCitationError": 1, "refuz_cautare": 1,
+    }
+    assert sumar_generare["erori_generare"] == {"eroare_generare:MissingCitationError": 1}
+    assert sumar_generare["raspunsuri"] == 1
+    assert report["sumar"]["generation_calls"] == 2
+
+
+def test_plafonul_de_generari_include_reincercarea_si_opreste_rularea_fara_raport(monkeypatch, tmp_path):
+    """Plafonul (`MAX_GENERATION_CALLS`) se aplică apelurilor de nivel jos (`_CountingGenerator`),
+    nu cazurilor: un singur caz care declanșează reîncercarea (2 apeluri brute) trebuie să
+    lovească un plafon de 1 la al doilea apel, exact ca la o rulare reală cu retry."""
+    monkeypatch.setattr(evaluation, "MAX_GENERATION_CALLS", 1)
+    evidence = (make_evidence(document_id="doc_a", articol_normalizat="2.1"),)
+    case = GoldCase("C1", "exact", "intrebare?", (GoldExpectation("doc_a", "2.1"),))
+    install_fakes(monkeypatch, results={"intrebare?": SimpleNamespace(status="found", evidence=evidence)})
+    citare = PublicCitation(id="C1", cod_document="X", titlu_document="Y", articol="2.1", citat="text")
+    outcome = SimpleNamespace(raspuns="Răspuns [C1].", citari=(citare,))
+    install_generation_fake(monkeypatch, outcomes={"intrebare?": (outcome, 2)})
+    raport_path = tmp_path / "raport.json"
+
+    with pytest.raises(evaluation.RealEvaluationError, match="cost_limit"):
+        evaluation.run_evaluation(
+            [case], raport_path,
+            connection_factory=ConnectionFake,
+            embedder_factory=EmbedderDelegateFake,
+            generation=True,
+            generator_factory=lambda: SimpleNamespace(generate=lambda *a, **k: "ok"),
+        )
+
+    assert not raport_path.exists()
