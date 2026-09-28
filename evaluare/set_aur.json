@@ -2,7 +2,7 @@
   {"id": "P118-01", "tip": "exact", "intrebare": "Ce prevede art. 2.3.2.1.2 din P 118/1-2025?", "asteptat": [{"document_id": "p118_1_2025", "articol": "2.3.2.1.2"}]},
   {"id": "P118-02", "tip": "semantic", "intrebare": "Ce rezistență la foc trebuie să aibă pereții antifoc care separă compartimentele de incendiu?", "asteptat": [{"document_id": "p118_1_2025", "articol": "2.3.2.1.2"}]},
   {"id": "P118-04", "tip": "semantic", "intrebare": "Cum trebuie alcătuite căile de evacuare din clădirile civile subterane independente?", "asteptat": [{"document_id": "p118_1_2025", "articol": "5.5.1"}]},
-  {"id": "P118-05", "tip": "semantic", "intrebare": "Ce cerințe de securitate la incendiu au sistemele fotovoltaice montate pe acoperișul clădirilor?", "asteptat": [{"document_id": "p118_1_2025", "articol": "2.4.18.2"}]},
+  {"id": "P118-05", "tip": "semantic", "intrebare": "Ce cerințe de securitate la incendiu au sistemele fotovoltaice montate pe acoperișul clădirilor?", "asteptat": [{"document_id": "p118_1_2025", "articol": "2.4.18"}, {"document_id": "p118_1_2025", "articol": "anexa4.6"}]},
   {"id": "P118-06", "tip": "semantic", "intrebare": "Câte scări de intervenție și salvare se prevăd la parcajele supraterane automatizate, fără acces al publicului?", "asteptat": [{"document_id": "p118_1_2025", "articol": "3.2.11.20"}]},
   {"id": "I7-01", "tip": "exact", "intrebare": "Ce prevede art. 3.1.5.7 din I7-2011?", "asteptat": [{"document_id": "i7_2011", "articol": "3.1.5.7"}]},
   {"id": "I7-02", "tip": "semantic", "intrebare": "Cum trebuie amplasate contoarele de energie electrică la blocurile de locuințe?", "asteptat": [{"document_id": "i7_2011", "articol": "3.1.5.7"}]},
