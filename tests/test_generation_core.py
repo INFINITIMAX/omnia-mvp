@@ -6,10 +6,12 @@ from dataclasses import dataclass
 import pytest
 
 from generation_core import (
+    MAX_ANSWER_TOKENS,
     TRUNCATION_NOTICE,
     EmptyGeneratedAnswerError,
     GeneratedText,
     GenerationService,
+    InvalidGenerationPayloadError,
     MissingCitationError,
     UngroundedReferenceError,
     UnknownCitationError,
@@ -69,10 +71,16 @@ class GeneratorSequenceFake:
         return simulated_provider_payload(self.answers[self.calls - 1], prompt)
 
 
-@pytest.mark.parametrize("max_answer_tokens", [0, -1, True, "1200", 1201])
+@pytest.mark.parametrize("max_answer_tokens", [0, -1, True, "1200", 2001])
 def test_service_refuza_limita_de_raspuns_invalida(max_answer_tokens):
-    with pytest.raises(ValueError, match="1..1200"):
+    with pytest.raises(ValueError, match="1..2000"):
         GenerationService(GeneratorFake("[C1]"), max_answer_tokens=max_answer_tokens)
+
+
+def test_max_answer_tokens_implicit_este_2000():
+    """D26 — limita a fost ridicată de la 1200 la 2000 (evaluarea R23 a arătat 3
+    trunchieri din 24 de generări la exact 1200 de tokeni de ieșire)."""
+    assert MAX_ANSWER_TOKENS == 2000
 
 
 def test_fara_evidence_este_not_found_fara_apel_generator():
@@ -93,7 +101,7 @@ def test_c1_valid_construieste_numai_citarea_publica_si_promptul_are_intrebarea(
     assert result.status == "answered"
     assert result.citari[0].id == "C1"
     assert result.citari[0].cod_document == "NP TEST-1"
-    assert generator.max_tokens == 1200
+    assert generator.max_tokens == 2000
     assert '"intrebare": "Întrebare sintetică?"' in generator.prompt
 
 
@@ -115,13 +123,14 @@ def test_id_inventat_este_eroare_tipata_fail_safe():
     with pytest.raises(UnknownCitationError):
         GenerationService(RawGeneratorFake(json.dumps({
             "raspuns": "Afirmație [C9]", "pasaje": [{"id": "C9", "citat": "fragment sintetic"}],
+            "gasit": True,
         }))).generate(QUESTION, (evidence(),))
 
 
 def test_lipsa_citarii_este_eroare_tipata_fail_safe():
     with pytest.raises(MissingCitationError):
         GenerationService(RawGeneratorFake(json.dumps({
-            "raspuns": "Afirmație fără suport", "pasaje": [],
+            "raspuns": "Afirmație fără suport", "pasaje": [], "gasit": True,
         }))).generate(QUESTION, (evidence(),))
 
 
@@ -133,7 +142,7 @@ def test_raspunsul_gol_este_eroare_tipata_fail_safe():
 def test_citatul_public_este_limitat_la_600_caractere():
     # R06: providerul alege explicit 600; backendul nu mai taie automat 601.
     generator = RawGeneratorFake(json.dumps({
-        "raspuns": "[C1]", "pasaje": [{"id": "C1", "citat": "x" * 600}],
+        "raspuns": "[C1]", "pasaje": [{"id": "C1", "citat": "x" * 600}], "gasit": True,
     }))
     result = GenerationService(generator).generate(QUESTION, (evidence(content="x" * 601),))
 
@@ -399,3 +408,94 @@ def test_promptul_nu_contine_identificatori_tehnici_sau_nume_de_sursa():
 
     for forbidden in ("document_id", "content_hash", "source_key", "document-intern-1", "hash-intern-1"):
         assert forbidden not in generator.prompt
+
+
+# --- D26 (Runda 2): refuzul structurat prin câmpul obligatoriu `gasit` ---------------
+
+
+def test_gasit_lipsa_este_eroare_de_validare_fail_closed():
+    with pytest.raises(InvalidGenerationPayloadError):
+        GenerationService(RawGeneratorFake(json.dumps({
+            "raspuns": "Afirmație [C1]", "pasaje": [{"id": "C1", "citat": "fragment sintetic"}],
+        }))).generate(QUESTION, (evidence(),))
+
+
+@pytest.mark.parametrize("gasit", ["false", 0, 1, None, "true", 1.0])
+def test_gasit_neboolean_este_eroare_de_validare_fail_closed(gasit):
+    """`0`/`1` nu trebuie să treacă drept `False`/`True`: verificarea e pe tipul `bool` strict."""
+    with pytest.raises(InvalidGenerationPayloadError):
+        GenerationService(RawGeneratorFake(json.dumps({
+            "raspuns": "Afirmație [C1]",
+            "pasaje": [{"id": "C1", "citat": "fragment sintetic"}],
+            "gasit": gasit,
+        }))).generate(QUESTION, (evidence(),))
+
+
+def test_gasit_cheie_in_plus_este_eroare_de_validare():
+    with pytest.raises(InvalidGenerationPayloadError):
+        GenerationService(RawGeneratorFake(json.dumps({
+            "raspuns": "Afirmație [C1]",
+            "pasaje": [{"id": "C1", "citat": "fragment sintetic"}],
+            "gasit": True,
+            "extra": True,
+        }))).generate(QUESTION, (evidence(),))
+
+
+def test_gasit_false_devine_not_found_fara_citari_chiar_daca_pasaje_sau_raspuns_incalca_regulile():
+    """Runda 2: cu `gasit=false`, conținutul `raspuns`/`pasaje` e ignorat complet — un
+    pachet care ar fi fost invalid pe ramura `gasit=true` (pasaje nevide, `[Cn]` în text)
+    nu mai poate transforma un refuz onest într-o eroare de validare (fostul 503 pe NEG-04)."""
+    generator = RawGeneratorFake(json.dumps({
+        "raspuns": "Afirmație needată [C1]",
+        "pasaje": [{"id": "C1", "citat": "fragment sintetic"}],
+        "gasit": False,
+    }))
+
+    result = GenerationService(generator).generate(QUESTION, (evidence(),))
+
+    assert result.status == "not_found"
+    assert result.citari == ()
+    assert generator.calls == 1
+
+
+def test_gasit_true_fara_citare_ramane_eroare_ca_inainte():
+    with pytest.raises(MissingCitationError):
+        GenerationService(RawGeneratorFake(json.dumps({
+            "raspuns": "Afirmație fără suport", "pasaje": [], "gasit": True,
+        }))).generate(QUESTION, (evidence(),))
+
+
+class RawSequenceFake:
+    """Secvență RAW brută (fără împachetare automată de `gasit`), pentru scenarii de retry."""
+
+    def __init__(self, payloads):
+        self.payloads = tuple(payloads)
+        self.calls = 0
+        self.prompts: list[str] = []
+        self.max_tokens = None
+
+    def generate(self, prompt, *, max_tokens):
+        self.prompts.append(prompt)
+        self.max_tokens = max_tokens
+        if self.calls >= len(self.payloads):
+            raise AssertionError(f"generatorul a fost apelat de {self.calls + 1} ori (buclă)")
+        payload = self.payloads[self.calls]
+        self.calls += 1
+        return payload
+
+
+def test_reincercarea_care_revine_cu_gasit_false_este_refuz_not_found_nu_eroare():
+    """Prima încercare citează o referință neancorată (gasit=true, declanșează retry);
+    a doua revine cu gasit=false — rezultatul e refuz, nu `UngroundedReferenceError`."""
+    first = json.dumps({
+        "raspuns": "Conform STAS 987654321, valoarea este X [C1].",
+        "pasaje": [{"id": "C1", "citat": "fragment sintetic"}], "gasit": True,
+    })
+    second = json.dumps({"raspuns": "", "pasaje": [], "gasit": False})
+    generator = RawSequenceFake((first, second))
+
+    result = GenerationService(generator).generate(QUESTION, (evidence(content="fragment sintetic"),))
+
+    assert generator.calls == 2
+    assert result.status == "not_found"
+    assert result.citari == ()

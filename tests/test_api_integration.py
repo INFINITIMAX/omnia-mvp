@@ -248,6 +248,31 @@ def test_referinta_inventata_in_ambele_incercari_devine_refuz_onest_nu_503(api):
     assert connection.commits >= 1, "refuzul e un rezultat normal, nu o eroare cu rollback"
 
 
+def test_gasit_false_devine_not_found_200_cu_cota_consumata_nu_503(api):
+    """D26 (Runda 2): un refuz onest al modelului (`gasit=false`) nu mai poate deveni
+    un 503 — indiferent ce a scris modelul în `raspuns`/`pasaje`, un singur apel plătit
+    și un 200 cu statusul public `not_found`, exact ca la lipsa totală de dovezi."""
+    connection = ConnectionFake()
+    generator = RawGeneratorFake(json.dumps({
+        "raspuns": "Conform STAS 6648, sarcina se calculează [C1].",
+        "pasaje": [{"id": "C1", "citat": "fragment public"}],
+        "gasit": False,
+    }))
+
+    response = configure(api, connection, generator=generator).post(
+        "/intreaba", json={"intrebare": "NP 010-2022, art. 4.4.7.2"}
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body == {
+        "status": "not_found", "raspuns": main._NOT_FOUND, "citari": [], "intrebari_ramase": 9,
+    }
+    assert generator.calls == 1
+    assert connection.closed
+    assert connection.commits >= 1
+
+
 def test_refuzul_neancorat_nu_scurge_referinta_inventata_sau_mecanismul(api):
     """Mesajul de refuz nu spune ce referință a fost inventată, nici că există o verificare
     de ancorare — sunt detalii interne, inutile utilizatorului și utile unui atacator."""
@@ -372,7 +397,7 @@ def test_input_invalid_este_422_inainte_de_toti_providerii(api, question):
         (ConnectionFake(error=psycopg2.OperationalError("db")), EmbedderFake(), GeneratorFake(), "art. 4.4.7.2"),
         (ConnectionFake(), EmbedderFake(error=main.ProviderUnavailableError()), GeneratorFake(), "întrebare semantică"),
         (ConnectionFake(), EmbedderFake(), GeneratorFake(error=main.ProviderUnavailableError()), "art. 4.4.7.2"),
-        (ConnectionFake(), EmbedderFake(), RawGeneratorFake(json.dumps({"raspuns": "răspuns fără citare", "pasaje": []})), "art. 4.4.7.2"),
+        (ConnectionFake(), EmbedderFake(), RawGeneratorFake(json.dumps({"raspuns": "răspuns fără citare", "pasaje": [], "gasit": True})), "art. 4.4.7.2"),
     ],
 )
 def test_erorile_dependentei_sunt_503_generic_si_conexiunea_se_inchide(
@@ -435,6 +460,14 @@ def test_adaptorul_anthropic_forteaza_toolul_si_serializeaza_numai_inputul():
     assert json.loads(generated.text) == {"raspuns": "răspuns [C1]", "pasaje": [{"id": "C1", "citat": "literal"}]}
     assert calls[0]["tool_choice"] == {"type": "tool", "name": "return_grounded_answer"}
     assert calls[0]["tools"][0]["name"] == "return_grounded_answer"
+
+
+def test_schema_toolului_anthropic_cere_gasit_boolean_obligatoriu():
+    """D26: `gasit` trebuie să fie în `required`, nu doar în `properties` — altfel
+    modelul poate omite câmpul, iar `_decode_payload` respinge tăcut orice răspuns."""
+    schema = main.AnthropicTextGenerator._TOOL["input_schema"]
+    assert "gasit" in schema["required"]
+    assert schema["properties"]["gasit"]["type"] == "boolean"
 
 
 def test_configurarea_lipsa_este_503_generic(api):
@@ -1639,9 +1672,9 @@ class R06TransactionConnection(ConnectionFake):
         self.events.append("rollback")
 
 
-def _r06_payload(answer="Răspuns [C1].", quote="fragment public"):
+def _r06_payload(answer="Răspuns [C1].", quote="fragment public", gasit=True):
     return json.dumps({
-        "raspuns": answer, "pasaje": [{"id": "C1", "citat": quote}],
+        "raspuns": answer, "pasaje": [{"id": "C1", "citat": quote}], "gasit": gasit,
     }, ensure_ascii=False)
 
 
@@ -1664,7 +1697,7 @@ def test_r06_schema_sau_valoare_invalida_503_rollback_quota_exact_fara_retry(api
     assert response.status_code == 503
     assert response.json() == {"detail": "Serviciul este temporar indisponibil."}
     assert generator.calls == 1 and embedder.calls == 0
-    assert generator.max_tokens == 1200
+    assert generator.max_tokens == 2000
     assert connection.commits == 1 and connection.rollbacks == 1
     assert connection.events == ["rate", "commit", "quota", "rollback"]
     assert connection.questions_used == 0 and not connection.pending_question
@@ -1694,6 +1727,7 @@ def test_r06_validation_logheaza_numai_clasa_si_codul_sigur_fara_payload_sau_evi
         json.dumps({
             "raspuns": "MODEL_ANSWER_SHOULD_NOT_LOG [C1]",
             "pasaje": [{"id": "C1", "citat": "x" * 601}],
+            "gasit": True,
         })
     )
     caplog.set_level(logging.WARNING, logger="main")
@@ -1771,7 +1805,7 @@ def test_r06_endpoint_afiseaza_pasajul_literal_dupa_600_si_schema_publica(trunca
         "intrebari_ramase": 9,
     }
     assert quote in row[6] and quote != row[6][:600]
-    assert generator.calls == 1 and generator.max_tokens == 1200
+    assert generator.calls == 1 and generator.max_tokens == 2000
     assert connection.commits == 2 and connection.rollbacks == 0
     _assert_no_technical_identifiers(response)
 
@@ -2051,6 +2085,7 @@ def test_api_d11_comparatia_multi_document_pastreaza_maparea_si_ordinea_citarilo
         "raspuns": "Marcaje fictive [C2], apoi [C1].",
         "pasaje": [{"id": "C1", "citat": "obstacole sub sprinklere"},
                    {"id": "C2", "citat": "obstacole electrice"}],
+        "gasit": True,
     }))
     budget_connection = ConnectionFake()
 
@@ -2069,7 +2104,7 @@ def test_api_d11_comparatia_multi_document_pastreaza_maparea_si_ordinea_citarilo
     ]
     assert _interogari_semantice(connection) == [(False, ("[0.1,0.2]", "[0.1,0.2]", SEMANTIC_TOP_K))]
     assert embedder.calls == generator.calls == 1
-    assert generator.max_tokens == 1200 and budget_connection.commits == 1
+    assert generator.max_tokens == 2000 and budget_connection.commits == 1
     _assert_no_technical_identifiers(response)
 
 
@@ -2299,7 +2334,7 @@ def test_generation_validation_error_nu_declanseaza_provider_failure_sau_starea_
 ):
     connection = R06TransactionConnection()
     generator = RawGeneratorFake(json.dumps({
-        "raspuns": "răspuns [C1]", "pasaje": [{"id": "C1", "citat": "x" * 601}],
+        "raspuns": "răspuns [C1]", "pasaje": [{"id": "C1", "citat": "x" * 601}], "gasit": True,
     }))
     caplog.set_level(logging.WARNING, logger="main")
 

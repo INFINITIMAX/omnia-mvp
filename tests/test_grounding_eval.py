@@ -153,6 +153,7 @@ def test_grounding_eval_changing_gold_never_changes_generator_payload():
     assert payloads[0] == payloads[1] == {
         "raspuns": case.candidate,
         "pasaje": [{"id": "C2", "citat": "Presiunea admisă în globul fictiv Sora este 17 kPa."}],
+        "gasit": True,
     }
 
 

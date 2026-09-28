@@ -26,6 +26,7 @@ def simulated_provider_payload(candidate: str | GeneratedText, prompt: str) -> s
     payload = json.dumps({
         "raspuns": answer,
         "pasaje": [{"id": value, "citat": by_id[value][:600]} for value in ids],
+        "gasit": True,
     }, ensure_ascii=False)
     if isinstance(candidate, GeneratedText):
         return GeneratedText(payload, truncated=candidate.truncated)

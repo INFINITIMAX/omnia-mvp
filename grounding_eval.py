@@ -231,6 +231,7 @@ def evaluate_case(
     generator = FixedGenerator(json.dumps({
         "raspuns": case.candidate,
         "pasaje": [asdict(passage) for passage in case.model_passages],
+        "gasit": True,
     }, ensure_ascii=False))
     findings = []
     observation = {"outcome": "execution_error", "result": None, "error_type": None}

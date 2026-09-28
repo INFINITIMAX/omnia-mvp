@@ -63,9 +63,9 @@ def evidence_pair():
     )
 
 
-def encode_payload(answer, passages):
+def encode_payload(answer, passages, gasit=True):
     # Serializarea este doar transport: citatele sunt alese explicit de fiecare caz.
-    return json.dumps({"raspuns": answer, "pasaje": passages}, ensure_ascii=False)
+    return json.dumps({"raspuns": answer, "pasaje": passages, "gasit": gasit}, ensure_ascii=False)
 
 
 def assert_rejected_once(payload, evidence, expected_type=None):
@@ -73,7 +73,7 @@ def assert_rejected_once(payload, evidence, expected_type=None):
     with pytest.raises(GenerationValidationError) as caught:
         GenerationService(generator).generate(QUESTION, evidence)
     assert generator.calls == 1
-    assert generator.token_limits == [1200]
+    assert generator.token_limits == [2000]
     if expected_type is not None:
         # Numele sunt clase tipate deja existente; nu importăm excepții R06 inexistente.
         assert type(caught.value).__name__ == expected_type
@@ -101,7 +101,7 @@ def test_citation_passages_selecteaza_literal_dincolo_de_600_fara_prefix(evidenc
         "citat": PASSAGE_C1,
     }
     assert generator.calls == 1
-    assert generator.token_limits == [1200]
+    assert generator.token_limits == [2000]
 
 
 def test_citation_passages_c2_foloseste_numai_dovada_corespunzatoare(evidence_pair):
@@ -280,7 +280,7 @@ def test_citation_passages_neprovenit_este_inlocuit_literal_din_propria_dovada(e
     assert result.citari[0].citat in evidence_pair[0].content
     assert result.citari[0].citat != PASSAGE_C2
     assert generator.calls == 1
-    assert generator.token_limits == [1200]
+    assert generator.token_limits == [2000]
 
 
 def test_citation_passages_neprovenit_deriva_de_la_primul_caracter_util_si_limiteaza_la_600():
@@ -318,31 +318,36 @@ def test_citation_passages_accepta_numai_whitespace_normalizat(evidence_pair, qu
 
 @pytest.mark.parametrize("reference_suffix", ["", INVENTED_REFERENCE], ids=["fara-referinta", "inainte-de-retry"])
 @pytest.mark.parametrize("raw_template", [
-    pytest.param('{"raspuns":ANSWER}', id="pasaje-absente"),
-    pytest.param('{"pasaje":PASSAGES}', id="raspuns-absent"),
-    pytest.param('{"raspuns":ANSWER,"pasaje":PASSAGES,"extra":true}', id="top-level-extra"),
-    pytest.param('{"raspuns":ANSWER,"raspuns":ANSWER,"pasaje":PASSAGES}', id="raspuns-duplicat"),
-    pytest.param('{"raspuns":ANSWER,"pasaje":PASSAGES,"pasaje":PASSAGES}', id="pasaje-duplicate"),
-    pytest.param('{"raspuns":ANSWER,"pasaje":[{"id":"C1","id":"C1","citat":QUOTE}]}', id="cheie-id-duplicata"),
-    pytest.param('{"raspuns":ANSWER,"pasaje":[{"id":"C1","citat":QUOTE,"citat":QUOTE}]}', id="cheie-citat-duplicata"),
-    pytest.param('{"raspuns":ANSWER,"pasaje":[{"id":"C1","citat":"fabricat","citat":QUOTE}]}', id="duplicat-nu-last-wins"),
-    pytest.param('{"raspuns":ANSWER,"pasaje":[{"id":"C1","citat":QUOTE,"citat":"fabricat"}]}', id="duplicat-nu-first-wins"),
-    pytest.param('{"raspuns":ANSWER,"pasaje":PASSAGES,}', id="virgula-finala"),
+    pytest.param('{"raspuns":ANSWER,"gasit":true}', id="pasaje-absente"),
+    pytest.param('{"pasaje":PASSAGES,"gasit":true}', id="raspuns-absent"),
+    pytest.param('{"raspuns":ANSWER,"pasaje":PASSAGES}', id="gasit-absent"),
+    pytest.param('{"raspuns":ANSWER,"pasaje":PASSAGES,"gasit":true,"extra":true}', id="top-level-extra"),
+    pytest.param('{"raspuns":ANSWER,"raspuns":ANSWER,"pasaje":PASSAGES,"gasit":true}', id="raspuns-duplicat"),
+    pytest.param('{"raspuns":ANSWER,"pasaje":PASSAGES,"pasaje":PASSAGES,"gasit":true}', id="pasaje-duplicate"),
+    pytest.param('{"raspuns":ANSWER,"pasaje":PASSAGES,"gasit":true,"gasit":true}', id="gasit-duplicat"),
+    pytest.param('{"raspuns":ANSWER,"pasaje":[{"id":"C1","id":"C1","citat":QUOTE}],"gasit":true}', id="cheie-id-duplicata"),
+    pytest.param('{"raspuns":ANSWER,"pasaje":[{"id":"C1","citat":QUOTE,"citat":QUOTE}],"gasit":true}', id="cheie-citat-duplicata"),
+    pytest.param('{"raspuns":ANSWER,"pasaje":[{"id":"C1","citat":"fabricat","citat":QUOTE}],"gasit":true}', id="duplicat-nu-last-wins"),
+    pytest.param('{"raspuns":ANSWER,"pasaje":[{"id":"C1","citat":QUOTE,"citat":"fabricat"}],"gasit":true}', id="duplicat-nu-first-wins"),
+    pytest.param('{"raspuns":ANSWER,"pasaje":PASSAGES,"gasit":true,}', id="virgula-finala"),
     pytest.param('{"raspuns":ANSWER,"pasaje":', id="json-incomplet"),
-    pytest.param('```json\n{"raspuns":ANSWER,"pasaje":PASSAGES}\n```', id="markdown-fence"),
-    pytest.param('Iată: {"raspuns":ANSWER,"pasaje":PASSAGES}', id="proza-inainte"),
-    pytest.param('{"raspuns":ANSWER,"pasaje":PASSAGES} Gata.', id="proza-dupa"),
-    pytest.param('{"raspuns":ANSWER,"pasaje":PASSAGES} {}', id="doua-obiecte-json"),
-    pytest.param('[{"raspuns":ANSWER,"pasaje":PASSAGES}]', id="top-level-lista"),
+    pytest.param('```json\n{"raspuns":ANSWER,"pasaje":PASSAGES,"gasit":true}\n```', id="markdown-fence"),
+    pytest.param('Iată: {"raspuns":ANSWER,"pasaje":PASSAGES,"gasit":true}', id="proza-inainte"),
+    pytest.param('{"raspuns":ANSWER,"pasaje":PASSAGES,"gasit":true} Gata.', id="proza-dupa"),
+    pytest.param('{"raspuns":ANSWER,"pasaje":PASSAGES,"gasit":true} {}', id="doua-obiecte-json"),
+    pytest.param('[{"raspuns":ANSWER,"pasaje":PASSAGES,"gasit":true}]', id="top-level-lista"),
     pytest.param('ANSWER', id="top-level-string"),
     pytest.param('null', id="top-level-null"),
-    pytest.param('{"raspuns":null,"pasaje":PASSAGES}', id="raspuns-null"),
-    pytest.param('{"raspuns":123,"pasaje":PASSAGES}', id="raspuns-numar"),
-    pytest.param('{"raspuns":true,"pasaje":PASSAGES}', id="raspuns-bool"),
-    pytest.param('{"raspuns":[ANSWER],"pasaje":PASSAGES}', id="raspuns-lista"),
-    pytest.param('{"raspuns":{"text":ANSWER},"pasaje":PASSAGES}', id="raspuns-obiect"),
-    pytest.param('{"raspuns":"","pasaje":PASSAGES}', id="raspuns-gol"),
-    pytest.param('{"raspuns":"  ","pasaje":PASSAGES}', id="raspuns-spatii"),
+    pytest.param('{"raspuns":null,"pasaje":PASSAGES,"gasit":true}', id="raspuns-null"),
+    pytest.param('{"raspuns":123,"pasaje":PASSAGES,"gasit":true}', id="raspuns-numar"),
+    pytest.param('{"raspuns":true,"pasaje":PASSAGES,"gasit":true}', id="raspuns-bool"),
+    pytest.param('{"raspuns":[ANSWER],"pasaje":PASSAGES,"gasit":true}', id="raspuns-lista"),
+    pytest.param('{"raspuns":{"text":ANSWER},"pasaje":PASSAGES,"gasit":true}', id="raspuns-obiect"),
+    pytest.param('{"raspuns":"","pasaje":PASSAGES,"gasit":true}', id="raspuns-gol"),
+    pytest.param('{"raspuns":"  ","pasaje":PASSAGES,"gasit":true}', id="raspuns-spatii"),
+    pytest.param('{"raspuns":ANSWER,"pasaje":PASSAGES,"gasit":"true"}', id="gasit-string"),
+    pytest.param('{"raspuns":ANSWER,"pasaje":PASSAGES,"gasit":1}', id="gasit-numar"),
+    pytest.param('{"raspuns":ANSWER,"pasaje":PASSAGES,"gasit":null}', id="gasit-null"),
 ])
 def test_citation_passages_respinge_json_nestrict_fara_retry(evidence_pair, raw_template, reference_suffix):
     answer = f"{PASSAGE_C1} [C1]{reference_suffix}"
@@ -377,7 +382,7 @@ def test_citation_passages_json_complet_trunchiat_pastreaza_notice(evidence_pair
     assert [(c.id, c.citat) for c in result.citari] == [("C1", PASSAGE_C1)]
     assert result.citari[0].citat in evidence_pair[0].content
     assert generator.calls == 1
-    assert generator.token_limits == [1200]
+    assert generator.token_limits == [2000]
 
 
 @pytest.mark.parametrize("reference_suffix", ["", INVENTED_REFERENCE])
@@ -400,14 +405,14 @@ def test_citation_passages_json_complet_citat_neprovenit_trunchiat_primeste_pasa
 
 @pytest.mark.parametrize("constant", ["NaN", "Infinity", "-Infinity"])
 def test_citation_passages_constante_non_json_sunt_respinse(evidence_pair, constant):
-    payload = '{"raspuns":"Afirmație [C1]","pasaje":[{"id":"C1","citat":' + constant + '}]}'
+    payload = '{"raspuns":"Afirmație [C1]","pasaje":[{"id":"C1","citat":' + constant + '}],"gasit":true}'
     assert_rejected_once(payload, evidence_pair)
 
 
 def test_citation_passages_chei_duplicate_cu_escape_json_sunt_respinse(evidence_pair):
     payload = (
         '{"raspuns":"Afirmație [C1]","rasp\\u0075ns":"Afirmație [C1]",'
-        '"pasaje":[{"id":"C1","citat":"Carcasa fictivă este turcoaz."}]}'
+        '"pasaje":[{"id":"C1","citat":"Carcasa fictivă este turcoaz."}],"gasit":true}'
     )
     assert_rejected_once(payload, evidence_pair)
 
@@ -450,7 +455,7 @@ def test_citation_passages_retry_verifica_referinta_decodata_si_foloseste_noile_
 
     result = GenerationService(generator).generate(QUESTION, evidence_pair)
 
-    assert generator.calls == 2 and generator.token_limits == [1200, 1200]
+    assert generator.calls == 2 and generator.token_limits == [2000, 2000]
     assert result.raspuns == answer
     assert [(citation.id, citation.citat) for citation in result.citari] == [("C2", PASSAGE_C2)]
     assert result.citari[0].cod_document == evidence_pair[1].cod_document
@@ -468,7 +473,22 @@ def test_citation_passages_pasaj_neprovenit_la_retry_referinta_ramane_server_lit
     with pytest.raises(UngroundedReferenceError):
         GenerationService(generator).generate(QUESTION, evidence_pair)
 
-    assert generator.calls == 2 and generator.token_limits == [1200, 1200]
+    assert generator.calls == 2 and generator.token_limits == [2000, 2000]
+
+
+def test_citation_passages_gasit_false_ignora_pasaje_malformate_si_ramane_not_found(evidence_pair):
+    """D26 (Runda 2): cu `gasit=false`, un `pasaje` care ar fi altfel invalid (id necunoscut)
+    nu mai declanșează `InvalidGenerationPayloadError` — conținutul nu se mai citește deloc."""
+    payload = encode_payload(
+        f"{PASSAGE_C1} [C1]", [{"id": "C9", "citat": PASSAGE_C1}], gasit=False
+    )
+    generator = RawGenerator(payload)
+
+    result = GenerationService(generator).generate(QUESTION, evidence_pair)
+
+    assert result.status == "not_found"
+    assert result.citari == ()
+    assert generator.calls == 1
 
 
 def diagnostic_r05_numar_gresit_cu_citat_literal_valid():
