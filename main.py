@@ -616,6 +616,38 @@ def health_provideri() -> JSONResponse:
     return JSONResponse(status_code=503, content={"status": "degraded", "provideri": degraded})
 
 
+_DB_HEALTH_CACHE_SECONDS = 60
+_db_health_last: tuple[datetime, bool] | None = None
+
+
+@app.get("/health/db")
+def health_db() -> JSONResponse:
+    """`SELECT 1` pentru monitorul extern; ține activ proiectul Supabase Free. Rezultat refolosit 60 s."""
+    global _db_health_last
+    dependencies: RuntimeDependencies = app.state.runtime_dependencies
+    now = dependencies.now_factory()
+    if _db_health_last is None or (now - _db_health_last[0]).total_seconds() >= _DB_HEALTH_CACHE_SECONDS:
+        ok = False
+        connection = None
+        try:
+            connection = dependencies.connection_factory()
+            cursor = connection.cursor()
+            cursor.execute("SELECT 1")
+            ok = cursor.fetchone() == (1,)
+        except Exception:
+            ok = False
+        finally:
+            if connection is not None:
+                try:
+                    connection.close()
+                except Exception:
+                    pass
+        _db_health_last = (now, ok)
+    if _db_health_last[1]:
+        return JSONResponse(status_code=200, content={"status": "ok"})
+    return JSONResponse(status_code=503, content={"status": "degraded"})
+
+
 def _static_page_response(file_name: str) -> FileResponse:
     """Servește o pagină statică fixă; absența ei devine 503 generic, ca la `/`."""
     path = _STATIC_DIRECTORY / file_name
