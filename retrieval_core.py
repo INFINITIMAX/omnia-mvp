@@ -151,8 +151,16 @@ class ArticleParser:
     def _compile_document_alias(value: str) -> re.Pattern[str]:
         ArticleParser.normalize_document_alias(value)
         parts = _ALIAS_PARTS.findall(value.lower())
-        pattern = _ALIAS_SEPARATOR.join(re.escape(part) for part in parts)
+        pattern = _ALIAS_SEPARATOR.join(ArticleParser._alias_part_pattern(part) for part in parts)
         return re.compile(rf"(?<![a-z0-9]){pattern}(?![a-z0-9])", re.IGNORECASE)
+
+    @staticmethod
+    def _alias_part_pattern(part: str) -> str:
+        # D25: „NP10-2022” și „NP 010-2022” sunt același cod; zerourile inițiale nu schimbă numărul.
+        if not part.isdigit():
+            return re.escape(part)
+        significant = part.lstrip("0")
+        return rf"0*{significant}" if significant else "0+"
 
     def parse(self, question: str) -> ParsedReference:
         """Acceptă un articol doar cu marker sau, fără marker, doar din catalogul injectat."""
