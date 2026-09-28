@@ -22,6 +22,7 @@ import voyageai
 import main
 from access_control import RateLimitResult
 from generation_core import TRUNCATION_NOTICE, GeneratedText
+from retrieval_core import SEMANTIC_TOP_K
 from generation_fixture_helpers import RawGeneratorFake, simulated_provider_payload
 
 
@@ -1851,7 +1852,7 @@ def test_api_sprinklere_context_cauta_global_fara_filtru_p118(api):
     assert response.json()["status"] == "answered"
     # D11: citarea istorică nu filtrează; aceeași fixture globală este acum eligibilă.
     assert [citation["cod_document"] for citation in response.json()["citari"]] == ["I7-2011"]
-    assert _interogari_semantice(connection) == [(False, ("[0.1,0.2]", "[0.1,0.2]", 5))]
+    assert _interogari_semantice(connection) == [(False, ("[0.1,0.2]", "[0.1,0.2]", SEMANTIC_TOP_K))]
     assert response.json()["intrebari_ramase"] == 9
 
 
@@ -1872,7 +1873,7 @@ def test_api_sprinklere_scoped_miss_istoric_nu_impiedica_generarea_din_global(ap
     assert generator.calls == 1
     assert embedder.calls == 1
     assert [citation["cod_document"] for citation in response.json()["citari"]] == ["I7-2011"]
-    assert _interogari_semantice(connection) == [(False, ("[0.1,0.2]", "[0.1,0.2]", 5))]
+    assert _interogari_semantice(connection) == [(False, ("[0.1,0.2]", "[0.1,0.2]", SEMANTIC_TOP_K))]
     assert response.json()["intrebari_ramase"] == 9
 
 
@@ -1968,7 +1969,7 @@ def test_api_d12_scope_explicit_fara_dovezi_nu_face_fallback_global(api, phrase,
     assert response.json() == {
         "status": "not_found", "raspuns": main._NOT_FOUND, "citari": [], "intrebari_ramase": 9,
     }
-    assert _interogari_semantice(connection) == [(True, ("[0.1,0.2]", ["doc-1"], "[0.1,0.2]", 5))]
+    assert _interogari_semantice(connection) == [(True, ("[0.1,0.2]", ["doc-1"], "[0.1,0.2]", SEMANTIC_TOP_K))]
     assert embedder.calls == 1 and generator.calls == 0
     assert connection.commits == 2 and connection.rollbacks == 0
     assert budget_connection.commits == 1
@@ -1993,7 +1994,7 @@ def test_api_d12_scope_explicit_gasit_pastreaza_citatul_r06_si_schema(api, phras
                     "articol": "4.4.7.2", "citat": "fragment public"}],
         "intrebari_ramase": 9,
     }
-    assert _interogari_semantice(connection) == [(True, ("[0.1,0.2]", ["doc-1"], "[0.1,0.2]", 5))]
+    assert _interogari_semantice(connection) == [(True, ("[0.1,0.2]", ["doc-1"], "[0.1,0.2]", SEMANTIC_TOP_K))]
     assert embedder.calls == generator.calls == 1
     assert budget_connection.commits == 1
     assert connection.commits == 2 and connection.rollbacks == 0
@@ -2066,7 +2067,7 @@ def test_api_d11_comparatia_multi_document_pastreaza_maparea_si_ordinea_citarilo
         ("C2", "I7-2011", "6.3.1", "obstacole electrice"),
         ("C1", "P 118/2-2013", "7.183", "obstacole sub sprinklere"),
     ]
-    assert _interogari_semantice(connection) == [(False, ("[0.1,0.2]", "[0.1,0.2]", 5))]
+    assert _interogari_semantice(connection) == [(False, ("[0.1,0.2]", "[0.1,0.2]", SEMANTIC_TOP_K))]
     assert embedder.calls == generator.calls == 1
     assert generator.max_tokens == 1200 and budget_connection.commits == 1
     _assert_no_technical_identifiers(response)
@@ -2082,7 +2083,7 @@ def test_api_d14_nu_doar_din_nu_introduce_filtru_scoped(api):
     )
 
     assert response.status_code == 200 and response.json()["status"] == "answered"
-    assert _interogari_semantice(connection) == [(False, ("[0.1,0.2]", "[0.1,0.2]", 5))]
+    assert _interogari_semantice(connection) == [(False, ("[0.1,0.2]", "[0.1,0.2]", SEMANTIC_TOP_K))]
     assert embedder.calls == generator.calls == 1
     assert response.json()["intrebari_ramase"] == 9
 

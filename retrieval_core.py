@@ -8,9 +8,10 @@ from dataclasses import dataclass
 from typing import Literal, Mapping, Protocol, Sequence
 
 from diacritice import normalizeaza_diacritice
+from normative_codes import gaseste_referinte_normative
 
 MAX_QUESTION_CHARS = 1000
-SEMANTIC_TOP_K = 5
+SEMANTIC_TOP_K = 10
 SEMANTIC_MIN_SCORE = 0.50
 MAX_CONTEXT_CHARS = 12000
 
@@ -162,6 +163,16 @@ class ArticleParser:
             for pattern, document_id in self._alias_patterns
             for match in pattern.finditer(question)
         )
+        # D23: un cod de normativ menționat explicit dar absent din catalogul aprobat
+        # (alias necunoscut sau document dezactivat) nu are voie să cadă pe ruta semantică
+        # globală — ar răspunde cu încredere dintr-un document greșit. Refuzăm înainte de
+        # orice rută, fără embedding, dacă poziția referinței nu se suprapune cu niciun
+        # alias aprobat găsit în întrebare.
+        if any(
+            not any(alias_start <= start and end <= alias_end for alias_start, alias_end, _ in matches)
+            for start, end in gaseste_referinte_normative(question)
+        ):
+            return ParsedReference(None, None, False, requires_clarification=True)
         document_ids = frozenset(document_id for _, _, document_id in matches)
         # Două menționări separate nu sunt o coliziune. Aliasurile suprapuse
         # ale unor documente diferite rămân ambigue, inclusiv aliasurile scurte comune.
@@ -510,9 +521,10 @@ class RetrievalService:
             )
         else:
             accepted = self._accepted(self._repository.find_semantic(embedding, self._semantic_top_k))
-        if self._has_ambiguous_article(accepted):
-            return RetrievalResult("ambiguous_article", ())
-        evidence = self._limit_context(self._deduplicate(accepted))
+        # Ruta semantică nu mai refuză cu `ambiguous_article`: după R16 fiecare articol e
+        # un bloc continuu de chunk-uri, deci fragmente multiple din același articol nu mai
+        # pot fi conflictuale, doar context în plus (vezi `_grouped_by_article`).
+        evidence = self._limit_context(self._grouped_by_article(self._deduplicate(accepted)))
         return RetrievalResult("found", evidence) if evidence else RetrievalResult("not_found", ())
 
     @staticmethod
@@ -577,6 +589,26 @@ class RetrievalService:
             len(orders.values()) != len(set(orders.values()))
             or sorted(orders.values()) != list(range(min(orders.values()), max(orders.values()) + 1))
             for orders in orders_by_article.values()
+        )
+
+    @staticmethod
+    def _grouped_by_article(evidence: Sequence[Evidence]) -> tuple[Evidence, ...]:
+        """Pe ruta semantică, fragmentele aceluiași articol devin un grup consecutiv.
+
+        Grupul e ordonat intern după `chunk_order` și plasat la poziția primei apariții
+        a articolului în `evidence` — care e deja poziția celui mai bun scor al grupului,
+        fiindcă intrarea vine sortată descrescător după scor din interogarea semantică.
+        """
+        groups: dict[tuple[str, str], list[Evidence]] = {}
+        order: list[tuple[str, str]] = []
+        for item in evidence:
+            key = (item.document_id, item.articol_normalizat)
+            if key not in groups:
+                groups[key] = []
+                order.append(key)
+            groups[key].append(item)
+        return tuple(
+            item for key in order for item in sorted(groups[key], key=lambda item: item.chunk_order)
         )
 
     @staticmethod

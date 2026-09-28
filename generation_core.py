@@ -7,6 +7,7 @@ import re
 from dataclasses import dataclass
 from typing import Literal, Protocol, Sequence
 
+from normative_codes import gaseste_referinte_normative
 from retrieval_core import Evidence
 
 MAX_ANSWER_TOKENS = 1200
@@ -78,58 +79,8 @@ class UngroundedReferenceError(GenerationValidationError):
 # Scopul: să prindem cazul în care modelul inventează un standard („conform STAS 6648")
 # care nu apare nicăieri în dovezile trimise. Un fals pozitiv aici costă scump (refuzăm
 # un răspuns corect), deci tiparele sunt deliberat conservatoare, iar comparația cu
-# dovezile este permisivă la variantele de scriere.
-
-# Coada numerică a unui cod normativ: cifre, eventual grupate cu punct, cratimă sau bară
-# (`52016-1`, `118/2-2013`, `6648/1-82`). Un separator trebuie urmat obligatoriu de cifră,
-# deci punctul de la finalul frazei nu intră niciodată în referință.
-_CODE_TAIL = r"\d+(?:\s?[./-]\s?\d+)*"
-
-_NORMATIVE_REFERENCE_PATTERNS = (
-    # `STAS 6648`, `STAS 6648/1-82`, `STAS-1907-1`.
-    re.compile(rf"\bSTAS\s*-?\s*{_CODE_TAIL}", re.IGNORECASE),
-    # `SR EN ISO 52016-1`, `SR EN 12831`, `SR ISO 9001`, `SR 1907-1`.
-    re.compile(rf"\bSR(?:\s+EN)?(?:\s+ISO)?(?:\s+IEC)?\s+{_CODE_TAIL}", re.IGNORECASE),
-    # `EN 12831`, `EN ISO 52016-1` — variantele fără prefixul `SR`.
-    re.compile(rf"\bEN(?:\s+ISO)?(?:\s+IEC)?\s+{_CODE_TAIL}", re.IGNORECASE),
-    # `NP 133-2013`, `NP133/2013`.
-    re.compile(rf"\bNP\s*-?\s*{_CODE_TAIL}", re.IGNORECASE),
-    # `P 118/2-2013`, `P100-1/2013`. Litera `P` apare des în text obișnuit („p. 12"),
-    # deci cerem obligatoriu forma compusă (număr + separator + număr) și numai majusculă,
-    # ca „p. 12-14" să nu fie confundat cu un normativ.
-    re.compile(rf"\bP\s*-?\s*\d+\s?[./-]\s?{_CODE_TAIL}"),
-    # `I5-2022`, `I 13-2015`. Aceeași prudență ca la `P`, dar mai strictă: cerem forma
-    # compusă (număr + separator + număr), nu doar un număr. Fără asta, tiparul prindea
-    # numerotarea cu cifre romane din text obișnuit — „ANEXA I 5" și „CAPITOLUL I 2" erau
-    # raportate ca referințe normative, iar costul unui asemenea fals pozitiv e o
-    # reîncercare plătită degeaba, urmată de refuzul unui răspuns corect.
-    # Compromis asumat: o referință scrisă fără an („I 13" simplu) nu mai e detectată.
-    # E acceptabil — codurile oficiale din corpus poartă toate anul (`I5-2022`, `I7-2011`,
-    # `I9-2022`, `I 13-2015`), iar o referință inventată de model include aproape mereu anul.
-    re.compile(rf"\bI\s*-?\s*\d+\s?[./-]\s?{_CODE_TAIL}"),
-    # `C 107-2005`, `C 56-2002` (termotehnică, verificarea calității). Literă singură, deci
-    # aceeași regulă ca la `P` și `I`: numai majusculă și obligatoriu formă compusă. E
-    # esențial aici: fără cerința de formă compusă, tiparul ar prinde chiar identificatorii
-    # de citare `[C1]`, `[C2]` pe care îi conține fiecare răspuns corect.
-    re.compile(rf"\bC\s*-?\s*\d+\s?[./-]\s?{_CODE_TAIL}"),
-    # `NE 012-2007` (execuția betonului), `NE 001-1996`.
-    re.compile(rf"\bNE\s*-?\s*{_CODE_TAIL}", re.IGNORECASE),
-    # `GP 051-2000`, `GT 039-2002` — ghiduri de proiectare, respectiv tehnice.
-    re.compile(rf"\bG[PT]\s*-?\s*{_CODE_TAIL}", re.IGNORECASE),
-    # `Mc 001-2006` — metodologii de calcul.
-    re.compile(rf"\bMc\s*-?\s*{_CODE_TAIL}", re.IGNORECASE),
-)
-
-# Cuvinte de structură care, imediat înaintea unei litere urmate de cifre, arată că e vorba
-# de numerotarea internă a unui document, nu de un cod de normativ („ANEXA I 5-2",
-# „CAPITOLUL C 1-2"). Apărare în adâncime peste cerința de formă compusă de mai sus:
-# lista tiparelor nu poate acoperi singură orice context.
-_CUVINTE_DE_STRUCTURA = frozenset(
-    {"ANEXA", "ANEXE", "CAPITOLUL", "CAPITOL", "TABELUL", "TABEL", "FIGURA", "PARTEA",
-     "SECTIUNEA", "SECȚIUNEA", "PUNCTUL", "LITERA", "POZITIA", "POZIȚIA"}
-)
-
-_ULTIMUL_CUVANT = re.compile(r"([A-Za-zĂÂÎȘȚăâîșț]+)\s*$")
+# dovezile este permisivă la variantele de scriere. Tiparele efective trăiesc în
+# `normative_codes.py`, comun cu `retrieval_core.py`.
 
 _NON_ALPHANUMERIC = re.compile(r"[^0-9A-Z]+")
 
@@ -175,38 +126,12 @@ def _supported_reference_fragments(evidence: Sequence[Evidence]) -> tuple[str, .
     return tuple(fragment for fragment in fragments if fragment)
 
 
-def _precedat_de_cuvant_de_structura(answer: str, start: int) -> bool:
-    """Spune dacă potrivirea e precedată imediat de un cuvânt de structură.
-
-    „ANEXA I 5-2" e numerotarea internă a unui document, nu normativul `I 5-2`; la fel
-    „CAPITOLUL C 1-2". Comparația e insensibilă la majuscule și acceptă și scrierea fără
-    diacritice, fiindcă modelul le folosește pe amândouă.
-    """
-    potrivire = _ULTIMUL_CUVANT.search(answer[:start])
-    if potrivire is None:
-        return False
-    return potrivire.group(1).upper() in _CUVINTE_DE_STRUCTURA
-
-
 def _normative_references(answer: str) -> tuple[tuple[str, int, int], ...]:
-    """Toate referințele normative din text, fără cele conținute integral în altă referință.
-
-    Filtrul de incluziune evită raportarea dublă: în `SR EN 12831` se potrivesc atât
-    tiparul `SR ...`, cât și tiparul `EN ...`; păstrăm numai potrivirea cea mai lungă.
-    """
-    matches = [
-        (match.group(0).strip(), match.start(), match.end())
-        for pattern in _NORMATIVE_REFERENCE_PATTERNS
-        for match in pattern.finditer(answer)
-        if not _precedat_de_cuvant_de_structura(answer, match.start())
-    ]
-    matches.sort(key=lambda item: (item[1], -item[2]))
-    kept: list[tuple[str, int, int]] = []
-    for reference, start, end in matches:
-        if any(previous_start <= start and end <= previous_end for _, previous_start, previous_end in kept):
-            continue
-        kept.append((reference, start, end))
-    return tuple(kept)
+    """Toate referințele normative din text, cu textul lor literal și pozițiile."""
+    return tuple(
+        (answer[start:end].strip(), start, end)
+        for start, end in gaseste_referinte_normative(answer)
+    )
 
 
 def _unsupported_normative_references(
