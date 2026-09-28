@@ -287,7 +287,7 @@ class AnthropicTextGenerator:
         "input_schema": {
             "type": "object",
             "additionalProperties": False,
-            "required": ["raspuns", "pasaje"],
+            "required": ["raspuns", "pasaje", "gasit"],
             "properties": {
                 "raspuns": {"type": "string"},
                 "pasaje": {
@@ -300,6 +300,10 @@ class AnthropicTextGenerator:
                             "description": "O singură frază copiată literal din dovadă, ideal sub 300 de caractere; niciodată articolul întreg.",
                         }},
                     },
+                },
+                "gasit": {
+                    "type": "boolean",
+                    "description": "False dacă dovezile nu conțin deloc răspunsul la întrebare.",
                 },
             },
         },
@@ -938,12 +942,20 @@ def intreaba(
                     intrebari_ramase=intrebari_ramase,
                 )
             else:
-                answer = IntreabaResponse(
-                    status="answered",
-                    raspuns=generated.raspuns,
-                    citari=[CitationResponse.from_public(item) for item in generated.citari],
-                    intrebari_ramase=intrebari_ramase,
-                )
+                if generated.status == "not_found":
+                    answer = IntreabaResponse(
+                        status="not_found",
+                        raspuns=_NOT_FOUND,
+                        citari=[],
+                        intrebari_ramase=intrebari_ramase,
+                    )
+                else:
+                    answer = IntreabaResponse(
+                        status="answered",
+                        raspuns=generated.raspuns,
+                        citari=[CitationResponse.from_public(item) for item in generated.citari],
+                        intrebari_ramase=intrebari_ramase,
+                    )
         connection.commit()
         quota_transaction_active = False
         if token is not None:

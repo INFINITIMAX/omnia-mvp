@@ -10,7 +10,7 @@ from typing import Literal, Protocol, Sequence
 from normative_codes import gaseste_referinte_normative
 from retrieval_core import Evidence
 
-MAX_ANSWER_TOKENS = 1200
+MAX_ANSWER_TOKENS = 2000
 MAX_CITATION_CHARS = 600
 _CITATION_ID = re.compile(r"\[([Cc][1-9][0-9]*)\]")
 
@@ -25,6 +25,10 @@ _CITATION_ID = re.compile(r"\[([Cc][1-9][0-9]*)\]")
 TRUNCATION_NOTICE = (
     "**Răspuns scurtat; reformulează întrebarea mai punctual pentru un răspuns complet.**"
 )
+
+# Mesaj public identic celui folosit când căutarea nu găsește deloc dovezi (`main.py`,
+# `_NOT_FOUND`): un refuz onest (D26) nu trebuie să se distingă de absența dovezilor.
+_NOT_FOUND_MESSAGE = "Nu am găsit această informație în documentele aprobate."
 
 
 @dataclass(frozen=True)
@@ -187,22 +191,24 @@ class GenerationService:
             raise ValueError("întrebarea trebuie să fie text nevid")
         assigned = tuple((f"C{index}", item) for index, item in enumerate(evidence, start=1))
         if not assigned:
-            return GenerationResult(
-                "not_found", "Nu am găsit această informație în documentele aprobate.", ()
-            )
+            return GenerationResult("not_found", _NOT_FOUND_MESSAGE, ())
 
         evidence_by_id = dict(assigned)
         supported_fragments = _supported_reference_fragments([item for _, item in assigned])
         prompt = self._build_prompt(question, assigned)
 
-        generated, used_ids, passages = self._generate_validated(prompt, evidence_by_id)
+        generated, used_ids, passages, gasit = self._generate_validated(prompt, evidence_by_id)
+        if not gasit:
+            return GenerationResult("not_found", _NOT_FOUND_MESSAGE, ())
         unsupported = _unsupported_normative_references(generated.text, supported_fragments)
         if unsupported:
             # O SINGURĂ reîncercare plătită, niciodată în buclă: dacă și a doua încercare
             # inventează referințe, refuzăm în loc să afișăm răspunsul.
-            generated, used_ids, passages = self._generate_validated(
+            generated, used_ids, passages, gasit = self._generate_validated(
                 self._retry_prompt(prompt, unsupported), evidence_by_id
             )
+            if not gasit:
+                return GenerationResult("not_found", _NOT_FOUND_MESSAGE, ())
             if _unsupported_normative_references(generated.text, supported_fragments):
                 raise UngroundedReferenceError(
                     "răspunsul invocă referințe normative care nu apar în dovezi"
@@ -225,18 +231,22 @@ class GenerationService:
 
     def _generate_validated(
         self, prompt: str, evidence_by_id: dict[str, Evidence]
-    ) -> tuple[GeneratedText, tuple[str, ...], dict[str, str]]:
+    ) -> tuple[GeneratedText, tuple[str, ...], dict[str, str], bool]:
         """Validează întregul pachet înainte ca referințele să poată provoca retry."""
         generated = self._as_generated_text(
             self._generator.generate(prompt, max_tokens=self._max_answer_tokens)
         )
         payload = self._decode_payload(generated.text)
+        if not payload["gasit"]:
+            # Cu gasit=false, GenerationResult publică mereu mesajul standard, nu raspuns/pasaje
+            # (Runda 2): conținutul lor rămâne nevalidat, un refuz nu trebuie să poată deveni 503.
+            return GeneratedText("", truncated=generated.truncated), (), {}, False
         answer = payload["raspuns"]
         if not isinstance(answer, str) or not answer.strip():
             raise EmptyGeneratedAnswerError("generatorul a returnat un răspuns gol")
         used_ids = self._validated_used_ids(answer, set(evidence_by_id))
         passages = self._validated_passages(payload["pasaje"], used_ids, evidence_by_id)
-        return GeneratedText(answer, truncated=generated.truncated), used_ids, passages
+        return GeneratedText(answer, truncated=generated.truncated), used_ids, passages, True
 
     @staticmethod
     def _decode_payload(text: str) -> dict[str, object]:
@@ -258,8 +268,10 @@ class GenerationService:
             )
         except (ValueError, RecursionError) as error:
             raise InvalidGenerationPayloadError("pachet JSON invalid") from error
-        if not isinstance(payload, dict) or set(payload) != {"raspuns", "pasaje"}:
+        if not isinstance(payload, dict) or set(payload) != {"raspuns", "pasaje", "gasit"}:
             raise InvalidGenerationPayloadError("schema pachetului este invalidă")
+        if type(payload["gasit"]) is not bool:
+            raise InvalidGenerationPayloadError("câmpul gasit este invalid")
         return payload
 
     @staticmethod
@@ -344,8 +356,8 @@ class GenerationService:
             "5. Fii concis: pune concluzia la început, evită tabelele lungi inutile și încadrează-te "
             "în bugetul de tokeni disponibil.\n"
             '6. Întoarce numai JSON strict cu schema {"raspuns":"text [C1]",'
-            '"pasaje":[{"id":"C1","citat":"pasaj exact"}]}, fără Markdown fences sau proză în afara JSON. '
-            "Nu adăuga alte chei și nu duplica chei JSON.\n"
+            '"pasaje":[{"id":"C1","citat":"pasaj exact"}],"gasit":true}, fără Markdown fences sau proză '
+            "în afara JSON. Nu adăuga alte chei și nu duplica chei JSON.\n"
             "7. Pentru fiecare ID folosit în raspuns, furnizează exact un pasaj în pasaje, "
             "numai pentru ID-urile folosite, fără duplicate (C1 și c1 sunt același ID). "
             "Citatul trebuie să fie text nevid de maximum 600 caractere, copiat ca subșir literal "
@@ -363,6 +375,11 @@ class GenerationService:
             "(de exemplu „cu formula:” urmat direct de explicația termenilor), spune explicit că "
             "acestea nu sunt disponibile în textul dovezii și nu le reconstrui din termeni sau "
             "din cunoștințe generale.\n"
+            "10. Câmpul `gasit` este obligatoriu. Pune `gasit=false` numai dacă dovezile nu conțin "
+            "deloc răspunsul la întrebare; atunci `pasaje` este listă goală, iar `raspuns` este o "
+            "frază scurtă care spune că informația nu se regăsește în dovezi, fără niciun "
+            "identificator [Cn]. Dacă dovezile conțin măcar o parte din răspuns, pune `gasit=true`, "
+            "citează conform regulilor de mai sus și spune explicit, conform regulii 4, ce lipsește.\n"
             "<intrebare_json>\n"
             f"{serialized_question}\n"
             "</intrebare_json>\n"

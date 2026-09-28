@@ -4,6 +4,12 @@ Acest fișier separă deciziile explicite ale lui Lucian de propunerile agențil
 
 ## Decizii active
 
+### D26 — refuz onest structurat și limita de răspuns, aprobat Lucian (28-09-2026)
+
+Evaluarea completă R23 a arătat: (1) 3 din 24 de generări tăiate la 1200 de tokeni → 503 pe site; (2) la o întrebare fără răspuns în corpus, modelul spunea corect că informația lipsește, dar contractul îl obliga să citeze articole irelevante. Decizii: `MAX_ANSWER_TOKENS` = 2000; tool-ul `return_grounded_answer` are câmpul obligatoriu `gasit` (boolean); `gasit=false` ⇒ fără pasaje și fără `[Cn]`, iar serverul răspunde `not_found` cu mesajul standard, fără citări. `gasit=true` păstrează neschimbate D20/D22 (pasaj literal verificat, ≥1 citare). Modifică D22 doar prin adăugarea câmpului `gasit`.
+
+**Runda 2 (28-09-2026):** evaluarea completă cu codul R24 a arătat că, deși trunchierile au dispărut, un `gasit=false` care încalcă regulile stricte de conținut (pasaje nevide sau `[Cn]` în text) producea `InvalidGenerationPayloadError` → tot 503, adică exact eroarea pe care refuzul trebuia s-o evite. Decizie: cu `gasit=false`, rezultatul e **întotdeauna** `GenerationResult("not_found", mesaj standard, ())`, indiferent de conținutul `raspuns`/`pasaje` (ignorate, nevalidate); rămân erori de validare doar chei lipsă/în plus, `gasit` care nu e boolean sau JSON invalid. Promptul păstrează instrucțiunea (`pasaje=[]`, fără `[Cn]`), dar serverul nu mai depinde de respectarea ei. `gasit=true` rămâne neschimbat (D20/D22).
+
 ### D25 — corectitudinea căutării măsurată pe setul de aur, aprobat Lucian (28-09-2026)
 
 Pe baza evaluării R18 (`evaluare/set_aur.json`, 30 de întrebări cu articolul corect verificat în textul sursă) Lucian a aprobat:

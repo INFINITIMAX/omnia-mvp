@@ -22,5 +22,15 @@ Worktree: `D:\Omnia-MVP-r24`, branch `feat/r24-limita-refuz` (din `main` `45a82d
 > ### D26 — refuz onest structurat și limita de răspuns, aprobat Lucian (28-09-2026)
 > Evaluarea completă R23 a arătat: (1) 3 din 24 de generări tăiate la 1200 de tokeni → 503 pe site; (2) la o întrebare fără răspuns în corpus, modelul spunea corect că informația lipsește, dar contractul îl obliga să citeze articole irelevante. Decizii: `MAX_ANSWER_TOKENS` = 2000; tool-ul `return_grounded_answer` are câmpul obligatoriu `gasit` (boolean); `gasit=false` ⇒ fără pasaje și fără `[Cn]`, iar serverul răspunde `not_found` cu mesajul standard, fără citări. `gasit=true` păstrează neschimbate D20/D22 (pasaj literal verificat, ≥1 citare). Modifică D22 doar prin adăugarea câmpului `gasit`.
 
+## Runda 2 — `gasit=false` nu trebuie să producă 503 (28-09-2026)
+
+Dovezi planner (evaluarea completă cu codul R24): trunchierile au dispărut (0 × `ProviderUnavailableError`, față de 3); 23 de răspunsuri, 23/23 cu citate literale, 22 citează articolul așteptat. **NEG-04** (subiect absent din corpus) → `InvalidGenerationPayloadError` → **503 pe site**: modelul a răspuns cu `gasit=false`, dar a încălcat una dintre regulile stricte (pasaje nevide sau `[Cn]` în text).
+
+Decizie planner (în spiritul D26; refuzul e direcția sigură): cu `gasit=false` serverul **nu** publică textul modelului și nici citări, ci doar mesajul standard, deci regulile stricte nu protejează nimic și doar transformă un refuz corect în eroare.
+1. Cu `gasit` boolean `false`: rezultatul e **întotdeauna** `GenerationResult("not_found", mesaj standard, ())`, indiferent de conținutul `raspuns` și `pasaje` (ignorate, nevalidate). Rămân erori de validare doar: chei lipsă/în plus, `gasit` care nu e boolean, JSON invalid.
+2. Promptul păstrează instrucțiunea (`pasaje=[]`, fără `[Cn]`), dar serverul nu mai depinde de respectarea ei.
+3. Cu `gasit=true`, totul rămâne exact ca acum (D20/D22).
+4. Actualizează textul D26 din `docs/DECISIONS.md` cu această precizare și raportul cu „Runda 2”. Decizia ta din runda 1 (reîncercare care revine cu `gasit=false` → refuz `not_found`) e acceptată de planner.
+
 ## Constrângeri dure
 Nu rula comenzi. Nu scrie teste noi (Tester-ul; testele care verifică schema sau limita veche le actualizează el). Fără comentarii inutile. Raport: `docs/handoff/R24-coder-raport.md`.
