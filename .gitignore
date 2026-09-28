@@ -23,3 +23,6 @@ skills-lock.json
 # artefact temporar al testelor pentru mount-ul /assets
 static/assets/test-asset.txt
 backups/
+
+# Rapoartele R18 (evaluarea căutării pe setul de aur) sunt locale, fără text normativ.
+evaluare/rapoarte/
