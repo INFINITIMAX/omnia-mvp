@@ -36,3 +36,35 @@ def normalizeaza_diacritice(text: str) -> str:
     if not isinstance(text, str):
         raise ValueError("textul trebuie să fie text")
     return text.translate(_SEDILA_LA_VIRGULA)
+
+
+# Runda R22: extragerea PDF a normativului I7-2011 substituie sistematic ț/ș/Ț cu
+# caractere din alte alfabete/blocuri Unicode, fără nicio legătură vizuală sau
+# semantică cu litera înlocuită - font embedat cu tabelă de codare greșită, nu
+# sedilă vs. virgulă. Fiecare mapare de mai jos e dovedită direct în
+# documente_noi/i7_2011/extracted.txt (vezi docs/handoff/R22-coder.md):
+# - Ġ (U+0120, literă latină) -> ț, ex. „protecĠia”
+# - ú (U+00FA, u cu accent, alfabet spaniol/portughez) -> ș, ex. „úi”
+# - ğ (U+011F, g cu breve, alfabet turc) -> Ț, doar în cuvinte cu majuscule
+#   („INSTALAğIILOR”, „PROTECğII”)
+# - ܊ (U+070A, alfabet siriac) -> ț, ex. „construc܊ii”
+# - ܈ (U+0708, alfabet siriac) -> ș, ex. „܈i”
+# Nu există (verificat în text) o formă majusculă coruptă separată a lui Ș -
+# cuvintele cu majuscule care ar conține-o („ÎNTREȚINEREA”, „SECURITĂȚII”) au
+# de fapt Ț corupt (ğ), nu Ș; nu se adaugă nicio mapare nedovedită.
+# \x98 (simbol din formule matematice) NU se mapează - nu corespunde unei
+# diacritice, ci unui simbol pierdut la extragere.
+_SUBSTITUIRI_PDF_LA_DIACRITICE = str.maketrans({
+    "Ġ": "ț",
+    "ú": "ș",
+    "ğ": "Ț",
+    "܊": "ț",
+    "܈": "ș",
+})
+
+
+def corecteaza_substituiri_pdf(text: str) -> str:
+    """Înlocuiește Ġ/ú/ğ/܊/܈ cu ț/ș/Ț (vezi tabela de mai sus). Nimic altceva."""
+    if not isinstance(text, str):
+        raise ValueError("textul trebuie să fie text")
+    return text.translate(_SUBSTITUIRI_PDF_LA_DIACRITICE)
