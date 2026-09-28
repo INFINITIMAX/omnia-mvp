@@ -361,6 +361,17 @@ _CUVINTE_TRIMITERE_RUPTA = (
 )
 
 
+# Runda R21/5: ultimul cuvânt întreg al unui rând (precedat de început de rând sau de
+# un caracter care nu e literă) — folosit ca să nu se mai confunde un sufix de cuvânt
+# ("...stabilit." conține "lit.") cu un cuvânt de trimitere/legătură real.
+_PATTERN_ULTIMUL_CUVANT_RAND = re.compile(r"(?:^|[^A-Za-zĂÂÎȘȚăâîșț])([A-Za-zĂÂÎȘȚăâîșț]+\.?)$")
+
+
+def _ultimul_cuvant(linie: str) -> str:
+    potrivire = _PATTERN_ULTIMUL_CUVANT_RAND.search(linie)
+    return potrivire.group(1).lower() if potrivire else ""
+
+
 def _linia_anterioara_se_termina_cu_trimitere(sursa: str, pozitie_marcaj: int) -> bool:
     """Caută înapoi, sărind rândurile goale, ultimul rând nevid dinaintea marcajului."""
     capat = pozitie_marcaj
@@ -368,8 +379,7 @@ def _linia_anterioara_se_termina_cu_trimitere(sursa: str, pozitie_marcaj: int) -
         inceput = sursa.rfind("\n", 0, capat) + 1
         linie = sursa[inceput:capat].strip()
         if linie:
-            cuvant = linie.lower()
-            return any(cuvant.endswith(sufix) for sufix in _CUVINTE_TRIMITERE_RUPTA)
+            return _ultimul_cuvant(linie) in _CUVINTE_TRIMITERE_RUPTA
         if inceput == 0:
             return False
         capat = inceput - 1
@@ -395,11 +405,8 @@ def _linia_anterioara_indica_continuare_anexa(sursa: str, pozitie_marcaj: int) -
         if linie:
             if linie[-1] == ",":
                 return True
-            cuvant = linie.lower()
-            return any(
-                cuvant.endswith(sufix)
-                for sufix in (*_CUVINTE_TRIMITERE_RUPTA, *_CUVINTE_CONTINUARE_ANEXA)
-            )
+            cuvant = _ultimul_cuvant(linie)
+            return cuvant in _CUVINTE_TRIMITERE_RUPTA or cuvant in _CUVINTE_CONTINUARE_ANEXA
         if inceput == 0:
             return False
         capat = inceput - 1

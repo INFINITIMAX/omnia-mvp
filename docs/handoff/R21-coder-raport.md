@@ -57,6 +57,10 @@ Plasa de siguranță pe `PATTERN_ARTICOL_ART` din runda 2 rămâne neschimbată 
 2. **Am scos plasa din runda 2** (resetarea `anexa_curenta = None` la orice `PATTERN_ARTICOL_ART`): cu regula „primul Art. acceptat” nu mai e necesară pentru cuprins, iar rândurile 26351/29484/35900 sunt exact cazul pe care îl bloca greșit — trimiteri „Art.” în interiorul unei anexe reale ar fi închis regiunea la mijlocul ei.
 3. **`_linia_anterioara_indica_continuare_anexa`**: am scos condiția „se termină cu literă mică”; rămân doar virgula și cuvintele de trimitere/legătură (`_CUVINTE_TRIMITERE_RUPTA`, `_CUVINTE_CONTINUARE_ANEXA`). Verificat pe legenda de la rândul dinaintea `ANEXA 4.5` („Figura 173 - Stație de pompare - Acces pe scara verticală” — se termina cu literă mică, respingea greșit titlul real). Cazul I9 3036–3037 rămâne respins („...și” e în `_CUVINTE_CONTINUARE_ANEXA`).
 
+## Runda 5 — potrivire pe cuvânt întreg, nu pe sufix
+
+Bug real preexistent (R14 runda 5), semnalat de teste: `_linia_anterioara_se_termina_cu_trimitere` și `_linia_anterioara_indica_continuare_anexa` foloseau `cuvant.endswith(sufix)` pe tot rândul lowercased, deci un cuvânt ca „stabilit.” era confundat cu trimiterea „lit.” (sufix, nu cuvânt). Am adăugat `_PATTERN_ULTIMUL_CUVANT_RAND` + helper `_ultimul_cuvant(linie)`: extrage ultimul cuvânt întreg al rândului (precedat de început de rând sau de un caracter care nu e literă, cu punctul final păstrat — „art.”, „lit.”, „pct.”, „alin.” rămân cuvinte cu punct), apoi ambele funcții verifică apartenența exactă la listele existente (`in`, nu `endswith`). Nu am schimbat listele de cuvinte (`_CUVINTE_TRIMITERE_RUPTA`, `_CUVINTE_CONTINUARE_ANEXA`) și nimic altceva.
+
 ## Ce ar trebui verificat de planner
 
 - Rulare `pytest tests/test_chunking_core.py` și `tests/test_populare_db.py` (după ce testerul actualizează numerele fixe de chunk-uri, cum era deja anticipat în task).

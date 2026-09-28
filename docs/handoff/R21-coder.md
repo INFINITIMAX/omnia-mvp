@@ -59,5 +59,11 @@ Cerințe:
 
 Acceptare: P 118/1 — toate cele 43 de titluri de anexă din corp (după rândul 26220) produc cel puțin un chunk cu prefixul lor; 811/811 „Art.”; acoperire ≥ 0,993; niciun chunk `ANEXA …` al cărui text conține titlul altei anexe; I9 neschimbat față de runda 3 (anexe de la 5162, acoperire 0,969); restul documentelor neschimbate. Actualizează raportul cu „Runda 4”.
 
+## Runda 5 — cuvinte comparate ca sufix, nu ca întreg (28-09-2026)
+
+Dovezi planner: după runda 4, P 118/1 are 43/43 anexe, 811/811 „Art.”, acoperire 0,996 ✓. Testele noi ale Tester-ului au găsit un **bug real, preexistent din R14 runda 5**: `_linia_anterioara_se_termina_cu_trimitere` (`chunking_core.py:364–376`) folosește `cuvant.endswith(sufix)` pe tot rândul, deci „…corect stabi**lit.**” e tratat ca trimitere („lit.”) și marcajul „Art. N.N.” următor e înghițit de articolul anterior (reprodus: 7 articole „Art. i.1.” sintetice → 1 singur segment). Aceeași eroare în `_linia_anterioara_indica_continuare_anexa`: „Figura 173 - Acces pe scara vertica**la**” se termină cu „la” → titlul `ANEXA 4.5` e respins. În corpusul actual efectul e 0 (verificat), dar e latent pentru documente viitoare.
+
+Cerință: în ambele funcții, potrivirea se face pe **ultimul cuvânt întreg** al rândului (precedat de început de rând sau de un caracter care nu e literă), nu pe sufixul șirului; `art.`, `lit.`, `pct.`, `alin.` rămân cuvinte cu punct. Nu schimba listele de cuvinte și nimic altceva. Actualizează raportul cu „Runda 5”.
+
 ## Constrângeri dure
 Nu rula comenzi. Nu scrie teste noi. Fără comentarii inutile. Raport: `docs/handoff/R21-coder-raport.md` (reguli, praguri, cazuri limită observate în I9 și NP 057).
