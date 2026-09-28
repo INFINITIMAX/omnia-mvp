@@ -8,6 +8,7 @@ continuările ambigue și persistența/UI rămân în afara acestui lot.
 import pytest
 
 from retrieval_core import (
+    SEMANTIC_TOP_K,
     ArticleParser,
     ConversationTurn,
     Evidence,
@@ -116,7 +117,7 @@ def retrieve(question, rows, context=()):
 
 
 def assert_global(repository, embedder, embedding_text):
-    assert repository.global_calls == [(VECTOR, 5)]
+    assert repository.global_calls == [(VECTOR, SEMANTIC_TOP_K)]
     assert repository.scoped_calls == []
     assert repository.exact_calls == []
     assert embedder.questions == [embedding_text]
@@ -257,17 +258,35 @@ def test_multi_document_alias_slash_rezolva_identitatea_partea_si_anul(code, doc
 
 
 @pytest.mark.parametrize("token", [
-    "XP 118/1-2025", "P 118/1-2025X", "P 118/1-20250", "P 118/12-2025",
-    "XP11812025", "P11812025X",
+    # Fără frontieră de cuvânt înaintea codului ("XP...") sau fără separator între
+    # grupurile numerice ("...2025X" compact): `gaseste_referinte_normative` nu
+    # detectează niciun cod aici, deci politica D25 nu se declanșează.
+    "XP 118/1-2025", "XP11812025", "P11812025X",
 ])
 def test_multi_document_alias_slash_nu_potriveste_interiorul_altui_token(token):
-    # Aici izolăm granițele aliasului complet; nu stabilim politica unui cod necunoscut.
+    # Aici izolăm granițele aliasului complet; tokenul nu arată deloc a cod normativ.
     parser = ArticleParser({"doc-p1": ("P 118/1-2025",)})
     parsed = parser.parse(f"{token}, art. 1.1")
 
     assert parsed.document_id is None
     assert not parsed.requires_clarification
     assert parsed.article_normalized == "1.1"
+
+
+@pytest.mark.parametrize("token", [
+    # Aici tokenul are forma compusă cerută de `gaseste_referinte_normative`
+    # (număr-separator-număr), deci e detectat ca un cod normativ, dar granița
+    # lui nu se suprapune complet cu aliasul aprobat "P 118/1-2025" (rămâne
+    # caracter alfanumeric imediat după/înainte de partea comună) — D25 cere
+    # acum clarificare, exact ca un cod necunoscut oarecare.
+    "P 118/1-2025X", "P 118/1-20250", "P 118/12-2025",
+])
+def test_multi_document_alias_slash_cod_asemanator_dar_negasit_cere_clarificare(token):
+    parser = ArticleParser({"doc-p1": ("P 118/1-2025",)})
+    parsed = parser.parse(f"{token}, art. 1.1")
+
+    assert parsed.document_id is None
+    assert parsed.requires_clarification
 
 
 def test_multi_document_alias_scurt_comun_la_doi_ani_ramane_realmente_ambiguu():
@@ -339,7 +358,7 @@ NUMERIC_SUFFIX_SEPARATORS = [
 
 
 def assert_scoped_once(repository, embedder, question, document):
-    assert repository.scoped_calls == [(VECTOR, 5, (document,))]
+    assert repository.scoped_calls == [(VECTOR, SEMANTIC_TOP_K, (document,))]
     assert repository.global_calls == []
     assert repository.exact_calls == []
     assert embedder.questions == [question]
@@ -512,7 +531,7 @@ def test_d12_scope_curent_pastreaza_ultimele_trei_intrebari_in_embedding(phrase)
 
     result, repository, embedder = retrieve(question, (evidence("doc-np010"), target), context)
 
-    assert repository.scoped_calls == [(VECTOR, 5, ("doc-i7",))]
+    assert repository.scoped_calls == [(VECTOR, SEMANTIC_TOP_K, ("doc-i7",))]
     assert repository.global_calls == repository.exact_calls == []
     assert embedder.questions == ["\n".join([turn.intrebare for turn in context[-3:]] + [question])]
     assert result.status == "found" and result.evidence == (target,)

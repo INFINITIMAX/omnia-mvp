@@ -4,6 +4,15 @@ Acest fișier separă deciziile explicite ale lui Lucian de propunerile agențil
 
 ## Decizii active
 
+### D25 — corectitudinea căutării măsurată pe setul de aur, aprobat Lucian (28-09-2026)
+
+Pe baza evaluării R18 (`evaluare/set_aur.json`, 30 de întrebări cu articolul corect verificat în textul sursă) Lucian a aprobat:
+- **Cod de normativ necunoscut → refuz.** O întrebare care conține o referință normativă (tiparele din `normative_codes.py`) ce nu corespunde niciunui document `approved` primește `ambiguous_reference`, fără embedding și fără căutare. Motiv: „art. 5.12 din I 13-2015” (document `disabled`) primea răspuns din I7-2011.
+- **`SEMANTIC_TOP_K = 10`** (era 5): articolul corect ieșea pe locul 9.
+- **Ruta semantică nu mai refuză cu `ambiguous_article`**; fragmentele aceluiași articol se grupează în ordinea `chunk_order`. Justificare: după R16, fiecare articol normalizat e un singur bloc continuu (test permanent). Ruta exactă păstrează verificarea.
+- **`SEMANTIC_MIN_SCORE` rămâne 0,50**: scorurile întrebărilor corecte (0,494–0,760) și ale celor fără răspuns (0,439–0,549) se suprapun; protecția pentru întrebările fără răspuns rămâne la generare (refuz obligatoriu fără dovadă).
+- Rezultat: 25/30 → **27/30** pe același set (R19).
+
 ### D24 — reimport `approved` cu poartă automată, aprobat Lucian (27-09-2026)
 
 Documentele `approved` pot primi chunk-urile produse de chunker-ul unificat (R14) prin `reimport_approved.py --commit`, fără aprobare manuală a raportului per document, **numai** dacă poarta automată trece: acoperire față de textul brut ≥ pragul documentului, zero antete de pagină MO în chunk-uri, chunk-uri valide, iar pentru P 118/1 toate articolele „Art.” ca articole proprii. Înlocuirea se face într-o singură tranzacție, fără schimbare de status, după un backup local al chunk-urilor vechi (inclusiv embeddings); `--restore` revine din backup fără cost Voyage. Pragurile se schimbă doar prin PR. Execuția în producție (scriere DB + Voyage) rămâne o aprobare separată a lui Lucian.

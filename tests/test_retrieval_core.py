@@ -6,6 +6,7 @@ import pytest
 
 from retrieval_core import (
     MAX_QUESTION_CHARS,
+    SEMANTIC_TOP_K,
     ArticleParser,
     ConversationTurn,
     Evidence,
@@ -141,6 +142,58 @@ def test_aliasurile_metadata_recunosc_np010_si_np_010_2022():
     parser = ArticleParser(ALIASES, KNOWN)
     assert parser.parse("NP010, art. 4.4.7.2").document_id == "doc-np010"
     assert parser.parse("NP 010-2022, art. 4.4.7.2").document_id == "doc-np010"
+
+
+# --- D25: un cod de normativ necunoscut cu articol cere clarificare, fără embedding ---
+
+
+def test_d25_cod_de_normativ_necunoscut_cu_articol_cere_clarificare():
+    """`I 13-2015` are forma unui cod de normativ (`gaseste_referinte_normative` îl
+    detectează), dar nu e alias al niciunui document din catalogul aprobat (`ALIASES`
+    conține doar NP010) — trebuie refuzat înainte de orice rută."""
+    parsed = ArticleParser(ALIASES, KNOWN).parse("Ce prevede I 13-2015 la art. 5.12?")
+
+    assert parsed.requires_clarification
+    assert parsed.document_id is None
+    assert parsed.article_normalized is None
+
+
+def test_d25_cod_de_normativ_aprobat_cu_articol_ramane_neschimbat():
+    parsed = ArticleParser(ALIASES, KNOWN).parse("NP 010-2022, art. 4.4.7.2")
+
+    assert not parsed.requires_clarification
+    assert parsed.document_id == "doc-np010"
+    assert parsed.article_normalized == "4.4.7.2"
+
+
+def test_d25_intrebare_fara_niciun_cod_ramane_neschimbata():
+    parsed = ArticleParser(ALIASES, KNOWN).parse("art. 4.4.7.2, ce prevede?")
+
+    assert not parsed.requires_clarification
+    assert parsed.article_normalized == "4.4.7.2"
+    assert parsed.document_id is None
+
+
+def test_d25_cod_aprobat_si_cod_necunoscut_in_aceeasi_intrebare_cere_clarificare():
+    """Un cod aprobat prezent nu salvează întrebarea dacă apare și un cod necunoscut."""
+    parsed = ArticleParser(ALIASES, KNOWN).parse(
+        "Compară NP 010-2022 cu I 13-2015 la art. 4.4.7.2."
+    )
+
+    assert parsed.requires_clarification
+
+
+def test_d25_refuzul_nu_apeleaza_embedder_sau_repository():
+    repository = RepositoryFake([evidence()], [evidence(score=0.99)])
+    embedder = EmbedderFake()
+
+    result = service(repository, embedder).retrieve("Ce prevede I 13-2015 la art. 5.12?")
+
+    assert result.status == "ambiguous_reference"
+    assert result.evidence == ()
+    assert repository.exact_calls == 0
+    assert repository.semantic_calls == 0
+    assert embedder.calls == 0
 
 
 @pytest.mark.parametrize("question", ["XNP010, art. 4.4.7.2", "NP0100, art. 4.4.7.2"])
@@ -496,14 +549,46 @@ def test_exact_refuza_chunkuri_conflictuale_cu_aceeasi_pozitie():
     assert result.evidence == ()
 
 
-def test_semantic_refuza_chunkuri_conflictuale_neconsecutive():
-    primul = evidence(chunk_id=10, content="prima parte", content_hash="hash-a", score=0.90, chunk_order=40)
-    conflicting = evidence(chunk_id=11, content="a treia parte", content_hash="hash-b", score=0.80, chunk_order=42)
+def test_exact_refuza_chunkuri_conflictuale_neconsecutive_cu_gol_intre_pozitii():
+    """R19 Runda 2: ruta exactă păstrează refuzul, neatins de schimbarea rutei semantice."""
+    primul = evidence(chunk_id=10, content="prima parte", content_hash="hash-a", chunk_order=40)
+    conflicting = evidence(chunk_id=11, content="a treia parte", content_hash="hash-b", chunk_order=42)
 
-    result = service(RepositoryFake([], [primul, conflicting])).retrieve("întrebare semantică")
+    result = service(RepositoryFake([primul, conflicting], [])).retrieve("art. 4.4.7.2")
 
     assert result.status == "ambiguous_article"
     assert result.evidence == ()
+
+
+def test_semantic_grupeaza_fragmentele_neconsecutive_ale_aceluiasi_articol_pe_pozitia_celui_mai_bun_scor():
+    """R19 Runda 2: pe ruta semantică, fragmente neconsecutive ale aceluiași articol nu mai
+    sunt refuzate ca `ambiguous_article` — sunt grupate, ordonate intern după `chunk_order`,
+    la poziția primei apariții a articolului (care e deja poziția celui mai bun scor).
+
+    Intrarea vine deja sortată descrescător după scor: `al_treilea` (0.95, chunk_order 42)
+    e primul, urmat de `intercalat` (alt articol) și abia apoi `fragment_devreme` (0.85,
+    chunk_order 40, articol identic cu `al_treilea`). Grupul trebuie plasat pe poziția 0
+    (a primei apariții — `al_treilea`), dar reordonat intern după chunk_order, deci
+    `fragment_devreme` (40) trebuie să apară înaintea lui `al_treilea` (42) în rezultat.
+    Ar pica dacă gruparea ar păstra ordinea brută (după scor) în loc să reordoneze intern
+    după chunk_order, sau dacă ruta semantică ar mai refuza cu `ambiguous_article`."""
+    intercalat = evidence(
+        chunk_id=1, article="9.9.9", content="b", content_hash="hash-b", score=0.90, chunk_order=10,
+    )
+    fragment_devreme = evidence(
+        chunk_id=2, article="4.4.7.2", content="c", content_hash="hash-c", score=0.85, chunk_order=40,
+    )
+    al_treilea = evidence(
+        chunk_id=3, article="4.4.7.2", content="a", content_hash="hash-a", score=0.95, chunk_order=42,
+    )
+
+    result = service(RepositoryFake([], [al_treilea, intercalat, fragment_devreme])).retrieve(
+        "întrebare semantică"
+    )
+
+    assert result.status == "found"
+    assert [item.content_hash for item in result.evidence] == ["hash-c", "hash-a", "hash-b"]
+    assert [item.chunk_order for item in result.evidence] == [40, 42, 10]
 
 
 def test_semantic_aplica_top_k_prag_deduplicare_si_context():
@@ -644,7 +729,7 @@ def test_continuarea_fara_referinta_cauta_global_cu_context():
     assert [item.document_id for item in result.evidence] == ["doc-i7"]
     assert repository.scoped_calls == []
     assert repository.semantic_calls == 1
-    assert repository.top_k == 5
+    assert repository.top_k == SEMANTIC_TOP_K
     assert embedder.calls == 1
 
 
@@ -663,7 +748,7 @@ def test_context_scoped_miss_nu_impiedica_dovezile_globale(scoped):
     assert result.evidence == tuple(repository.semantic)
     assert repository.scoped_calls == []
     assert repository.semantic_calls == 1
-    assert repository.top_k == 5
+    assert repository.top_k == SEMANTIC_TOP_K
     assert embedder.calls == 1
 
 
@@ -696,7 +781,7 @@ def test_documentul_numit_fara_articol_cauta_global_si_pastreaza_contextul():
     assert [item.document_id for item in result.evidence] == ["doc-p118"]
     assert repository.scoped_calls == []
     assert repository.semantic_calls == 1
-    assert repository.top_k == 5
+    assert repository.top_k == SEMANTIC_TOP_K
     assert embedder.intrebari_primite == [
         "Ce spune despre sprinklere?\nCe spune I7-2011 despre obstacole?"
     ]
@@ -715,7 +800,7 @@ def test_documentul_mentionat_cu_scoped_miss_nu_impiedica_cautarea_globala(scope
     assert result.evidence == tuple(repository.semantic)
     assert repository.semantic_calls == 1
     assert repository.scoped_calls == []
-    assert repository.top_k == 5
+    assert repository.top_k == SEMANTIC_TOP_K
     assert embedder.calls == 1
 
 

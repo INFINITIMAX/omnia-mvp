@@ -13,6 +13,7 @@ from generation_core import (
     MissingCitationError,
     UngroundedReferenceError,
     UnknownCitationError,
+    _normative_references,
 )
 from retrieval_core import Evidence
 from generation_fixture_helpers import RawGeneratorFake, simulated_provider_payload
@@ -300,6 +301,33 @@ def test_numerotarea_interna_a_documentelor_nu_este_luata_drept_referinta(text):
 
     assert generator.calls == 1, "s-a declanșat o reîncercare pentru text legitim"
     assert result.status == "answered"
+
+
+# --- R19: `_normative_references` e un wrapper subțire peste `normative_codes` -------
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("Temperatura exterioară este +35°C conform STAS 6648 [C1].", ["STAS 6648"]),
+        (
+            "Se recomandă utilizarea metodologiei propuse în SR EN ISO 52016-1.",
+            ["SR EN ISO 52016-1"],
+        ),
+        ("Nu există niciun cod normativ în acest text [C1].", []),
+    ],
+)
+def test_normative_references_extrage_acelasi_text_ca_inainte_de_mutarea_in_modul(text, expected):
+    """`_normative_references` trebuie să întoarcă exact același text literal (fără
+    trailing/leading whitespace) ca vechea implementare bazată pe `match.group(0).strip()`,
+    reconstruit acum din pozițiile date de `gaseste_referinte_normative`. Ar pica dacă
+    wrapper-ul ar întoarce alt text decât `answer[start:end].strip()`, sau dacă pozițiile
+    nu s-ar mai alinia cu textul original."""
+    references = _normative_references(text)
+
+    assert [reference for reference, _start, _end in references] == expected
+    for reference, start, end in references:
+        assert text[start:end].strip() == reference
 
 
 def test_reincercarea_nu_se_declanseaza_a_doua_oara_cand_a_doua_incercare_e_curata():
