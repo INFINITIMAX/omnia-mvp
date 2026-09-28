@@ -1,6 +1,8 @@
 # R22 — Coder: diacriticele corupte din I7-2011
 
-Aprobat de Lucian 28-09-2026. Se pornește după merge-ul R21 (același fișier, `chunking_core.py`).
+Worktree: `D:\Omnia-MVP-r22-i7`, branch `fix/r22-diacritice-i7`, pornit din branch-ul R21 (`fix/r21-anexe-p118`, commit `7905696`, PR #23 nemerge-uit încă) pentru că atinge același fișier. Aprobat de Lucian 28-09-2026.
+
+Notă: `diacritice.normalizeaza_diacritice` (`diacritice.py:34`) face azi doar sedilă→virgulă; extinde-o sau adaugă o funcție alăturată, fără a schimba comportamentul pentru textele fără aceste caractere.
 
 ## Dovezi (planner, `documente_noi/i7_2011/extracted.txt`)
 Caractere care nu există în română, substituite sistematic la extragerea PDF-ului I7:
