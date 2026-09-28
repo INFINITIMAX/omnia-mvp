@@ -12,6 +12,7 @@ Pe baza evaluării R18 (`evaluare/set_aur.json`, 30 de întrebări cu articolul 
 - **Ruta semantică nu mai refuză cu `ambiguous_article`**; fragmentele aceluiași articol se grupează în ordinea `chunk_order`. Justificare: după R16, fiecare articol normalizat e un singur bloc continuu (test permanent). Ruta exactă păstrează verificarea.
 - **`SEMANTIC_MIN_SCORE` rămâne 0,50**: scorurile întrebărilor corecte (0,494–0,760) și ale celor fără răspuns (0,439–0,549) se suprapun; protecția pentru întrebările fără răspuns rămâne la generare (refuz obligatoriu fără dovadă).
 - Rezultat: 25/30 → **27/30** pe același set (R19).
+- Limitare cunoscută (reviewer R19): un cod aprobat scris cu cifre diferite de alias, ex. „NP10-2022” față de „NP 010-2022”, e refuzat ca necunoscut (înainte cădea pe căutarea semantică globală). Toleranța la zerouri inițiale rămâne decizie separată.
 
 ### D24 — reimport `approved` cu poartă automată, aprobat Lucian (27-09-2026)
 
