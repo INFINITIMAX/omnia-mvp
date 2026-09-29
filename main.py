@@ -53,6 +53,7 @@ from generation_core import (
     UngroundedReferenceError,
     UnknownCitationError,
 )
+from query_rewrite import AnthropicQueryRewriter
 from scope_core import is_engineering_calculation_request
 load_dotenv()
 
@@ -202,6 +203,7 @@ from retrieval_core import (
     ConversationTurn,
     PostgresApprovedCatalogRepository,
     PostgresRetrievalRepository,
+    QueryRewriter,
     RetrievalService,
 )
 
@@ -399,6 +401,23 @@ class BudgetGatedTextGenerator:
         return self._inner.generate(prompt, max_tokens=max_tokens)
 
 
+class BudgetGatedQueryRewriter:
+    """Îmbracă un `QueryRewriter` real; refuză apelul dacă plafonul zilnic e atins.
+
+    Aceeași rezervare unică per cerere ca la `BudgetGatedEmbedder`/`BudgetGatedTextGenerator`
+    (vezi `_PaidCallBudgetGuard`): rescrierea nu adaugă un al doilea apel plătit numărat
+    separat, doar declanșează rezervarea dacă niciun alt apel plătit n-a făcut-o încă.
+    """
+
+    def __init__(self, inner: QueryRewriter, guard: _PaidCallBudgetGuard) -> None:
+        self._inner = inner
+        self._guard = guard
+
+    def rewrite(self, question: str) -> str:
+        self._guard.reserve()
+        return self._inner.rewrite(question)
+
+
 def _required_environment(name: str) -> str:
     value = os.getenv(name)
     if not value:
@@ -484,6 +503,7 @@ class RuntimeDependencies:
     connection_factory: Callable[[], object]
     embedder_factory: Callable[[], QueryEmbedder]
     text_generator_factory: Callable[[], TextGenerator]
+    query_rewriter_factory: Callable[[], QueryRewriter] = AnthropicQueryRewriter
     access_control_config_factory: Callable[[], AnonymousAccessControlRuntimeConfig] = _anonymous_access_control_config
     now_factory: Callable[[], datetime] = _utc_now
     daily_paid_call_limit_factory: Callable[[], int] = _daily_paid_call_limit
@@ -941,6 +961,7 @@ def intreaba(
             parser,
             PostgresRetrievalRepository(connection),
             BudgetGatedEmbedder(dependencies.embedder_factory(), budget_guard),
+            rewriter=BudgetGatedQueryRewriter(dependencies.query_rewriter_factory(), budget_guard),
         )
         result = retrieval.retrieve(cerere.intrebare, cerere.context_tipat())
 

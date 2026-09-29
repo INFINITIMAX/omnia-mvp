@@ -18,6 +18,7 @@ from typing import Callable, Mapping, Sequence
 
 from generation_core import GenerationService, GenerationValidationError, PublicCitation, UngroundedReferenceError
 from main import AnthropicTextGenerator, ProviderUnavailableError, _open_db_connection
+from query_rewrite import AnthropicQueryRewriter
 from real_grounding_eval import RealEvaluationError, _build_runtime_embedder, _write_report_atomically
 from retrieval_core import (
     ArticleParser,
@@ -172,6 +173,22 @@ def _is_correct(case: GoldCase, status: str, gasit: bool) -> bool:
     if case.tip == "negativ":
         return status in _REFUSAL_STATUSES
     return status == "found" and gasit
+
+
+class _CountingRewriter:
+    """Blochează rescrierile peste `MAX_GENERATION_CALLS` — același plafon ca la generare,
+    fiindcă rescrierea rulează cel mult o dată per caz, la fel ca o generare."""
+
+    def __init__(self, delegate: object, limit: int) -> None:
+        self._delegate = delegate
+        self._limit = limit
+        self.calls = 0
+
+    def rewrite(self, question: str) -> str:
+        if self.calls >= self._limit:
+            raise RealEvaluationError("cost_limit")
+        self.calls += 1
+        return self._delegate.rewrite(question)
 
 
 class _CountingGenerator:
@@ -358,6 +375,8 @@ def run_evaluation(
     embedder_factory: Callable[[], object],
     generation: bool = False,
     generator_factory: Callable[[], object] | None = None,
+    rescriere: bool = False,
+    rewriter_factory: Callable[[], object] | None = None,
 ) -> dict[str, object]:
     """O singură conexiune readonly, o singură compunere de retrieval, fail-fast pe erori reale."""
     connection: object | None = None
@@ -366,13 +385,14 @@ def run_evaluation(
     embedder = _CountingEmbedder(embedder_factory(), MAX_EMBEDDING_CALLS)
     generator = _CountingGenerator(generator_factory(), MAX_GENERATION_CALLS) if generation else None
     generation_service = GenerationService(generator) if generation else None
+    rewriter = _CountingRewriter(rewriter_factory(), MAX_GENERATION_CALLS) if rescriere else None
     try:
         connection = connection_factory()
         connection.set_session(readonly=True, autocommit=False)
         catalog = PostgresApprovedCatalogRepository(connection).load()
         parser = catalog.create_parser()
         repository = PostgresRetrievalRepository(connection)
-        retrieval = RetrievalService(parser, repository, embedder)
+        retrieval = RetrievalService(parser, repository, embedder, rewriter=rewriter)
 
         for case in cases:
             try:
@@ -433,6 +453,8 @@ def run_evaluation(
                 connection.close()
 
     summary = _build_summary(evaluated, embedder.calls)
+    if rescriere:
+        summary["rescriere_calls"] = rewriter.calls
     if generation:
         summary["generation_calls"] = generator.calls
         summary["generare"] = _build_generation_summary(evaluated, generator.calls)
@@ -452,6 +474,11 @@ def _build_production_generator() -> AnthropicTextGenerator:
     return AnthropicTextGenerator()
 
 
+def _build_production_rewriter() -> AnthropicQueryRewriter:
+    """Adaptorul chiar de producție: același client Anthropic lazy al modulului `query_rewrite`."""
+    return AnthropicQueryRewriter()
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Fără `--run`: validează setul și iese, fără DB/Voyage. Cu `--run`: rulează real."""
     parser = argparse.ArgumentParser(description="Evaluează căutarea pe setul permanent de aur.")
@@ -461,6 +488,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--generare", action="store_true",
         help="Cu --run: generează răspunsuri (GenerationService) pentru cazurile găsite, max 30 de generări.",
+    )
+    parser.add_argument(
+        "--rescriere", action="store_true",
+        help="Cu --run: adaugă rescrierea întrebării (Haiku, R30) pe ruta semantică, ca înainte/după.",
     )
     arguments = parser.parse_args(argv)
 
@@ -472,6 +503,10 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if arguments.generare and not arguments.run:
         print("generare_requires_run", file=sys.stderr)
+        return 2
+
+    if arguments.rescriere and not arguments.run:
+        print("rescriere_requires_run", file=sys.stderr)
         return 2
 
     if not arguments.run:
@@ -492,6 +527,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             embedder_factory=_build_runtime_embedder,
             generation=arguments.generare,
             generator_factory=_build_production_generator if arguments.generare else None,
+            rescriere=arguments.rescriere,
+            rewriter_factory=_build_production_rewriter if arguments.rescriere else None,
         )
     except RealEvaluationError as error:
         print(str(error), file=sys.stderr)

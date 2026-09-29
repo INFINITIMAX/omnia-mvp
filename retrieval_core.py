@@ -97,6 +97,13 @@ class Embedder(Protocol):
     def embed_query(self, question: str) -> Sequence[float]: ...
 
 
+class QueryRewriter(Protocol):
+    """Contract injectabil pentru rescrierea opțională a întrebării înainte de embedding
+    (R30); implementarea Anthropic rămâne în afara acestui modul, în `query_rewrite.py`."""
+
+    def rewrite(self, question: str) -> str: ...
+
+
 class ArticleParser:
     """Parsează coduri injectate din metadata și articole fără a ghici numerele."""
 
@@ -468,6 +475,7 @@ class RetrievalService:
         repository: PostgresRetrievalRepository,
         embedder: Embedder,
         *,
+        rewriter: QueryRewriter | None = None,
         semantic_top_k: int = SEMANTIC_TOP_K,
         semantic_min_score: float = SEMANTIC_MIN_SCORE,
         max_context_chars: int = MAX_CONTEXT_CHARS,
@@ -475,6 +483,7 @@ class RetrievalService:
         self._parser = parser
         self._repository = repository
         self._embedder = embedder
+        self._rewriter = rewriter
         self._semantic_top_k = PostgresRetrievalRepository._require_positive_integer(
             semantic_top_k, "semantic_top_k"
         )
@@ -519,16 +528,17 @@ class RetrievalService:
             evidence = self._limit_context(self._deduplicate(exact, preserve_documents=True))
             return RetrievalResult("found", evidence) if evidence else RetrievalResult("not_found", ())
 
-        # Un singur embedding și o singură interogare; menționările/citările nu sunt scope.
-        embedding = self._embedder.embed_query(self._embedding_text(question, turns))
-        if restricted is not None:
-            accepted = self._accepted(
-                self._repository.find_semantic_in_documents(
-                    embedding, self._semantic_top_k, tuple(sorted(restricted))
-                )
-            )
+        # Fără rescriere (sau rescriere identică cu originalul): un singur embedding și o
+        # singură interogare, exact comportamentul de dinainte de R30. Menționările/citările
+        # nu sunt scope.
+        documents = tuple(sorted(restricted)) if restricted is not None else None
+        rewritten_question = self._rewritten_question(question)
+        original_hits = self._semantic_hits(self._embedding_text(question, turns), documents)
+        if rewritten_question is None:
+            accepted = original_hits
         else:
-            accepted = self._accepted(self._repository.find_semantic(embedding, self._semantic_top_k))
+            rewritten_hits = self._semantic_hits(self._embedding_text(rewritten_question, turns), documents)
+            accepted = self._combined_by_max_score(original_hits, rewritten_hits)
         # Ruta semantică nu mai refuză cu `ambiguous_article`: după R16 fiecare articol e
         # un bloc continuu de chunk-uri, deci fragmente multiple din același articol nu mai
         # pot fi conflictuale, doar context în plus (vezi `_grouped_by_article`).
@@ -579,6 +589,41 @@ class RetrievalService:
             item for item in semantic
             if item.score is not None and item.score >= self._semantic_min_score
         )
+
+    def _rewritten_question(self, question: str) -> str | None:
+        """`None` dacă nu există rewriter sau dacă rescrierea e identică cu originalul,
+        după normalizarea spațiilor — atunci ruta rămâne pe un singur embedding, ca azi."""
+        if self._rewriter is None:
+            return None
+        rewritten = self._rewriter.rewrite(question)
+        if not isinstance(rewritten, str):
+            return None
+        if _WHITESPACE.sub(" ", rewritten).strip() == _WHITESPACE.sub(" ", question).strip():
+            return None
+        return rewritten
+
+    def _semantic_hits(
+        self, embedding_text: str, document_ids: tuple[str, ...] | None
+    ) -> tuple[Evidence, ...]:
+        embedding = self._embedder.embed_query(embedding_text)
+        if document_ids is not None:
+            return self._accepted(
+                self._repository.find_semantic_in_documents(embedding, self._semantic_top_k, document_ids)
+            )
+        return self._accepted(self._repository.find_semantic(embedding, self._semantic_top_k))
+
+    def _combined_by_max_score(
+        self, first: Sequence[Evidence], second: Sequence[Evidence]
+    ) -> tuple[Evidence, ...]:
+        """Combină după `chunk_id` cu scorul maxim; ambele liste vin deja filtrate de
+        `_accepted`, deci fiecare element are `score` numeric."""
+        best: dict[int, Evidence] = {}
+        for item in (*first, *second):
+            existing = best.get(item.chunk_id)
+            if existing is None or item.score > existing.score:
+                best[item.chunk_id] = item
+        ordered = sorted(best.values(), key=lambda item: item.score, reverse=True)
+        return tuple(ordered[: self._semantic_top_k])
 
     @staticmethod
     def _has_ambiguous_article(evidence: Sequence[Evidence]) -> bool:
