@@ -362,8 +362,9 @@ _PATTERN_CARACTER_VALID_DUPA_NUMAR = re.compile(r"^[A-ZĂÂÎȘȚŞŢ„(0-9]")
 # mică ("2.56. semnal de confirmare alarmă - semnal de la..."), caz altfel identic cu o
 # trimitere ruptă (literă mică nevalidă după număr). Le distingem prin prezența unei
 # cratime/en dash aproape de începutul rândului (separatorul termen-definiție); fereastra
-# de căutare acoperă și variantele cu cratimă lipită de termen, cu paranteze înainte de
-# cratimă și cu cratima mutată pe rândul următor (2.16, 2.30, 2.61 etc.).
+# acoperă cratima lipită de termen și parantezele înainte de cratimă, dar e limitată la
+# rândul curent: o cratimă pe rândul următor NU face din rând o definiție (regresie I7,
+# vezi `_este_referinta_rupta`).
 _PATTERN_LITERA_MICA_DUPA_NUMAR = re.compile(r"^[a-zăâîșțşţ]")
 _PATTERN_CRATIMA_DEFINITIE = re.compile(r"[-–]")
 _LUNGIME_FEREASTRA_CRATIMA_DEFINITIE = 120
