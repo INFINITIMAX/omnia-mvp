@@ -6,8 +6,9 @@ Citește în ordine: această secțiune → `docs/DECISIONS.md` (D23–D27 sunt 
 
 ### Stare live
 - Producție: `https://normativai.ro`, Railway. Ultimul deploy 29-09 pe `0e1253f` (include PR #35: anthropic 1.3.0), test rapid OK. Health: `/health`, `/health/db` (SELECT 1, cache 60 s), `/health/provideri`.
-- **12 normative `approved`**: P 118/1-2025, P 118/2-2013 și P 118/3-2015 (consolidate cu Ordinele 6.026/2018 și 6.025/2018, D27), I5-2022, I7-2011, I9-2022, NP 004-03, NP 010-2022, NP 015-2022 (`spitale_2022`), NP 057-02, NP 064-02 (mansarde, excepție D28), NP 091-2003.
-- **Candidați de normative din arhiva lui Lucian** (verificați față de lista MDLPA, nealeși încă): NP 061-2002, NP 063-2002, NP 065-2002, NP 040-2002, NP 127-2009, NP 099-2004, C 56-2002; Lucian a ales deocamdată doar NP 064. Cei cu text doar în Buletinul Construcțiilor cer excepție explicită (D28). `disabled`: `i13_2015_modificari`, `p118_2_2013_modificari` (doar ordine de modificare, D23).
+- **13 normative `approved`**: P 118/1-2025, P 118/2-2013 și P 118/3-2015 (consolidate cu Ordinele 6.026/2018 și 6.025/2018, D27), I5-2022, I7-2011, I9-2022, NP 004-03, NP 010-2022, NP 015-2022 (`spitale_2022`), NP 057-02, NP 064-02 (mansarde, excepție D28), NP 091-2003, NP 127:2009 (parcaje subterane, R29 — text din Portalul Legislativ, MO 74/2010; Capitolul XIV „Referințe” exclus).
+- **Feedback de la testare (Bogdan, inginer instalații):** debitul de desfumare 600/900 m³/h pe autoturism și distanța de 8 m a gurilor de evacuare → rezolvate prin NP 127 (R29). Viteza maximă pe tubulatura de presurizare: nu există în P 118 (doar 5 m/s la guri, 1 m/s la uși) — de aflat de la el articolul exact.
+- **Candidați de normative din arhiva lui Lucian** (verificați față de lista MDLPA, nealeși încă): NP 061-2002, NP 063-2002, NP 065-2002, NP 040-2002, NP 099-2004, C 56-2002. Cei cu text doar în Buletinul Construcțiilor cer excepție explicită (D28). `disabled`: `i13_2015_modificari`, `p118_2_2013_modificari` (doar ordine de modificare, D23).
 - Evaluare (`evaluare/set_aur.json`, **36** de întrebări, versiune 1): căutare **34/36** (rămân NP015-03 sub prag și NEG-04 — acceptate, D25); generare: 0 erori, toate răspunsurile cu citate literale, refuz corect fără dovezi (D26).
 - Citarea are câmpul `modificari` („Text modificat prin Ordinul nr. …”) pentru textele consolidate (D27).
 
