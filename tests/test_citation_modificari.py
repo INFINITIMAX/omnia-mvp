@@ -27,6 +27,20 @@ MARKER_ABROGAT = (
     "Abrogat prin Ordinul nr. 6.026/2018, publicat în Monitorul Oficial "
     "nr. 966 din 15.11.2018"
 )
+# D27 Runda 2: forma propagată de `chunking_core._propaga_marcaj_provenienta` la
+# nivel de articol (nu direct pe textul afectat).
+MARKER_ARTICOL_MODIFICAT = (
+    "Articol cu text modificat prin Ordinul nr. 6.025/2018, publicat în "
+    "Monitorul Oficial nr. 977 din 19.11.2018"
+)
+MARKER_ARTICOL_INTRODUS = (
+    "Articol cu text introdus prin Ordinul nr. 6.026/2018, publicat în "
+    "Monitorul Oficial nr. 966 din 15.11.2018"
+)
+MARKER_ARTICOL_ABROGAT = (
+    "Articol cu text abrogat prin Ordinul nr. 6.026/2018, publicat în "
+    "Monitorul Oficial nr. 966 din 15.11.2018"
+)
 
 
 class RawGenerator:
@@ -179,3 +193,40 @@ def test_promptul_contine_regula_11_despre_marcajele_de_provenienta():
     assert "11." in prompt
     assert "Text modificat/introdus prin Ordinul" in prompt
     assert "Abrogat prin Ordinul" in prompt
+    # D27 Runda 2: întărire cerută de reviewer — mențiunea propagată la nivel de
+    # articol trebuie să apară explicit, nu doar formele originale de mai sus
+    # (care existau și înainte de adăugarea D-coder-ului). Ar pica dacă textul
+    # "Articol cu text" ar fi șters din prompt.
+    assert "Articol cu text" in prompt
+
+
+# --- D27 Runda 2: forma "Articol cu text ..." (propagată la nivel de articol) -
+
+
+def test_marcaj_articol_forma_modificat_ajunge_in_modificari():
+    """O dovadă care are DOAR forma propagată la nivel de articol (nu marcajul
+    original pe textul afectat) trebuie să producă `modificari` cu acel text.
+    Ar pica dacă `_MODIFICATION_MARKER` nu ar mai recunoaște prefixul „Articol
+    cu text”, sau dacă `_adjectiv_provenienta`/regex-ul ar altera textul."""
+    quote = "Alineat fără marcaj propriu, dintr-un articol modificat în altă parte."
+    content = f"[{MARKER_ARTICOL_MODIFICAT}]\n{quote}"
+    evidence = (make_evidence(1, content),)
+
+    result = _generate(evidence, f"{quote} [C1]", [{"id": "C1", "citat": quote}])
+
+    assert result.citari[0].modificari == (MARKER_ARTICOL_MODIFICAT,)
+
+
+def test_marcaj_articol_toate_cele_trei_forme_sunt_recunoscute():
+    quote = "Fragment citat final, dintr-un articol cu mai multe modificari."
+    content = (
+        f"[{MARKER_ARTICOL_MODIFICAT}]\n[{MARKER_ARTICOL_INTRODUS}]\n"
+        f"[{MARKER_ARTICOL_ABROGAT}]\n{quote}"
+    )
+    evidence = (make_evidence(1, content),)
+
+    result = _generate(evidence, f"{quote} [C1]", [{"id": "C1", "citat": quote}])
+
+    assert result.citari[0].modificari == (
+        MARKER_ARTICOL_MODIFICAT, MARKER_ARTICOL_INTRODUS, MARKER_ARTICOL_ABROGAT,
+    )

@@ -1,6 +1,7 @@
 """Teste locale pentru ingestie; toate serviciile externe sunt blocate."""
 
 import importlib.util
+import json
 import sys
 import types
 from pathlib import Path
@@ -703,6 +704,80 @@ def test_chunking_actului_modificator_p118_2_creste_fata_de_fragmentarea_veche(m
     chunkuri = modul_ingestie.creeaza_chunkuri(continut)
 
     assert len(chunkuri) > 22
+
+
+def _scrie_document(folder, document_id, text):
+    folder.mkdir()
+    (folder / "metadata.json").write_text(
+        json.dumps({
+            "document_id": document_id,
+            "source_key": document_id,
+            "cod_oficial": f"NP {document_id}-2026",
+            "titlu_oficial": f"Document local {document_id}",
+            "an": 2026,
+            "status": "indexed_pending_validation",
+        }),
+        encoding="utf-8",
+    )
+    (folder / "extracted.txt").write_text(text, encoding="utf-8")
+
+
+def test_document_filtreaza_procesarea_la_documentele_date(modul_ingestie, monkeypatch, tmp_path, capsys):
+    """R26-A: --document (repetabil) limitează procesarea la acele document_id.
+    Ar pica dacă filtrarea ar lăsa să treacă un document neselectat, sau dacă
+    un document selectat ar fi omis."""
+    _scrie_document(tmp_path / "doc_a", "documentA", "1.1.\nText local valid pentru primul document.")
+    _scrie_document(tmp_path / "doc_b", "documentB", "1.1.\nText local valid pentru al doilea document.")
+    _scrie_document(tmp_path / "doc_c", "documentC", "1.1.\nText local valid pentru al treilea document.")
+    monkeypatch.setattr(modul_ingestie, "FOLDER_DOCUMENTE", tmp_path)
+    monkeypatch.setattr(sys, "argv", ["populare_db.py", "--dry-run", "--document", "documentA", "--document", "documentC"])
+
+    modul_ingestie.main()
+
+    stdout = capsys.readouterr().out
+    assert "documentA:" in stdout
+    assert "documentC:" in stdout
+    assert "documentB:" not in stdout
+    assert "DRY RUN: 2 chunk-uri validate din 2 documente" in stdout
+
+
+def test_fara_argument_document_proceseaza_toate_documentele(modul_ingestie, monkeypatch, tmp_path, capsys):
+    """Regresie: fără --document, comportamentul rămâne identic (niciun filtru)."""
+    _scrie_document(tmp_path / "doc_a", "documentA", "1.1.\nText local valid pentru primul document.")
+    _scrie_document(tmp_path / "doc_b", "documentB", "1.1.\nText local valid pentru al doilea document.")
+    monkeypatch.setattr(modul_ingestie, "FOLDER_DOCUMENTE", tmp_path)
+    monkeypatch.setattr(sys, "argv", ["populare_db.py", "--dry-run"])
+
+    modul_ingestie.main()
+
+    stdout = capsys.readouterr().out
+    assert "documentA:" in stdout
+    assert "documentB:" in stdout
+    assert "DRY RUN: 2 chunk-uri validate din 2 documente" in stdout
+
+
+def test_dry_run_afiseaza_acoperirea_fara_client_db_sau_voyage(modul_ingestie, monkeypatch, tmp_path, capsys):
+    """--dry-run afișează acoperirea text_brut per document; verificăm prin
+    monkeypatch că nu se construiește niciun client Voyage/DB în tot acest
+    flux. Ar pica dacă acoperirea n-ar mai fi afișată, sau dacă --dry-run ar
+    ajunge să apeleze oricare din cele două servicii externe."""
+    def interzis(*_args, **_kwargs):
+        raise AssertionError("--dry-run nu are voie să construiască niciun client extern")
+
+    monkeypatch.setattr(modul_ingestie.voyageai, "Client", interzis)
+    monkeypatch.setattr(modul_ingestie, "conecteaza_baza_de_date", interzis)
+    _scrie_document(
+        tmp_path / "doc_a", "documentA",
+        "1.1.\nText local valid pentru primul document, cu suficiente caractere pe rand.",
+    )
+    monkeypatch.setattr(modul_ingestie, "FOLDER_DOCUMENTE", tmp_path)
+    monkeypatch.setattr(sys, "argv", ["populare_db.py", "--dry-run", "--document", "documentA"])
+
+    modul_ingestie.main()
+
+    stdout = capsys.readouterr().out
+    assert "acoperire text brut:" in stdout
+    assert "100.0%" in stdout
 
 
 def test_dry_run_nu_apeleaza_voyage_sau_supabase(modul_ingestie, monkeypatch, tmp_path, capsys):

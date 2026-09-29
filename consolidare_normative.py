@@ -473,7 +473,7 @@ def _proceseaza_operatie(baza: str, item: ItemOrdin, operatie: dict, ordin_info:
                 baza, tinta["punct"], alineat=tinta.get("alineat"), litera=tinta.get("litera"),
             )
             eticheta = _eticheta_subunitate(tinta)
-            eticheta_text = f"({tinta['alineat']})" if tinta.get("alineat") else f"{tinta['litera']})"
+            eticheta_text = f"{tinta['litera']})" if tinta.get("litera") else f"({tinta['alineat']})"
             text_final = f"{eticheta_text} Abrogat.\n" + _marcaj(MARCAJ_ABROGAT, ordin_info)
             rezultate.append(_intrare(item.nr, tip, f"{eticheta} al punctului {tinta['punct']}", start, sfarsit, baza, text_final, None))
 

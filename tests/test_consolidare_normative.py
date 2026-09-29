@@ -379,6 +379,49 @@ def test_inlocuieste_bloc_intre_ancore():
     assert "Urmatoarea sectiune independenta de tabel" in rezultat
 
 
+# ---------------------------------------------------------------------------
+# abroga_subunitate (gol de test semnalat de reviewer, runda 2)
+# ---------------------------------------------------------------------------
+
+
+def test_abroga_subunitate_alineat(baza_simpla):
+    """Ar pica dacă alineatul (1) nu ar fi localizat corect, dacă textul vechi
+    ar supraviețui, sau dacă marcajul [Abrogat prin …] nu ar apărea."""
+    item = ItemOrdin(nr=1, instructiune="La punctul 1.2., alineatul (1) se abrogă.", text_nou="")
+    manifest = _manifest([
+        {"nr": 1, "tip": "abroga_subunitate", "tinte": [{"punct": "1.2", "alineat": "1"}]}
+    ])
+
+    rezultat, raport = aplica_operatii(baza_simpla, [item], manifest)
+
+    assert "(1) Abrogat." in rezultat
+    assert "Primul alineat cu definitii importante" not in rezultat
+    assert "[Abrogat prin Ordinul nr. 6.025/2018, publicat în Monitorul Oficial nr. 977 din 19.11.2018]" in rezultat
+    # Restul punctului 1.2 (alineatul (2) cu literele a/b/c) rămâne intact.
+    assert "a) primul continut prezent aici insusi." in rezultat
+    assert raport[0]["status"] == "aplicat"
+
+
+def test_abroga_subunitate_litera(baza_simpla):
+    """Ar pica dacă litera b) a alineatului (2) nu ar fi localizată corect
+    (confundată cu a) sau c)), sau dacă marcajul de abrogare ar lipsi."""
+    item = ItemOrdin(
+        nr=1, instructiune="La punctul 1.2., litera b) a alineatului (2) se abrogă.", text_nou="",
+    )
+    manifest = _manifest([
+        {"nr": 1, "tip": "abroga_subunitate", "tinte": [{"punct": "1.2", "alineat": "2", "litera": "b"}]}
+    ])
+
+    rezultat, _ = aplica_operatii(baza_simpla, [item], manifest)
+
+    assert "b) Abrogat." in rezultat
+    assert "b) al doilea continut prezent aici insusi." not in rezultat
+    assert "[Abrogat prin Ordinul nr. 6.025/2018, publicat în Monitorul Oficial nr. 977 din 19.11.2018]" in rezultat
+    # a) și c) rămân neatinse.
+    assert "a) primul continut prezent aici insusi." in rezultat
+    assert "c) al treilea continut prezent aici insusi." in rezultat
+
+
 def test_inlocuieste_sintagma_in_bloc_nu_adauga_marcaj():
     """Ar pica dacă înlocuirea de sintagmă în interiorul unui bloc ancorat ar
     adăuga marcaj de proveniență (ca la înlocuirile globale, nu trebuie), sau
