@@ -165,14 +165,20 @@ def make_evidence(document_id="p118_1_2025", articol_normalizat="2.3.2.1.2", con
     )
 
 
-def install_fakes(monkeypatch, results: dict[str, object], calls: list[str] | None = None):
+def install_fakes(
+    monkeypatch, results: dict[str, object], calls: list[str] | None = None,
+    instances: list[object] | None = None,
+):
     """Înlocuiește Postgres*/RetrievalService cu fake-uri controlate; embedder rămâne separat."""
 
     class RetrievalServiceFake:
-        def __init__(self, parser, repository, embedder):
+        def __init__(self, parser, repository, embedder, *, rewriter=None):
             self.parser = parser
             self.repository = repository
             self.embedder = embedder
+            self.rewriter = rewriter
+            if instances is not None:
+                instances.append(self)
 
         def retrieve(self, question):
             if calls is not None:
@@ -759,3 +765,128 @@ def test_plafonul_de_generari_include_reincercarea_si_opreste_rularea_fara_rapor
         )
 
     assert not raport_path.exists()
+
+
+# --- 8. Rescriere (R30) -------------------------------------------------------------------
+
+
+class RewriterDelegateFake:
+    def __init__(self, rewritten="rescriere"):
+        self._rewritten = rewritten
+        self.calls = []
+
+    def rewrite(self, question):
+        self.calls.append(question)
+        return self._rewritten
+
+
+def test_rescriere_fara_run_respinge_cu_exit_2_fara_niciun_apel(tmp_path, capsys, monkeypatch):
+    cale = scrie_set(tmp_path, [caz_valid()])
+
+    def _pica(*_args, **_kwargs):
+        raise AssertionError("nu ar trebui apelat fără --run")
+
+    monkeypatch.setattr(evaluation, "_open_db_connection", _pica)
+    monkeypatch.setattr(evaluation, "_build_runtime_embedder", _pica)
+    monkeypatch.setattr(evaluation, "_build_production_rewriter", _pica)
+
+    exit_code = evaluation.main(["--set", str(cale), "--rescriere"])
+
+    assert exit_code == 2
+    assert "rescriere_requires_run" in capsys.readouterr().err
+
+
+def test_fara_rescriere_nu_construieste_rewriter_si_sumarul_ramane_neschimbat(monkeypatch, tmp_path):
+    evidence = (make_evidence(document_id="doc_a", articol_normalizat="2.1"),)
+    case = GoldCase("C1", "exact", "întrebare?", (GoldExpectation("doc_a", "2.1"),))
+    instances: list[object] = []
+    install_fakes(
+        monkeypatch, results={"întrebare?": SimpleNamespace(status="found", evidence=evidence)},
+        instances=instances,
+    )
+
+    def _pica():
+        raise AssertionError("rewriter_factory nu trebuie apelat fără rescriere=True")
+
+    report = evaluation.run_evaluation(
+        [case], tmp_path / "raport.json",
+        connection_factory=ConnectionFake,
+        embedder_factory=EmbedderDelegateFake,
+        rescriere=False,
+        rewriter_factory=_pica,
+    )
+
+    assert "rescriere_calls" not in report["sumar"]
+    assert instances[0].rewriter is None  # RetrievalService primește exact ca înainte de R30
+
+
+def test_rescriere_adauga_rescriere_calls_in_sumar_si_trece_rewriterul_catre_retrieval(monkeypatch, tmp_path):
+    evidence = (make_evidence(document_id="doc_a", articol_normalizat="2.1"),)
+    case = GoldCase("C1", "exact", "întrebare?", (GoldExpectation("doc_a", "2.1"),))
+    instances: list[object] = []
+    install_fakes(
+        monkeypatch, results={"întrebare?": SimpleNamespace(status="found", evidence=evidence)},
+        instances=instances,
+    )
+    delegate = RewriterDelegateFake()
+
+    report = evaluation.run_evaluation(
+        [case], tmp_path / "raport.json",
+        connection_factory=ConnectionFake,
+        embedder_factory=EmbedderDelegateFake,
+        rescriere=True,
+        rewriter_factory=lambda: delegate,
+    )
+
+    # Fake-ul de RetrievalService nu apelează niciodată `.rewrite()` (nu simulează ruta
+    # semantică internă), deci `rescriere_calls` numără apelurile reale prin `_CountingRewriter`
+    # — aici zero, fiindcă `RetrievalServiceFake.retrieve` ignoră rewriter-ul primit.
+    assert report["sumar"]["rescriere_calls"] == 0
+    assert isinstance(instances[0].rewriter, evaluation._CountingRewriter)
+    assert instances[0].rewriter._delegate is delegate
+
+
+def test_plafonul_rescrierii_blocheaza_dupa_max_generation_calls():
+    """`_CountingRewriter` reutilizează `MAX_GENERATION_CALLS` ca plafon (rescrierea rulează
+    cel mult o dată per caz, la fel ca generarea) — vezi comentariul din `retrieval_eval.py`."""
+    delegate = RewriterDelegateFake()
+    counting = evaluation._CountingRewriter(delegate, evaluation.MAX_GENERATION_CALLS)
+    for _ in range(evaluation.MAX_GENERATION_CALLS):
+        counting.rewrite("întrebare")
+    with pytest.raises(evaluation.RealEvaluationError, match="cost_limit"):
+        counting.rewrite("întrebare de peste plafon")
+    assert counting.calls == evaluation.MAX_GENERATION_CALLS
+    assert len(delegate.calls) == evaluation.MAX_GENERATION_CALLS  # apelul blocat n-a ajuns la delegate
+
+
+def test_rescrierea_reala_prin_countingrewriter_este_numarata_in_sumar(monkeypatch, tmp_path):
+    """Contrar testului de mai sus (fake-ul de retrieve ignoră rewriter-ul), verificăm direct
+    contorul `_CountingRewriter` care alimentează `summary['rescriere_calls']`, ca să nu
+    depindem de comportamentul intern (netestabil aici) al `RetrievalService` real."""
+    evidence = (make_evidence(document_id="doc_a", articol_normalizat="2.1"),)
+    case = GoldCase("C1", "exact", "întrebare?", (GoldExpectation("doc_a", "2.1"),))
+
+    class RetrievalServiceCareRescrie:
+        def __init__(self, parser, repository, embedder, *, rewriter=None):
+            self.rewriter = rewriter
+
+        def retrieve(self, question):
+            if self.rewriter is not None:
+                self.rewriter.rewrite(question)
+            return SimpleNamespace(status="found", evidence=evidence)
+
+    monkeypatch.setattr(evaluation, "PostgresApprovedCatalogRepository", CatalogFake)
+    monkeypatch.setattr(evaluation, "PostgresRetrievalRepository", RepositoryFake)
+    monkeypatch.setattr(evaluation, "RetrievalService", RetrievalServiceCareRescrie)
+    delegate = RewriterDelegateFake()
+
+    report = evaluation.run_evaluation(
+        [case], tmp_path / "raport.json",
+        connection_factory=ConnectionFake,
+        embedder_factory=EmbedderDelegateFake,
+        rescriere=True,
+        rewriter_factory=lambda: delegate,
+    )
+
+    assert report["sumar"]["rescriere_calls"] == 1
+    assert delegate.calls == ["întrebare?"]

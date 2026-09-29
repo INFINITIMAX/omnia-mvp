@@ -2589,3 +2589,107 @@ def test_deploy_script_refuza_pe_conditii_nesigure_si_ruleaza_pytest_inaintea_lu
     railway_index = text.index("railway up")
     assert pytest_index < railway_index, "pytest trebuie să ruleze înaintea lui railway up"
     assert "$LASTEXITCODE -ne 0" in text
+
+
+# --- R30: rescrierea întrebării pe ruta semantică, prin main.py --------------------------
+
+
+class QueryRewriterFake:
+    def __init__(self, rewritten):
+        self._rewritten = rewritten
+        self.questions = []
+
+    def rewrite(self, question):
+        self.questions.append(question)
+        return self._rewritten
+
+
+def configure_with_rewriter(
+    api, connection, *, rewriter_factory, embedder=None, generator=None,
+    runtime_config=ACCESS_RUNTIME_CONFIG, budget_connection=None,
+    daily_paid_call_limit=main.DEFAULT_DAILY_PAID_CALL_LIMIT,
+):
+    resolved_budget_connection = budget_connection if budget_connection is not None else ConnectionFake()
+    main.app.state.runtime_dependencies = main.RuntimeDependencies(
+        connection_factory=lambda: connection,
+        embedder_factory=lambda: embedder or EmbedderFake(),
+        text_generator_factory=lambda: generator or GeneratorFake(),
+        query_rewriter_factory=rewriter_factory,
+        access_control_config_factory=lambda: runtime_config,
+        now_factory=lambda: NOW,
+        daily_paid_call_limit_factory=lambda: daily_paid_call_limit,
+        budget_connection_factory=lambda: resolved_budget_connection,
+    )
+    return api
+
+
+_SEMANTIC_QUESTION = "Care este regula sintetică?"
+
+
+def test_esecul_rescrierii_nu_schimba_raspunsul_public_nici_health_provideri(
+    fresh_provider_health, api, monkeypatch
+):
+    """`AnthropicQueryRewriter` reală, dar cu clientul Anthropic care aruncă la orice apel:
+    fail-open intern (vezi query_rewrite.py) — răspunsul public rămâne identic cu cel fără
+    rescriere, iar `/health/provideri` nu înregistrează niciun eșec de `anthropic`."""
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "cheie-test")
+
+    class FailingMessages:
+        def create(self, **_kwargs):
+            raise _anthropic_status_error(503)
+
+    class FailingClient:
+        messages = FailingMessages()
+
+    connection = ConnectionFake()
+    embedder = EmbedderFake()
+    generator = GeneratorFake()
+
+    response = configure_with_rewriter(
+        api, connection,
+        rewriter_factory=lambda: main.AnthropicQueryRewriter(FailingClient()),
+        embedder=embedder, generator=generator,
+    ).post("/intreaba", json={"intrebare": _SEMANTIC_QUESTION})
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "answered"
+    assert embedder.calls == 1  # rescrierea a eșuat fail-open => un singur embedding, ca înainte
+
+    health = api.get("/health/provideri")
+    assert health.status_code == 200
+    assert health.json() == {"status": "ok"}
+
+
+def test_rescrierea_trece_prin_bugetul_de_apeluri_platite(api):
+    """Plafonul zilnic epuizat blochează rescrierea înainte de a ajunge la embedder
+    (rescrierea rulează prima pe ruta semantică, vezi `RetrievalService._rewritten_question`),
+    deci apelul de embedding nu se mai produce."""
+    connection = ConnectionFake()
+    budget_connection = ConnectionFake(budget_results=(None,))
+    embedder = EmbedderFake()
+    rewriter = QueryRewriterFake("întrebare rescrisă")
+
+    response = configure_with_rewriter(
+        api, connection, rewriter_factory=lambda: rewriter,
+        embedder=embedder, budget_connection=budget_connection,
+    ).post("/intreaba", json={"intrebare": _SEMANTIC_QUESTION})
+
+    assert response.status_code == 503
+    # Garda refuză înaintea apelului plătit: nici rescrierea, nici embedding-ul nu se produc.
+    assert rewriter.questions == []
+    assert embedder.calls == 0
+
+
+def test_generarea_primeste_intrebarea_originala_nu_pe_cea_rescrisa(api):
+    connection = ConnectionFake()
+    generator = GeneratorFake()
+    rewriter = QueryRewriterFake("MARCAJ_DE_RESCRIERE_CARE_NU_TREBUIE_SA_AJUNGA_LA_GENERARE")
+
+    response = configure_with_rewriter(
+        api, connection, rewriter_factory=lambda: rewriter, generator=generator,
+    ).post("/intreaba", json={"intrebare": _SEMANTIC_QUESTION})
+
+    assert response.status_code == 200
+    assert rewriter.questions == [_SEMANTIC_QUESTION]
+    assert _SEMANTIC_QUESTION in generator.prompt
+    assert "MARCAJ_DE_RESCRIERE_CARE_NU_TREBUIE_SA_AJUNGA_LA_GENERARE" not in generator.prompt

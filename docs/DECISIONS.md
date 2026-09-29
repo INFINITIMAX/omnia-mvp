@@ -4,6 +4,10 @@ Acest fișier separă deciziile explicite ale lui Lucian de propunerile agențil
 
 ## Decizii active
 
+### D29 — rescrierea întrebării cu Claude Haiku 4.5 pentru căutare, aprobat Lucian (29-09-2026)
+
+Utilizatorii reali scriu fără diacritice, cu greșeli de tipar și colocvial (feedback de testare: „cat se considera debitul de aer pentru desfumare la o masina pentru un subsol fara isntaltie de sprinklere”). Căutarea semantică rata articolul corect (NP 127 art. 117 pe locul 15; „autoturism/parcaj subteran” îl aducea pe locul 2). Decizie: pe ruta semantică, întrebarea e rescrisă de Claude Haiku 4.5 (`claude-haiku-4-5-20251001`) în limbajul normativelor; căutarea rulează cu originalul și cu rescrierea și păstrează scorul maxim per fragment. Rescrierea nu răspunde, nu adaugă valori/articole/coduri și nu e folosită pentru parser, rute exacte, restricții (D12/D25), generare sau citare. Orice eșec → căutare doar pe original (fail-open); apelul trece prin plafonul zilnic de apeluri plătite. Cost acceptat: un apel Haiku în plus pe întrebare semantică. Măsurare permanentă: `evaluare/set_colocvial.json` (11/17 → 17/17).
+
 ### D28 — NP 064-02 admis ca excepție punctuală de la regula „doar Monitorul Oficial”, aprobat Lucian (29-09-2026)
 
 NP 064-02 („Normativ pentru proiectarea mansardelor la clădiri de locuit”) e aprobat prin Ordinul MLPTL nr. 1.991/2002 (MO nr. 944/23.12.2002), dar textul normativului (anexa) a fost publicat doar în Buletinul Construcțiilor nr. 7/2003. Lucian a decis explicit: **regula de conținut din 04-09-2026 rămâne neschimbată și nereformulată**; NP 064-02 intră ca excepție punctuală. Precedent anterior în aceeași situație: NP 057-02. Orice alt normativ cu textul doar în Buletinul Construcțiilor cere o nouă excepție aprobată de Lucian. Sursa textului: PDF-ul din arhiva lui Lucian, identic cu cel public de pe migs.ro (80 de pagini, text nativ).
