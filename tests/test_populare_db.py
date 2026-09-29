@@ -500,6 +500,7 @@ PRAG_ACOPERIRE_MINIM_PER_DOCUMENT = {
     # acopere și cele două documente noi.
     "p118_2_2013": 0.98,
     "p118_3_2015": 0.94,
+    "np064_02": 0.98,
 }
 
 
