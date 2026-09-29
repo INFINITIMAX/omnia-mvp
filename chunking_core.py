@@ -358,6 +358,16 @@ def _este_data_zi_luna_an(potrivire: re.Match[str], sursa: str) -> bool:
 
 _PATTERN_SPATII_INLINE = re.compile(r"[ \t  ]*")
 _PATTERN_CARACTER_VALID_DUPA_NUMAR = re.compile(r"^[A-ZĂÂÎȘȚŞŢ„(0-9]")
+# Runda R27 (P 118/3, P 118/2 Anexa 33): definițiile de terminologie încep cu literă
+# mică ("2.56. semnal de confirmare alarmă - semnal de la..."), caz altfel identic cu o
+# trimitere ruptă (literă mică nevalidă după număr). Le distingem prin prezența unei
+# cratime/en dash aproape de începutul rândului (separatorul termen-definiție); fereastra
+# acoperă cratima lipită de termen și parantezele înainte de cratimă, dar e limitată la
+# rândul curent: o cratimă pe rândul următor NU face din rând o definiție (regresie I7,
+# vezi `_este_referinta_rupta`).
+_PATTERN_LITERA_MICA_DUPA_NUMAR = re.compile(r"^[a-zăâîșțşţ]")
+_PATTERN_CRATIMA_DEFINITIE = re.compile(r"[-–]")
+_LUNGIME_FEREASTRA_CRATIMA_DEFINITIE = 120
 # Runda 2 (I7/NP 057): extragerea PDF lipește uneori cuvântul de primul articol,
 # fără spațiu ("3.0.1.CondiĠii", "3.1.2.3.3.Mentenanța"). Când primul caracter
 # lipit e o majusculă (inclusiv diacritice), acel caracter deschide un cuvânt
@@ -466,7 +476,10 @@ def _este_referinta_rupta(potrivire: re.Match[str], sursa: str) -> bool:
     Excepție D18: o virgulă e delimitator valid (se elimină, ca acum, prin sufixul de
     citat) numai dacă e urmată doar de spații până la capătul rândului; altfel
     (`1.1.,text`) rămâne trimitere ruptă. Literele mici (ex. `lit. a)` din P 118/1) nu
-    sunt niciodată un început valid de articol.
+    sunt niciodată un început valid de articol — cu excepția definițiilor de terminologie
+    (Runda R27, P 118/3 „2.56. semnal de confirmare alarmă - ...”, P 118/2 Anexa 33
+    „33.5. instalație cu preacționare – ...”), recunoscute după cratima/en dash care
+    separă termenul de definiție, aproape de începutul rândului.
     """
     baza = _baza_articol(potrivire)
     if not re.fullmatch(r"\d+(?:\.\d+)*\.", baza):
@@ -489,7 +502,15 @@ def _este_referinta_rupta(potrivire: re.Match[str], sursa: str) -> bool:
     # deosebire de o cifră după spațiu real, care rămâne caracter valid ca până acum.
     if pas == 0 and rest[:1].isdigit():
         return True
-    return not _PATTERN_CARACTER_VALID_DUPA_NUMAR.match(rest)
+    if _PATTERN_CARACTER_VALID_DUPA_NUMAR.match(rest):
+        return False
+    # Cratima trebuie să fie pe același rând: în I7, „4.1.4.2.2.2. sau” e urmat pe rândul
+    # următor de „-” (enumerare), nu e o definiție.
+    if _PATTERN_LITERA_MICA_DUPA_NUMAR.match(rest) and _PATTERN_CRATIMA_DEFINITIE.search(
+        urmator.split("\n", 1)[0][:_LUNGIME_FEREASTRA_CRATIMA_DEFINITIE]
+    ):
+        return False
+    return True
 
 
 def _este_titlu_capitol_simplu_valid(

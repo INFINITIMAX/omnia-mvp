@@ -495,6 +495,11 @@ PRAG_ACOPERIRE_MINIM_PER_DOCUMENT = {
     "np057_02": 0.87,
     "p118_1_2025": 0.99,
     "spitale_2022": 0.97,
+    # R27: p118_2_2013/p118_3_2015 aprobate în reimport_approved.py cu aceleași
+    # praguri (0.98 / 0.94) — sincronizat aici ca lista paralelă de acoperire să
+    # acopere și cele două documente noi.
+    "p118_2_2013": 0.98,
+    "p118_3_2015": 0.94,
 }
 
 

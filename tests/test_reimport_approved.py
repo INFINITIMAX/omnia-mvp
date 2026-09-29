@@ -231,6 +231,37 @@ def test_dry_run_este_readonly_fara_voyage_si_scrie_raportul_complet(module, dir
     assert not list(rapoarte.glob("*.tmp"))
 
 
+# --- R27: documentele noi aprobate (P 118/2, P 118/3) ---------------------------
+
+
+def test_p118_2_si_p118_3_sunt_aprobate_cu_pragurile_din_brief(module):
+    """Ar pica dacă `p118_2_2013`/`p118_3_2015` ar lipsi din `DOCUMENTE_APROBATE`
+    (documentul ar fi respins ca `unknown_document`) sau dacă pragurile D24 nu ar
+    respecta valorile din brief (0.98 / 0.94)."""
+    assert module.DOCUMENTE_APROBATE["p118_2_2013"] == "P118_2_2013_consolidat.txt"
+    assert module.DOCUMENTE_APROBATE["p118_3_2015"] == "P118_3_2015_consolidat.txt"
+    assert module.PRAGURI_ACOPERIRE["p118_2_2013"] == pytest.approx(0.98)
+    assert module.PRAGURI_ACOPERIRE["p118_3_2015"] == pytest.approx(0.94)
+
+
+def test_p118_3_dry_run_trece_cu_source_key_corect(module, dirs):
+    """Control pozitiv end-to-end pentru documentul nou: dry-run pe `p118_3_2015`
+    cu identitatea corectă din `DOCUMENTE_APROBATE` trece poarta. Ar pica dacă
+    adăugarea documentului în listă nu ar fi suficientă pentru un flux complet
+    (ex. dacă pragul nu ar fi și el citit corect din `PRAGURI_ACOPERIRE`)."""
+    documente, _r, _b, _i = dirs
+    scrie_text(documente, "p118_3_2015")
+    cursor = ReadCursor("p118_3_2015", "P118_3_2015_consolidat.txt")
+    conn = ReadConn(cursor)
+
+    raport = module.dry_run(
+        "p118_3_2015", connection_factory=lambda: conn, extract_pdf=forbidden, create_chunks=chunker_ok
+    )
+
+    assert raport["poarta_trece"] is True
+    assert raport["prag_acoperire"] == pytest.approx(0.94)
+
+
 # --- Identitate document --------------------------------------------------------
 
 
