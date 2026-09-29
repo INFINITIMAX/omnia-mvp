@@ -88,6 +88,19 @@ class UngroundedReferenceError(GenerationValidationError):
 
 _NON_ALPHANUMERIC = re.compile(r"[^0-9A-Z]+")
 
+# Marcaj de proveniență (D27) pus de planner la începutul textului consolidat al P 118/2 și
+# P 118/3, când un articol a fost modificat/introdus/abrogat printr-un ordin ulterior. Derivat
+# server-side din `Evidence.content`, niciodată din răspunsul modelului.
+_MODIFICATION_MARKER = re.compile(
+    r"\[(Text modificat|Text introdus|Abrogat) prin Ordinul nr\. [0-9.]+/\d{4}, "
+    r"publicat în Monitorul Oficial nr\. \d+ din \d{2}\.\d{2}\.\d{4}\]"
+)
+
+
+def _modification_markers(content: str) -> tuple[str, ...]:
+    """Marcajele distincte din dovadă, în ordinea apariției, fără parantezele drepte."""
+    return tuple(dict.fromkeys(match.group(0)[1:-1] for match in _MODIFICATION_MARKER.finditer(content)))
+
 
 def _normalized_code(text: str) -> str:
     """Reduce textul la majuscule alfanumerice, ca variantele de scriere să se potrivească.
@@ -161,6 +174,7 @@ class PublicCitation:
     titlu_document: str
     articol: str
     citat: str
+    modificari: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -221,6 +235,7 @@ class GenerationService:
                 titlu_document=evidence_by_id[citation_id].titlu_document,
                 articol=evidence_by_id[citation_id].articol,
                 citat=passages[citation_id],
+                modificari=_modification_markers(evidence_by_id[citation_id].content),
             )
             for citation_id in used_ids
         )
@@ -380,6 +395,9 @@ class GenerationService:
             "frază scurtă care spune că informația nu se regăsește în dovezi, fără niciun "
             "identificator [Cn]. Dacă dovezile conțin măcar o parte din răspuns, pune `gasit=true`, "
             "citează conform regulilor de mai sus și spune explicit, conform regulii 4, ce lipsește.\n"
+            "11. Dacă o dovadă conține un marcaj de forma „[Text modificat/introdus prin Ordinul "
+            "nr. ...]” sau „[Abrogat prin Ordinul nr. ...]”, menționează explicit în răspuns că "
+            "prevederea are textul modificat, introdus sau abrogat prin ordinul respectiv.\n"
             "<intrebare_json>\n"
             f"{serialized_question}\n"
             "</intrebare_json>\n"
