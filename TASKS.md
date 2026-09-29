@@ -1,6 +1,11 @@
 # TASKS — Omnia
 
-## Stare curentă (28-09-2026)
+## Stare curentă (29-09-2026)
+
+- **R25:** `/health/db` (`SELECT 1`, cache 60 s) pentru monitor extern și Supabase Free — live.
+- **R26 / D27:** P 118/2-2013 (MO 595 bis) și P 118/3-2015 (MO 243 bis) consolidate cu Ordinele 6.026/2018 și 6.025/2018, proveniență vizibilă în citare (`modificari`). Module: `extragere_mo_bis.py`, `consolidare_normative.py` (manifeste în `documente_noi/`, local). Item 24 din 6.026/2018 aplicat cu `corectie_tipar` (aprobat Lucian). Importate (1856 + 384 chunk-uri), aprobare prin `supabase/migrations/20260929120000_approve_p118_2_si_p118_3.sql`. Set de aur: 36 de întrebări. Handoff-uri `docs/handoff/R26-*`.
+
+### Stare 28-09-2026
 
 - **Live în producție** (Railway `21ab8418`, `main` `fe4b0fc`, smoke 28-09: `/health` 200, `/health/provideri` 200, întrebare I7 → `answered` cu citare, întrebare fără răspuns în corpus → `not_found` fără citări):
   - R17 fiabilitate (timeout-uri provideri, `/health/provideri`, `scripts/deploy.ps1` = singura cale de deploy); R18 evaluare permanentă `retrieval_eval.py` + `evaluare/set_aur.json` (30 întrebări); R19/R20 (D25: cod necunoscut → `ambiguous_reference`, top_k 10, alias cu zerouri); R21 anexe P 118/1; R22 diacritice I7 (date reimportate).
