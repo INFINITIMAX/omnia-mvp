@@ -116,22 +116,16 @@ def test_segmenteaza_elimina_antet_mo_numar_pagina_si_linie_de_puncte():
     assert "Ultima propozitie a textului nou" in rezultat
 
 
-def test_segmenteaza_numerotare_neconsecutiva_esueaza_la_validare():
+def test_segmenteaza_numerotare_neconsecutiva_esueaza_la_segmentare():
     """Ar pica dacă un ordin care sare direct de la itemul 1 la itemul 5 (fără 2-4)
-    ar fi acceptat tacit — segmentarea nu detectează golul explicit, dar validarea
-    manifest-vs-segmentare trebuie să oprească pipeline-ul fail-closed."""
+    ar fi acceptat tacit — itemul 1 ar înghiți instrucțiunea itemului 5 ca text nou."""
     ordin = _ordin(
         "1. La punctul 1.1. se modifică și va avea următorul cuprins:\n„1.1. Text nou.”\n"
         "5. La punctul 1.3. se modifică și va avea următorul cuprins:\n„1.3. Text nou al doilea.”\n"
     )
-    itemi = segmenteaza_ordin(ordin)
-    manifest = _manifest([
-        {"nr": 1, "tip": "inlocuieste_punct", "tinte": [{"punct": "1.1"}]},
-        {"nr": 5, "tip": "inlocuieste_punct", "tinte": [{"punct": "1.3"}]},
-    ])
 
-    with pytest.raises(ValueError, match="nu coincide cu segmentarea"):
-        aplica_operatii("1.1. x\n1.3. y\n", itemi, manifest)
+    with pytest.raises(ValueError, match="numerotare neconsecutivă"):
+        segmenteaza_ordin(ordin)
 
 
 def test_segmenteaza_item_nerecunoscut_ridica_eroare():
