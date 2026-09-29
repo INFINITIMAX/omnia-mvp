@@ -2,6 +2,12 @@
 
 ## Stare curentă (29-09-2026)
 
+> Agent nou: începe cu `HANDOFF.md` → „START AICI”.
+
+- **Live:** main `ce4ebee`, deploy 29-09, 11 normative `approved`; evaluare 34/36 căutare, 0 erori de generare.
+- **R27:** definițiile cu literă mică (P 118/3, cap. 2 „Terminologie”) devin articole proprii (ex. 2.56); P 118/3 reimportat (461 chunk-uri). Handoff-uri `docs/handoff/R27-*`.
+- **R28 (în lucru):** titlurile `ANEXA NR. N` deschid regiuni de anexă (P 118/2, Anexa 33 vs capitolul 33). Urmează: tester → reviewer → merge → reimport P 118/2.
+
 - **R25:** `/health/db` (`SELECT 1`, cache 60 s) pentru monitor extern și Supabase Free — live.
 - **R26 / D27:** P 118/2-2013 (MO 595 bis) și P 118/3-2015 (MO 243 bis) consolidate cu Ordinele 6.026/2018 și 6.025/2018, proveniență vizibilă în citare (`modificari`). Module: `extragere_mo_bis.py`, `consolidare_normative.py` (manifeste în `documente_noi/`, local). Item 24 din 6.026/2018 aplicat cu `corectie_tipar` (aprobat Lucian). Importate (1856 + 384 chunk-uri), aprobare prin `supabase/migrations/20260929120000_approve_p118_2_si_p118_3.sql`. Set de aur: 36 de întrebări. Handoff-uri `docs/handoff/R26-*`.
 

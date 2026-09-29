@@ -1,5 +1,39 @@
 # NormativAI — current state and next actionable steps
 
+## START AICI — pagina de predare pentru orice agent nou (29-09-2026, EET)
+
+Citește în ordine: această secțiune → `docs/DECISIONS.md` (D23–D27 sunt cele recente) → `TASKS.md` (index) → `AGENTS.md` (roluri). Secțiunile de mai jos („Updated: 25-09-2026”, „§0 27-09-2026”) sunt **istoric**.
+
+### Stare live
+- Producție: `https://normativai.ro`, Railway, **main `ce4ebee`** (deploy 29-09; R28 în lucru, vezi mai jos). Health: `/health`, `/health/db` (SELECT 1, cache 60 s), `/health/provideri`.
+- **11 normative `approved`**: P 118/1-2025, P 118/2-2013 și P 118/3-2015 (consolidate cu Ordinele 6.026/2018 și 6.025/2018, D27), I5-2022, I7-2011, I9-2022, NP 004-03, NP 010-2022, NP 015-2022 (`spitale_2022`), NP 057-02, NP 091-2003. `disabled`: `i13_2015_modificari`, `p118_2_2013_modificari` (doar ordine de modificare, D23).
+- Evaluare (`evaluare/set_aur.json`, **36** de întrebări, versiune 1): căutare **34/36** (rămân NP015-03 sub prag și NEG-04 — acceptate, D25); generare: 0 erori, toate răspunsurile cu citate literale, refuz corect fără dovezi (D26).
+- Citarea are câmpul `modificari` („Text modificat prin Ordinul nr. …”) pentru textele consolidate (D27).
+
+### În lucru / următorul pas
+- **R28** (`fix/r28-anexe-nr`, worktree `D:\Omnia-MVP-r28`): `PATTERN_TITLU_ANEXA` acceptă `ANEXA NR. N` / `Nr.` / `14bis` → anexele P 118/2 devin regiuni proprii (Anexa 33 „Terminologie” nu se mai ciocnește cu capitolul 33). Verificat: celelalte 9 documente identice; P 118/2 fără text pierdut. Rămas: tester → reviewer → PR → reimport P 118/2 (`reimport_approved.py --document p118_2_2013`, poarta D24) → evaluare căutare.
+- Idei de backlog (nedecise): numerotarea „(A).2.” din NP 057; PR-urile dependabot (atenție la `anthropic` major); I 13-2015 complet (textul de bază lipsește).
+
+### Cum se lucrează aici (reguli + comenzi)
+- **Fluxul de 4 agenți** (planner rulează comenzi; coder/tester scriu; reviewer doar citește). Brief-uri și rapoarte în `docs/handoff/<ID>-<rol>.md`; verdictul reviewer-ului îl transcrie planner-ul integral în `<ID>-reviewer-raport.md`.
+- **Fără aprobarea explicită a lui Lucian:** merge/push în main, deploy, migrații/scrieri în DB de producție, apeluri plătite (Voyage/Anthropic). Lucian a spus: fără reîncărcare automată Anthropic, fără plafon zilnic de cost, fără unealtă de import self-service (normativele se adaugă prin agent). Doar normative publicate în Monitorul Oficial (niciodată SR/SR EN/STAS, versiuni abrogate, documente doar cu modificări).
+- **Deploy:** doar `scripts/deploy.ps1` (refuză main murdar/nesincronizat sau teste roșii). Agentul e blocat de classifier → Lucian rulează: `! powershell.exe -NoProfile -ExecutionPolicy Bypass -File D:/Omnia-MVP/scripts/deploy.ps1`. Apoi test rapid pe site (ex. `D:\_scratch\omnia\smoke_r26.py`).
+- **Teste:** `python -m pytest -q`. În worktree-uri, testele pe documentele reale cer joncțiune temporară: `New-Item -ItemType Junction -Path documente_noi -Target D:\Omnia-MVP\documente_noi` … apoi `cmd /c rmdir documente_noi` (întotdeauna șters după).
+- **Regresia chunker-ului:** orice schimbare în `chunking_core.py` se compară cu `git show main:chunking_core.py` pe toate `documente_noi/*/extracted.txt`: documentele neatinse trebuie să dea chunk-uri **identice**, cele atinse fără cuvinte pierdute.
+- **Evaluare:** cu `.env` încărcat în mediu: `python retrieval_eval.py --run --raport <json>` (căutare, câteva cenți Voyage); `--run --generare` (căutare + generare, ~1 USD Anthropic — cere aprobare).
+- **Import document nou:** `documente_noi/<id>/{metadata.json, extracted.txt}` → `python populare_db.py --dry-run --document <id>` → `python populare_db.py --document <id>` (DB + Voyage, status `indexed_pending_validation`) → aprobare prin migrare SQL în `supabase/migrations/` (model: `20260929120000_approve_p118_2_si_p118_3.sql`), aplicată după aprobarea lui Lucian.
+- **Reimport document aprobat:** `python reimport_approved.py --document <id>` (dry-run + poarta D24) → `--commit` (backup automat în `backups/`, `--restore <fișier>` pentru revenire).
+- **Normative cu ordine de modificare:** `extragere_mo_bis.py` (PDF-uri „MO bis”, glife din `font_maps/mo_bis_glyph_map.json`) → `consolidare_normative.py --baza --ordin --manifest --iesire --raport` (manifestul JSON explicit per ordin, fail-closed; `corectie_tipar` doar cu justificare).
+- **Pană a classifier-ului** (comenzile nu primesc verdict): nu insista; programează o reluare (CronCreate) și oprește-te.
+
+### Date și unelte în afara Git (pe disc, nu le șterge)
+- `D:\Omnia-MVP\documente_noi\` — PDF-urile oficiale, `extracted.txt`, `metadata.json`, pentru P 118/2 și P 118/3 și `baza.txt`, `ordin_*.txt`, `manifest_*.json`; `_reports/` rapoarte de reimport; `_on_hold_*` / `_rejected` = documente respinse cu motiv.
+- `D:\Omnia-MVP\backups\` — backup-uri de reimport (embeddings incluse).
+- `D:\Omnia-MVP\posibil_normative\` — arhiva veche a lui Lucian (exclusă local din Git prin `.git/info/exclude`); majoritatea documentelor sunt abrogate sau standarde.
+- `D:\_scratch\omnia\` — scripturi ajutătoare: `db_ro.py` (interogare DB **read-only**, SQL pe stdin), `smoke_r24.py`/`smoke_r26.py` (test rapid pe site), `r26/diag.py` (diagnostic consolidare), rezultatele evaluărilor (`r26/eval_*.json`), `R26-status.md`.
+
+---
+
 Updated: **25-09-2026** (EET). Rewritten after a 10-day documentation gap (previous version dated 11-09-2026, but `main` had advanced through 15-09-2026 without a matching handoff). This version is a **read from git history + fresh host verification**, not a new implementation session.
 
 ## 0. Update 27-09-2026 — read this first
