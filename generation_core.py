@@ -90,9 +90,13 @@ _NON_ALPHANUMERIC = re.compile(r"[^0-9A-Z]+")
 
 # Marcaj de proveniență (D27), pe rând propriu după textul consolidat al P 118/2 și P 118/3
 # modificat/introdus/abrogat printr-un ordin ulterior. Derivat
-# server-side din `Evidence.content`, niciodată din răspunsul modelului.
+# server-side din `Evidence.content`, niciodată din răspunsul modelului. Recunoaște atât forma
+# originală, pusă direct pe textul afectat („Text modificat”/„Text introdus”/„Abrogat”), cât
+# și forma la nivel de articol propagată de `chunking_core._propaga_marcaj_provenienta` la
+# celelalte bucăți ale aceluiași articol („Articol cu text modificat/introdus/abrogat”).
 _MODIFICATION_MARKER = re.compile(
-    r"\[(Text modificat|Text introdus|Abrogat) prin Ordinul nr\. [0-9.]+/\d{4}, "
+    r"\[(?:Articol cu text )?(?:Text modificat|Text introdus|Abrogat|modificat|introdus|abrogat) "
+    r"prin Ordinul nr\. [0-9.]+/\d{4}, "
     r"publicat în Monitorul Oficial nr\. \d+ din \d{2}\.\d{2}\.\d{4}\]"
 )
 
@@ -396,8 +400,10 @@ class GenerationService:
             "identificator [Cn]. Dacă dovezile conțin măcar o parte din răspuns, pune `gasit=true`, "
             "citează conform regulilor de mai sus și spune explicit, conform regulii 4, ce lipsește.\n"
             "11. Dacă o dovadă conține un marcaj de forma „[Text modificat/introdus prin Ordinul "
-            "nr. ...]” sau „[Abrogat prin Ordinul nr. ...]”, menționează explicit în răspuns că "
-            "prevederea are textul modificat, introdus sau abrogat prin ordinul respectiv.\n"
+            "nr. ...]”, „[Abrogat prin Ordinul nr. ...]” sau, la nivel de articol, „[Articol cu "
+            "text modificat/introdus/abrogat prin Ordinul nr. ...]”, menționează explicit în "
+            "răspuns că prevederea (sau articolul din care face parte) are textul modificat, "
+            "introdus sau abrogat prin ordinul respectiv.\n"
             "<intrebare_json>\n"
             f"{serialized_question}\n"
             "</intrebare_json>\n"
