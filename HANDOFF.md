@@ -13,7 +13,7 @@ Citește în ordine: această secțiune → `docs/DECISIONS.md` (D23–D27 sunt 
 - Citarea are câmpul `modificari` („Text modificat prin Ordinul nr. …”) pentru textele consolidate (D27).
 
 ### În lucru / următorul pas
-- **Niciun task în lucru.** Ultimul: R28 (PR #33) — `PATTERN_TITLU_ANEXA` acceptă `ANEXA NR. N` / `Nr.` / `14bis`, anexele P 118/2 sunt regiuni proprii (Anexa 33 → `ANEXA 33.33.x.`); P 118/2 reimportat (1840 chunk-uri); evaluare căutare 34/36.
+- **ÎN LUCRU — R30 (rescrierea întrebării cu Claude Haiku 4.5, aprobat Lucian 29-09):** branch `feat/r30-rescriere` (pe GitHub), brief `docs/handoff/R30-coder.md` + raport coder. Motiv: utilizatorii scriu fără diacritice, cu greșeli și colocvial („mașină/subsol/desfumare”) → căutarea rata articolul (ex. NP 127 art. 117 pe locul 15). Făcut: `query_rewrite.py` (Haiku, fail-open la orice eroare), căutare semantică dublă (original + rescris, scor maxim), `retrieval_eval.py --rescriere`, set nou `evaluare/set_colocvial.json` (17 întrebări „ca de om”). Măsurat: colocvial **11/17 → 17/17**; oficial 34/36 → 33/36 (toate pozitivele găsite; NEG-05 trece de căutare, dar generarea refuză corect — verificat). Rămas: tester (+ un test instabil văzut o dată, nereprodus în 3 rulări) → reviewer → PR → deploy (Lucian). Ultimul task încheiat: R29 (NP 127).
 - Idei de backlog (nedecise): numerotarea „(A).2.” din NP 057; PR-urile dependabot (atenție la `anthropic` major); I 13-2015 complet (textul de bază lipsește).
 
 ### Regulile globale ale lui Lucian (rezumat — sursa completă e în afara repo-ului)
