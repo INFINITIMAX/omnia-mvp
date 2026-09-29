@@ -28,5 +28,11 @@
   {"id": "NEG-03", "tip": "negativ", "intrebare": "Ce prevede art. 99.99 din I9-2022?", "asteptat": []},
   {"id": "NEG-04", "tip": "negativ", "intrebare": "Ce grosime minimă trebuie să aibă stratul de uzură din asfalt pe drumurile județene?", "asteptat": []},
   {"id": "NEG-05", "tip": "negativ", "intrebare": "Ce cerințe se aplică podurilor rutiere din beton precomprimat?", "asteptat": []},
-  {"id": "NEG-06", "tip": "negativ", "intrebare": "Ce reguli se aplică pentru marcajele rutiere longitudinale pe autostrăzi?", "asteptat": []}
+  {"id": "NEG-06", "tip": "negativ", "intrebare": "Ce reguli se aplică pentru marcajele rutiere longitudinale pe autostrăzi?", "asteptat": []},
+  {"id": "P1182-01", "tip": "exact", "intrebare": "Ce prevede art. 4.33 din P 118/2-2013?", "asteptat": [{"document_id": "p118_2_2013", "articol": "4.33"}]},
+  {"id": "P1182-02", "tip": "semantic", "intrebare": "Ce debit de apă pentru stingerea din exterior se asigură la construcțiile agrozootehnice?", "asteptat": [{"document_id": "p118_2_2013", "articol": "6.40"}]},
+  {"id": "P1182-03", "tip": "semantic", "intrebare": "Care clădiri trebuie echipate cu hidranți de incendiu interiori?", "asteptat": [{"document_id": "p118_2_2013", "articol": "4.1"}]},
+  {"id": "P1183-01", "tip": "exact", "intrebare": "Ce prevede art. 3.3.13 din P 118/3-2015?", "asteptat": [{"document_id": "p118_3_2015", "articol": "3.3.13"}]},
+  {"id": "P1183-02", "tip": "semantic", "intrebare": "În ce clădiri este obligatorie echiparea cu instalații de detectare, semnalizare și alarmare la incendiu?", "asteptat": [{"document_id": "p118_3_2015", "articol": "3.3.1"}]},
+  {"id": "P1183-03", "tip": "semantic", "intrebare": "Ce este semnalul de confirmare alarmă la o instalație de detectare a incendiului?", "asteptat": [{"document_id": "p118_3_2015", "articol": "2.56"}]}
 ]}
