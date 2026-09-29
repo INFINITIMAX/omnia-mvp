@@ -86,6 +86,11 @@ class ItemOrdin:
 # Segmentarea ordinului
 # ---------------------------------------------------------------------------
 
+PATTERN_INSTRUCTIUNE_ASCUNSA = re.compile(
+    r"(?m)^[ \t]*\d{1,3}\.\s*(?:Punctul|Punctele|La punctul|La anexa|Anexa nr\.|Partea introductivă)\b"
+)
+
+
 def segmenteaza_ordin(text: str) -> list[ItemOrdin]:
     """Segmentează itemii 1..N din Art. I, până la Art. II."""
     start_match = PATTERN_START_ART_I.search(text)
@@ -111,6 +116,14 @@ def segmenteaza_ordin(text: str) -> list[ItemOrdin]:
         urmator = pattern_urmator.search(corp, continut_start)
         continut_end = urmator.start() if urmator else len(corp)
         bloc = corp[continut_start:continut_end]
+        # Numerotare cu goluri (ex. 4 → 6): itemul curent ar înghiți tacit instrucțiunea
+        # itemului lipsă; un rând care arată ca o instrucțiune de modificare oprește segmentarea.
+        instructiune_ascunsa = PATTERN_INSTRUCTIUNE_ASCUNSA.search(bloc)
+        if instructiune_ascunsa:
+            raise ValueError(
+                f"itemul {nr}: conține ceea ce pare instrucțiunea altui item "
+                f"({instructiune_ascunsa.group(0).strip()[:60]!r}) — numerotare neconsecutivă?"
+            )
         itemi.append(_parseaza_item(nr, bloc))
         cursor = continut_end
         nr += 1

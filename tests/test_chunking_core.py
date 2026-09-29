@@ -461,6 +461,43 @@ def test_limita_de_1000_caractere_pe_chunk():
     assert rezultat[0]["text"].startswith("Text foarte lung repetat")
 
 
+# --- D27: marcajul de proveniență nu se taie la limita de 1000 caractere ------
+
+
+def test_marcaj_de_provenienta_nu_este_taiat_la_limita_de_1000_caractere():
+    """D27 (consolidare_normative.py): dacă tăietura la 1000 de caractere ar cădea
+    în interiorul marcajului de proveniență, acesta ar apărea trunchiat într-o
+    bucată și cu resturi în cealaltă. Ar pica dacă marcajul nu ar rămâne întreg
+    într-o singură bucată."""
+    marcaj = "[Text modificat prin Ordinul nr. 6.025/2018, publicat în Monitorul Oficial nr. 977 din 19.11.2018]"
+    text = "\n1.1. " + "A" * 940 + marcaj + "B" * 100 + "\n"
+
+    rezultat = creeaza_chunkuri(text)
+
+    assert all(chunk["articol"] == "1.1." for chunk in rezultat)
+    chunkuri_cu_marcaj_intreg = [c for c in rezultat if marcaj in c["text"]]
+    assert len(chunkuri_cu_marcaj_intreg) == 1
+    chunkuri_cu_marcaj_trunchiat = [
+        c for c in rezultat if "[Text modificat prin Ordinul" in c["text"] and marcaj not in c["text"]
+    ]
+    assert chunkuri_cu_marcaj_trunchiat == []
+    assert "B" * 100 in "".join(c["text"] for c in rezultat)
+
+
+def test_text_fara_marcaj_de_provenienta_se_taie_la_limita_ca_inainte():
+    """Regresie: fără niciun marcaj de proveniență, tăietura la limita de 1000 de
+    caractere trebuie să rămână neschimbată (la ultimul spațiu găsit, neextinsă
+    artificial ca în testul de mai sus)."""
+    text = "\n1.1. " + "A" * 940 + " " + "C" * 200 + "\n"
+
+    rezultat = creeaza_chunkuri(text)
+
+    assert len(rezultat) == 2
+    assert all(len(chunk["text"]) <= 1000 for chunk in rezultat)
+    assert rezultat[0]["text"] == "A" * 940
+    assert rezultat[1]["text"] == "C" * 200
+
+
 def test_ultimele_statistici_numara_corect_pe_exemplu_mic():
     """Ar pica dacă oricare dintre cele patru statistici nu ar reflecta exact
     operațiile aplicate pe acest exemplu mic și controlat."""
