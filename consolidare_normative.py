@@ -518,13 +518,14 @@ def _proceseaza_operatie(baza: str, item: ItemOrdin, operatie: dict, ordin_info:
         # Runda 2: sintagmă înlocuită doar în interiorul unui bloc ancorat (ex. tabelele
         # 7.10—7.12), nu în tot documentul. Ca la înlocuirile globale: fără marcaj per
         # apariție, dar numărul de înlocuiri se raportează; ≥1 obligatoriu (fail-closed).
+        sintagma_veche, sintagma_noua = _sintagme_corectate(item, operatie)
         for tinta in tinte:
             start, sfarsit = _localizeaza_bloc(baza, tinta["ancora_inceput"], tinta["ancora_sfarsit"])
             regiune = baza[start:sfarsit]
-            regiune_noua, numar = _aplica_inlocuire_globala(regiune, item.sintagma_veche, item.sintagma_noua)
+            regiune_noua, numar = _aplica_inlocuire_globala(regiune, sintagma_veche, sintagma_noua)
             if numar < 1:
                 raise ValueError(
-                    f"itemul {item.nr}: sintagma {item.sintagma_veche!r} nu a fost găsită în blocul "
+                    f"itemul {item.nr}: sintagma {sintagma_veche!r} nu a fost găsită în blocul "
                     f"{tinta['ancora_inceput']!r}…{tinta['ancora_sfarsit']!r}"
                 )
             intrare = _intrare(
@@ -539,6 +540,27 @@ def _proceseaza_operatie(baza: str, item: ItemOrdin, operatie: dict, ordin_info:
         raise ValueError(f"tip de operație necunoscut: {tip!r}")
 
     return rezultate
+
+
+def _sintagme_corectate(item: ItemOrdin, operatie: dict) -> tuple[str, str]:
+    """Sintagmele din ordin sau, dacă manifestul declară o greșeală de tipar a ordinului
+    (ex. „calcul al” vs. „calcul ale” din bază), forma din bază — numai cu justificare și
+    numai dacă fiecare diferă de textul ordinului printr-un singur cuvânt, pe aceeași poziție."""
+    corectie = operatie.get("corectie_tipar")
+    if not corectie:
+        return item.sintagma_veche, item.sintagma_noua
+    if not str(corectie.get("justificare", "")).strip():
+        raise ValueError(f"itemul {item.nr}: corectie_tipar fără justificare")
+    pozitii = set()
+    for din_ordin, din_baza in ((item.sintagma_veche, corectie["veche"]), (item.sintagma_noua, corectie["noua"])):
+        a, b = din_ordin.split(), din_baza.split()
+        diferite = [i for i in range(len(a)) if len(a) == len(b) and a[i] != b[i]]
+        if len(a) != len(b) or len(diferite) != 1:
+            raise ValueError(f"itemul {item.nr}: corectie_tipar trebuie să difere de ordin printr-un singur cuvânt")
+        pozitii.update(diferite)
+    if len(pozitii) != 1:
+        raise ValueError(f"itemul {item.nr}: corectie_tipar trebuie să corecteze același cuvânt în ambele sintagme")
+    return corectie["veche"], corectie["noua"]
 
 
 def _eticheta_subunitate(tinta: dict) -> str:
