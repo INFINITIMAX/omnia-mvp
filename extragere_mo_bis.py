@@ -33,6 +33,9 @@ _PATTERN_ENCODING = re.compile(r"/Encoding\s+(\d+) 0 R")
 _PATTERN_DIFFERENCES = re.compile(r"/Differences\s*\[(.*?)\]", re.S)
 _PATTERN_GLIF = re.compile(r"/g(\d+)")
 _PATTERN_CID = re.compile(r"\(cid:(\d+)\)")
+_PATTERN_PAGINA_LIPITA_DE_ANTET = re.compile(
+    r"(?m)^(\d{1,4})[ \t]+(MONITORUL OFICIAL AL ROMÂNIEI, PARTEA I, Nr\. .+)$"
+)
 
 
 def incarca_tabela(cale=CALE_TABELA_MO_BIS):
@@ -118,6 +121,9 @@ def extrage_text(pdf_path, tabela=None):
                 caractere.append(caracter)
             pagini_text.append(extract_text(caractere, layout=False, x_tolerance=1.5))
     text = normalizeaza_diacritice("\n".join(pagini_text))
+    # pdfplumber pune numărul paginii pare pe același rând cu antetul MO („2 MONITORUL
+    # OFICIAL…”); pe rând propriu, antetul e recunoscut și eliminat de chunker.
+    text = _PATTERN_PAGINA_LIPITA_DE_ANTET.sub(r"\1\n\2", text)
     raport = {"nerezolvate": dict(nerezolvate), "pagini": len(pagini_text)}
     return text, raport
 
