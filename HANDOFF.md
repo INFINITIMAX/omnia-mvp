@@ -5,13 +5,13 @@
 Citește în ordine: această secțiune → `docs/DECISIONS.md` (D23–D27 sunt cele recente) → `TASKS.md` (index) → `AGENTS.md` (roluri). Secțiunile de mai jos („Updated: 25-09-2026”, „§0 27-09-2026”) sunt **istoric**.
 
 ### Stare live
-- Producție: `https://normativai.ro`, Railway, **main `ce4ebee`** (deploy 29-09; R28 în lucru, vezi mai jos). Health: `/health`, `/health/db` (SELECT 1, cache 60 s), `/health/provideri`.
+- Producție: `https://normativai.ro`, Railway, **main `1dc9be0`**, deploy 29-09 pe `ce4ebee` (R28 a schimbat doar importul, nu runtime-ul). Health: `/health`, `/health/db` (SELECT 1, cache 60 s), `/health/provideri`.
 - **11 normative `approved`**: P 118/1-2025, P 118/2-2013 și P 118/3-2015 (consolidate cu Ordinele 6.026/2018 și 6.025/2018, D27), I5-2022, I7-2011, I9-2022, NP 004-03, NP 010-2022, NP 015-2022 (`spitale_2022`), NP 057-02, NP 091-2003. `disabled`: `i13_2015_modificari`, `p118_2_2013_modificari` (doar ordine de modificare, D23).
 - Evaluare (`evaluare/set_aur.json`, **36** de întrebări, versiune 1): căutare **34/36** (rămân NP015-03 sub prag și NEG-04 — acceptate, D25); generare: 0 erori, toate răspunsurile cu citate literale, refuz corect fără dovezi (D26).
 - Citarea are câmpul `modificari` („Text modificat prin Ordinul nr. …”) pentru textele consolidate (D27).
 
 ### În lucru / următorul pas
-- **R28** (`fix/r28-anexe-nr`, worktree `D:\Omnia-MVP-r28`): `PATTERN_TITLU_ANEXA` acceptă `ANEXA NR. N` / `Nr.` / `14bis` → anexele P 118/2 devin regiuni proprii (Anexa 33 „Terminologie” nu se mai ciocnește cu capitolul 33). Verificat: celelalte 9 documente identice; P 118/2 fără text pierdut. Rămas: tester → reviewer → PR → reimport P 118/2 (`reimport_approved.py --document p118_2_2013`, poarta D24) → evaluare căutare.
+- **Niciun task în lucru.** Ultimul: R28 (PR #33) — `PATTERN_TITLU_ANEXA` acceptă `ANEXA NR. N` / `Nr.` / `14bis`, anexele P 118/2 sunt regiuni proprii (Anexa 33 → `ANEXA 33.33.x.`); P 118/2 reimportat (1840 chunk-uri); evaluare căutare 34/36.
 - Idei de backlog (nedecise): numerotarea „(A).2.” din NP 057; PR-urile dependabot (atenție la `anthropic` major); I 13-2015 complet (textul de bază lipsește).
 
 ### Cum se lucrează aici (reguli + comenzi)
