@@ -607,3 +607,63 @@ def test_inlocuiri_globale_se_aplica_si_in_textul_nou(baza_simpla):
 
     assert "detectare, semnalizare și alarmare" in rezultat
     assert "detectare, semnalizare și avertizare" not in rezultat
+
+
+# ---------------------------------------------------------------------------
+# corectie_tipar (item 24 din Ordinul 6.026/2018, aprobat Lucian 29-09-2026)
+# ---------------------------------------------------------------------------
+
+_BAZA_TABELE = (
+    "Tabelul 7.10\n"
+    "Valorile minime de calcul ale densității de stropire și ale ariei\n"
+    "rand dupa titlu tabel\n"
+)
+_ITEM_SINTAGMA = ItemOrdin(
+    nr=1,
+    instructiune="La tabelul 7.10, sintagma „Valorile minime de calcul al densității de stropire” se înlocuiește",
+    text_nou="",
+    sintagma_veche="Valorile minime de calcul al densității de stropire",
+    sintagma_noua="Valorile minime de calcul al densității de stingere",
+)
+
+
+def _manifest_tipar(corectie):
+    operatie = {"nr": 1, "tip": "inlocuieste_sintagma_in_bloc",
+                "tinte": [{"ancora_inceput": "Tabelul 7.10", "ancora_sfarsit": "rand dupa titlu"}]}
+    if corectie is not None:
+        operatie["corectie_tipar"] = corectie
+    return _manifest([operatie])
+
+
+def test_corectie_tipar_aplica_forma_din_baza():
+    """Ar pica dacă corecția n-ar fi folosită (sintagma din ordin nu există în bază) sau
+    dacă s-ar insera forma greșită din ordin („calcul al”)."""
+    corectie = {"veche": "Valorile minime de calcul ale densității de stropire",
+                "noua": "Valorile minime de calcul ale densității de stingere", "justificare": "tipar"}
+
+    rezultat, raport = aplica_operatii(_BAZA_TABELE, [_ITEM_SINTAGMA], _manifest_tipar(corectie))
+
+    assert "calcul ale densității de stingere și ale ariei" in rezultat
+    assert "de stropire" not in rezultat
+    assert raport[0]["numar_inlocuiri"] == 1
+
+
+def test_fara_corectie_tipar_sintagma_diferita_opreste():
+    """Ar pica dacă o sintagmă din ordin care nu apare literal în bază ar trece tacit."""
+    with pytest.raises(ValueError, match="nu a fost găsită"):
+        aplica_operatii(_BAZA_TABELE, [_ITEM_SINTAGMA], _manifest_tipar(None))
+
+
+@pytest.mark.parametrize("corectie, mesaj", [
+    ({"veche": "Valorile minime de calcul ale densității de stropire",
+      "noua": "Valorile minime de calcul ale densității de stingere", "justificare": " "}, "fără justificare"),
+    ({"veche": "Valorile maxime de calcul ale densității de stropire",
+      "noua": "Valorile maxime de calcul ale densității de stingere", "justificare": "x"}, "un singur cuvânt"),
+    ({"veche": "Valorile minime de calcul ale densității de stropire",
+      "noua": "Valorile minime de calcul al densității de stingerea", "justificare": "x"}, "același cuvânt"),
+])
+def test_corectie_tipar_invalida_opreste(corectie, mesaj):
+    """Ar pica dacă o „corecție” fără justificare sau care schimbă mai mult de un cuvânt
+    (ori cuvinte diferite în cele două sintagme) ar fi acceptată."""
+    with pytest.raises(ValueError, match=mesaj):
+        aplica_operatii(_BAZA_TABELE, [_ITEM_SINTAGMA], _manifest_tipar(corectie))
