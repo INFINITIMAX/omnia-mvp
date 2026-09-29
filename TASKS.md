@@ -4,7 +4,7 @@
 
 > Agent nou: începe cu `HANDOFF.md` → „START AICI”.
 
-- **Live:** 12 normative `approved` (NP 064-02 adăugat 29-09, D28); evaluare 34/36 căutare, 0 erori de generare. Deploy pentru PR #35 (biblioteci) în așteptare.
+- **Live:** 12 normative `approved` (NP 064-02 adăugat 29-09, D28); evaluare 34/36 căutare, 0 erori de generare. Deploy 29-09 pe `0e1253f` (inclusiv bibliotecile din PR #35), test rapid OK.
 - **29-09:** PR #35 actualizări de biblioteci (anthropic 1.3.0 + 4 patch-uri, verificat cu teste și apel real); PR #36 NP 064-02 (mansarde), excepție punctuală D28.
 - **R27:** definițiile cu literă mică (P 118/3, cap. 2 „Terminologie”) devin articole proprii (ex. 2.56); P 118/3 reimportat (461 chunk-uri). Handoff-uri `docs/handoff/R27-*`.
 - **R28 (gata, PR #33):** titlurile `ANEXA NR. N` deschid regiuni de anexă (P 118/2, Anexa 33 vs capitolul 33); P 118/2 reimportat (1840 chunk-uri); evaluare căutare 34/36.
