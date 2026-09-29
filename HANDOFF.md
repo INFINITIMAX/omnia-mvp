@@ -5,7 +5,7 @@
 Citește în ordine: această secțiune → `docs/DECISIONS.md` (D23–D27 sunt cele recente) → `TASKS.md` (index) → `AGENTS.md` (roluri). Secțiunile de mai jos („Updated: 25-09-2026”, „§0 27-09-2026”) sunt **istoric**.
 
 ### Stare live
-- Producție: `https://normativai.ro`, Railway. Ultimul deploy 29-09 pe `adeb800` (tot ce e în main până la R29, inclusiv anthropic 1.3.0), 1396 de teste trecute, test rapid OK. Health: `/health`, `/health/db` (SELECT 1, cache 60 s), `/health/provideri`.
+- Producție: `https://normativai.ro`, Railway. Ultimul deploy 29-09 pe `e94754b` (main până la R30 + garda de teste), 1424 de teste trecute; test rapid OK cu întrebările lui Bogdan scrise exact ca el (NP 127 art. 117 / 129 / 130), iar întrebarea fără răspuns (poduri rutiere) → „Nu am găsit”. Timp de răspuns observat: ~6–23 s. Health: `/health`, `/health/db` (SELECT 1, cache 60 s), `/health/provideri`.
 - **13 normative `approved`**: P 118/1-2025, P 118/2-2013 și P 118/3-2015 (consolidate cu Ordinele 6.026/2018 și 6.025/2018, D27), I5-2022, I7-2011, I9-2022, NP 004-03, NP 010-2022, NP 015-2022 (`spitale_2022`), NP 057-02, NP 064-02 (mansarde, excepție D28), NP 091-2003, NP 127:2009 (parcaje subterane, R29 — text din Portalul Legislativ, MO 74/2010; Capitolul XIV „Referințe” exclus).
 - **Feedback de la testare (Bogdan, inginer instalații):** debitul de desfumare 600/900 m³/h pe autoturism și distanța de 8 m a gurilor de evacuare → rezolvate prin NP 127 (R29). Viteza maximă pe tubulatura de presurizare: nu există în P 118 (doar 5 m/s la guri, 1 m/s la uși) — de aflat de la el articolul exact.
 - **Candidați de normative din arhiva lui Lucian** (verificați față de lista MDLPA, nealeși încă): NP 061-2002, NP 063-2002, NP 065-2002, NP 040-2002, NP 099-2004, C 56-2002. Cei cu text doar în Buletinul Construcțiilor cer excepție explicită (D28). `disabled`: `i13_2015_modificari`, `p118_2_2013_modificari` (doar ordine de modificare, D23).
@@ -14,7 +14,7 @@ Citește în ordine: această secțiune → `docs/DECISIONS.md` (D23–D27 sunt 
 - **Rescrierea întrebării (R30, D29):** pe ruta semantică, `/intreaba` cere lui Claude Haiku 4.5 o reformulare în limbaj normativ (diacritice, greșeli corectate, termeni colocviali → normativi), caută cu ambele variante și păstrează scorul maxim; parserul, ruta exactă, restricțiile D12/D25 și generarea folosesc **doar** întrebarea originală; orice eșec al rescrierii → căutare ca înainte (fail-open).
 
 ### În lucru / următorul pas
-- **R30 încheiat în cod (review APROBAT, `docs/handoff/R30-*`); DEPLOY ÎN AȘTEPTARE — îl rulează Lucian.** După deploy: test rapid pe site cu întrebările lui Bogdan scrise exact ca el (ex. „cat se considera debitul de aer pentru desfumare la o masina pentru un subsol fara isntaltie de sprinklere ? dar cu ?” → NP 127 art. 117). Un eșec izolat de test văzut o dată înainte de R30-tester nu s-a mai reprodus în 8 rulări.
+- **Niciun task în lucru.** Ultimul: R30 (PR #43, live). Lecție R30: `main.py` încarcă `.env` la import, iar testele care ajungeau pe ruta semantică chemau Haiku real → deploy-ul a refuzat (18 eșecuri) → `tests/conftest.py` șterge `ANTHROPIC_API_KEY` la fiecare test (PR #44); suita de teste nu poate face apeluri plătite la Anthropic. Eșecul „instabil” văzut o dată avea aceeași cauză.
 - Idei deschise: viteza pe tubulatura de presurizare (articolul exact de la Bogdan); candidații din arhivă (mai sus).
 - Idei de backlog (nedecise): numerotarea „(A).2.” din NP 057; PR-urile dependabot (atenție la `anthropic` major); I 13-2015 complet (textul de bază lipsește).
 

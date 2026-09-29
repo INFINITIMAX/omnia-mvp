@@ -4,7 +4,7 @@
 
 > Agent nou: începe cu `HANDOFF.md` → „START AICI”.
 
-- **R30 (D29):** rescrierea întrebării cu Haiku 4.5 pentru căutare (colocvial 11/17 → 17/17; oficial 33/36, pozitive identice). Review APROBAT. **Deploy în așteptare (Lucian).**
+- **R30 (D29):** rescrierea întrebării cu Haiku 4.5 pentru căutare (colocvial 11/17 → 17/17; oficial 33/36, pozitive identice). Review APROBAT. **Live** (deploy `e94754b`, 29-09), împreună cu garda de teste fără apeluri plătite (PR #44).
 
 - **R29 (PR #39):** NP 127:2009 (parcaje subterane) — chunker pentru articole „Articolul N”; importat (191 chunk-uri) și aprobat; răspunde la feedback-ul de testare (600/900 m³/h, 8 m).
 - **Live:** 13 normative `approved` (NP 064-02 adăugat 29-09, D28; NP 127:2009, R29); evaluare 34/36 căutare, 0 erori de generare. Deploy 29-09 pe `adeb800` (main complet până la R29), test rapid OK.
