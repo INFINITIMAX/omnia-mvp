@@ -8,12 +8,17 @@ U+021A, Ș U+0218). Sunt code point-uri Unicode diferite: o comparație de
 șiruri sau o căutare exactă între cele două forme eșuează, chiar dacă un
 cititor uman nu vede nicio diferență vizuală.
 
-Soluția: o traducere caracter-cu-caracter, STRICT limitată la aceste patru
+La fel, MO nr. 595 bis/2013 (P 118/2) folosește punctual o glifă greșită
+pentru ă: ǎ (U+01CE, a cu caron) și Ǎ (U+01CD), ex. „mecanicǎ”, „siguranŃǎ” -
+tot o problemă de glifă sursă, nu de conținut, deci corectă în aceeași
+funcție.
+
+Soluția: o traducere caracter-cu-caracter, STRICT limitată la aceste
 perechi. NU folosim unicodedata.normalize() sau altă normalizare Unicode
 globală aici - o normalizare NFKC/NFKD generală ar atinge și code point-urile
 din Mathematical Alphanumeric Symbols și alte blocuri folosite de formulele
 reconstruite din PDF-uri CambriaMath (vezi glyph_mapping.py), lucru pe care
-nu-l vrem în acest modul. Orice alt caracter (â, î, ă, radical, ×, litere
+nu-l vrem în acest modul. Orice alt caracter (â, î, radical, ×, litere
 grecești, punctul suprapus combinat U+0307 etc.) rămâne complet neatins.
 
 Folosit simetric: la ingestie, pe textul extras din documente (vezi
@@ -28,11 +33,13 @@ _SEDILA_LA_VIRGULA = str.maketrans({
     "ş": "ș",  # ş -> ș
     "Ţ": "Ț",  # Ţ -> Ț
     "Ş": "Ș",  # Ş -> Ș
+    "ǎ": "ă",  # ǎ (U+01CE) -> ă
+    "Ǎ": "Ă",  # Ǎ (U+01CD) -> Ă
 })
 
 
 def normalizeaza_diacritice(text: str) -> str:
-    """Înlocuiește ţ/ş/Ţ/Ş (sedilă) cu ț/ș/Ț/Ș (virgulă). Nimic altceva."""
+    """Înlocuiește ţ/ş/Ţ/Ş (sedilă) cu ț/ș/Ț/Ș (virgulă) și ǎ/Ǎ cu ă/Ă. Nimic altceva."""
     if not isinstance(text, str):
         raise ValueError("textul trebuie să fie text")
     return text.translate(_SEDILA_LA_VIRGULA)
