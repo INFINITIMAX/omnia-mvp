@@ -29,9 +29,10 @@ from retrieval_core import (
 from scope_core import is_engineering_calculation_request
 
 
-MAX_CASES = 30
-MAX_EMBEDDING_CALLS = 30
-MAX_GENERATION_CALLS = 30
+MAX_CASES = 36
+MAX_EMBEDDING_CALLS = 36
+# 36 de cazuri + marjă pentru reîncercarea unică a generării (referință nesusținută).
+MAX_GENERATION_CALLS = 45
 _TYPES = frozenset({"exact", "semantic", "negativ"})
 _REFUSAL_STATUSES = frozenset({"not_found", "ambiguous_reference", "ambiguous_article", "out_of_scope"})
 

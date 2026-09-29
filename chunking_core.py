@@ -102,6 +102,17 @@ PRAG_MARCAJE_ART = 50
 LUNGIME_MINIMA_CHUNK = 15
 LUNGIME_PENTRU_SPLIT_SECUNDAR = 2000
 MAX_CHUNK_CHARS = 1000
+# D27: marcajul de proveniență din normativele consolidate (vezi consolidare_normative.py).
+# Recunoaște atât forma originală, pusă de consolidare direct pe textul afectat („Text
+# modificat”/„Text introdus”/„Abrogat”), cât și forma la nivel de articol propagată de
+# `_propaga_marcaj_provenienta` la celelalte bucăți ale aceluiași articol de bază
+# („Articol cu text modificat/introdus/abrogat”) — necesar ca tăietura la 1000 de
+# caractere (`_aplica_limita_caractere`) să nu rupă nici forma nouă în două.
+PATTERN_MARCAJ_PROVENIENTA = re.compile(
+    r"\[(?:Articol cu text )?(Text modificat|Text introdus|Abrogat|modificat|introdus|abrogat) "
+    r"(prin Ordinul nr\. [^\]\n]{1,150})\]"
+)
+LUNGIME_MAXIMA_MARCAJ = 200
 PROCENT_MAXIM_CAUTARE_CUPRINS = 0.20
 DISTANTA_MAXIMA_ANTET = 3
 NUMAR_MINIM_INTRARI_CUPRINS = 5
@@ -162,6 +173,7 @@ def creeaza_chunkuri(text: str) -> list[dict[str, str]]:
     )
     titluri_contopite += titluri_contopite_din_split
     chunkuri = _aplica_limita_caractere(chunkuri)
+    chunkuri = _propaga_marcaj_provenienta(chunkuri)
 
     _ultimele_statistici["antete_eliminate"] = antete_eliminate
     _ultimele_statistici["titluri_contopite"] = titluri_contopite
@@ -772,17 +784,99 @@ def acoperire_text_brut(text: str, chunkuri: list[dict[str, str]]) -> float:
     return gasite / total if total else 1.0
 
 
-def _aplica_limita_caractere(chunkuri: list[dict[str, str]]) -> list[dict[str, str]]:
+def _aplica_limita_caractere(chunkuri: list[dict[str, str]], limita: int = MAX_CHUNK_CHARS) -> list[dict[str, str]]:
     rezultat = []
     for chunk in chunkuri:
         text = chunk["text"]
-        while len(text) > MAX_CHUNK_CHARS:
-            boundary = max(text.rfind("\n", 0, MAX_CHUNK_CHARS + 1), text.rfind(" ", 0, MAX_CHUNK_CHARS + 1))
+        while len(text) > limita:
+            boundary = max(text.rfind("\n", 0, limita + 1), text.rfind(" ", 0, limita + 1))
             if boundary < LUNGIME_MINIMA_CHUNK:
-                boundary = MAX_CHUNK_CHARS
+                boundary = limita
+            # D27: marcajul de proveniență nu se taie în două — tăietura se mută înaintea lui;
+            # bucata anterioară primește apoi marcajul la nivel de articol (propagare).
+            for marcaj in PATTERN_MARCAJ_PROVENIENTA.finditer(text, 0, boundary + LUNGIME_MAXIMA_MARCAJ):
+                if marcaj.start() < boundary < marcaj.end() and marcaj.start() >= LUNGIME_MINIMA_CHUNK:
+                    boundary = marcaj.start()
             piece, text = text[:boundary].strip(), text[boundary:].strip()
             if piece:
                 rezultat.append({"articol": chunk["articol"], "text": piece})
         if text:
             rezultat.append({"articol": chunk["articol"], "text": text})
+    return rezultat
+
+
+# D27: sufixul de alineat pus de `_aplica_split_secundar` ("3.3.1.(1)" -> baza "3.3.1.").
+# Bucățile cu aceeași bază aparțin aceluiași articol, indiferent care dintre ele conține
+# efectiv marcajul de proveniență pus de consolidare pe textul afectat.
+_PATTERN_SUFIX_ALINEAT_PROVENIENTA = re.compile(r"(?:\(\d+\))+$")
+
+
+def _baza_articol_provenienta(articol: str) -> str:
+    return _PATTERN_SUFIX_ALINEAT_PROVENIENTA.sub("", articol)
+
+
+def _adjectiv_provenienta(tip: str) -> str:
+    """Normalizează tipul capturat de `PATTERN_MARCAJ_PROVENIENTA` la adjectivul folosit
+    în marcajul la nivel de articol: „Text modificat”/„modificat” -> „modificat”,
+    „Abrogat”/„abrogat” -> „abrogat” etc."""
+    return tip.rsplit(" ", 1)[-1].lower()
+
+
+def _propaga_marcaj_provenienta(chunkuri: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Pas final (D27): dacă o bucată a unui articol conține un marcaj de proveniență,
+    toate celelalte bucăți ale aceluiași articol de bază primesc, pe un rând propriu,
+    marcajul echivalent la nivel de articol, exceptând bucățile care au deja un marcaj
+    pentru același ordin/tip. Articolele fără niciun marcaj rămân neatinse (text identic
+    byte cu byte)."""
+    indici_pe_articol: dict[str, list[int]] = {}
+    for index, chunk in enumerate(chunkuri):
+        indici_pe_articol.setdefault(_baza_articol_provenienta(chunk["articol"]), []).append(index)
+
+    rezultat = [dict(chunk) for chunk in chunkuri]
+    for indici in indici_pe_articol.values():
+        marcaje_distincte: list[tuple[str, str]] = []
+        chei_vazute: set[tuple[str, str]] = set()
+        for index in indici:
+            for potrivire in PATTERN_MARCAJ_PROVENIENTA.finditer(chunkuri[index]["text"]):
+                cheie = (_adjectiv_provenienta(potrivire.group(1)), potrivire.group(2))
+                if cheie not in chei_vazute:
+                    chei_vazute.add(cheie)
+                    marcaje_distincte.append(cheie)
+        if not marcaje_distincte:
+            continue
+        for index in indici:
+            text = rezultat[index]["text"]
+            chei_prezente = {
+                (_adjectiv_provenienta(potrivire.group(1)), potrivire.group(2))
+                for potrivire in PATTERN_MARCAJ_PROVENIENTA.finditer(text)
+            }
+            adaugari = [
+                f"[Articol cu text {adjectiv} {rest}]"
+                for adjectiv, rest in marcaje_distincte
+                if (adjectiv, rest) not in chei_prezente
+            ]
+            if adaugari:
+                rezultat[index]["text"] = text + "\n" + "\n".join(adaugari)
+    return _respecta_limita_cu_marcaje(rezultat)
+
+
+def _respecta_limita_cu_marcaje(chunkuri: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Bucățile care depășesc limita după adăugarea marcajelor la nivel de articol se
+    împart din nou, astfel încât fiecare parte, cu marcajele ei, să rămână ≤ MAX_CHUNK_CHARS."""
+    rezultat = []
+    for chunk in chunkuri:
+        if len(chunk["text"]) <= MAX_CHUNK_CHARS:
+            rezultat.append(chunk)
+            continue
+        text = chunk["text"]
+        adaugate = [m.group(0) for m in PATTERN_MARCAJ_PROVENIENTA.finditer(text) if m.group(0).startswith("[Articol cu text ")]
+        corp = text
+        for marcaj in adaugate:
+            corp = corp.replace("\n" + marcaj, "")
+        sufix = "\n" + "\n".join(adaugate)
+        for bucata in _aplica_limita_caractere([{"articol": chunk["articol"], "text": corp}], MAX_CHUNK_CHARS - len(sufix)):
+            text_bucata = bucata["text"]
+            if not any(marcaj in text_bucata for marcaj in adaugate):
+                text_bucata += sufix
+            rezultat.append({"articol": chunk["articol"], "text": text_bucata})
     return rezultat

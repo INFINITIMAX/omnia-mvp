@@ -516,9 +516,9 @@ app.mount(
 # niciuna dintre pagini nu încarcă altceva decât fonturile self-hostate din /assets și
 # fetch('/intreaba') same-origin). O modificare a acelor blocuri inline cere hash-uri noi aici,
 # altfel pagina se rupe silențios sub CSP.
-_CSP_SCRIPT_HASHES = ("'sha256-8trw/Lh6/yPRHJ4Uoq4ratjcq/670ki+KN/vGlhTwZw='",)  # static/index.html <script>
+_CSP_SCRIPT_HASHES = ("'sha256-6xDvEYjVK/5RX4PLjGP2FSXAy4CsJ1r6Hpu/NzfGzco='",)  # static/index.html <script>
 _CSP_STYLE_HASHES = (
-    "'sha256-dfnnV1ZV1nbrift6WtGU2XVQX0ahuMXiVhWB2qwuVPI='",  # static/index.html <style>
+    "'sha256-jTvzVPxCG+GUO/xe5MK7hNt+AYLR5C99/MFj7mdLgEw='",  # static/index.html <style>
     "'sha256-kUyxp8kcWn+qR+O4JbENkEzXFLSQLF+bM6N26VjKs0c='",  # static/termeni.html <style>
     "'sha256-303Ph9pYTBdqEAWSTPYw5296I5SBQDxpsmFJ3UO3iMo='",  # static/confidentialitate.html <style>
     "'sha256-iRTSbo/Ydn205oSWi3GzwimCP8819GmmNR28mXK/M70='",  # static/termeni.html style="margin-top: 40px;"
@@ -742,10 +742,11 @@ class CitationResponse(BaseModel):
     titlu_document: str
     articol: str
     citat: str
+    modificari: list[str] = Field(default_factory=list)
 
     @classmethod
     def from_public(cls, citation: PublicCitation) -> "CitationResponse":
-        return cls(**citation.__dict__)
+        return cls(**{**citation.__dict__, "modificari": list(citation.modificari)})
 
 
 class IntreabaResponse(BaseModel):

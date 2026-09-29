@@ -73,16 +73,16 @@ def test_tip_necunoscut_respinge_setul(tmp_path):
         evaluation.load_gold_set(scrie_set(tmp_path, [caz_valid(tip="altceva")]))
 
 
-def test_peste_30_de_cazuri_respinge_setul(tmp_path):
-    cazuri = [caz_valid(id=f"C{index:02d}") for index in range(31)]
+def test_peste_36_de_cazuri_respinge_setul(tmp_path):
+    cazuri = [caz_valid(id=f"C{index:02d}") for index in range(37)]
     with pytest.raises(evaluation.RealEvaluationError, match="invalid_set"):
         evaluation.load_gold_set(scrie_set(tmp_path, cazuri))
 
 
-def test_exact_30_de_cazuri_este_acceptat(tmp_path):
-    cazuri = [caz_valid(id=f"C{index:02d}") for index in range(30)]
+def test_exact_36_de_cazuri_este_acceptat(tmp_path):
+    cazuri = [caz_valid(id=f"C{index:02d}") for index in range(36)]
     cases = evaluation.load_gold_set(scrie_set(tmp_path, cazuri))
-    assert len(cases) == 30
+    assert len(cases) == 36
 
 
 def test_asteptat_gol_la_non_negativ_respinge_setul(tmp_path):

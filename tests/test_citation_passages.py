@@ -99,6 +99,7 @@ def test_citation_passages_selecteaza_literal_dincolo_de_600_fara_prefix(evidenc
         "titlu_document": evidence_pair[0].titlu_document,
         "articol": evidence_pair[0].articol,
         "citat": PASSAGE_C1,
+        "modificari": (),
     }
     assert generator.calls == 1
     assert generator.token_limits == [2000]
@@ -119,6 +120,7 @@ def test_citation_passages_c2_foloseste_numai_dovada_corespunzatoare(evidence_pa
         "titlu_document": evidence_pair[1].titlu_document,
         "articol": evidence_pair[1].articol,
         "citat": PASSAGE_C2,
+        "modificari": (),
     }
     assert result.citari[0].citat in evidence_pair[1].content
     assert generator.calls == 1

@@ -4,7 +4,13 @@ fără dependențe de documente_noi. Fiecare test reproduce o singură regulă d
 
 import pytest
 
-from chunking_core import acoperire_text_brut, creeaza_chunkuri, ultimele_statistici
+from chunking_core import (
+    acoperire_text_brut,
+    creeaza_chunkuri,
+    ultimele_statistici,
+    _propaga_marcaj_provenienta,
+    _respecta_limita_cu_marcaje,
+)
 
 
 # --- 1a: antete MO ----------------------------------------------------------
@@ -461,6 +467,43 @@ def test_limita_de_1000_caractere_pe_chunk():
     assert rezultat[0]["text"].startswith("Text foarte lung repetat")
 
 
+# --- D27: marcajul de proveniență nu se taie la limita de 1000 caractere ------
+
+
+def test_marcaj_de_provenienta_nu_este_taiat_la_limita_de_1000_caractere():
+    """D27 (consolidare_normative.py): dacă tăietura la 1000 de caractere ar cădea
+    în interiorul marcajului de proveniență, acesta ar apărea trunchiat într-o
+    bucată și cu resturi în cealaltă. Ar pica dacă marcajul nu ar rămâne întreg
+    într-o singură bucată."""
+    marcaj = "[Text modificat prin Ordinul nr. 6.025/2018, publicat în Monitorul Oficial nr. 977 din 19.11.2018]"
+    text = "\n1.1. " + "A" * 940 + marcaj + "B" * 100 + "\n"
+
+    rezultat = creeaza_chunkuri(text)
+
+    assert all(chunk["articol"] == "1.1." for chunk in rezultat)
+    chunkuri_cu_marcaj_intreg = [c for c in rezultat if marcaj in c["text"]]
+    assert len(chunkuri_cu_marcaj_intreg) == 1
+    chunkuri_cu_marcaj_trunchiat = [
+        c for c in rezultat if "[Text modificat prin Ordinul" in c["text"] and marcaj not in c["text"]
+    ]
+    assert chunkuri_cu_marcaj_trunchiat == []
+    assert "B" * 100 in "".join(c["text"] for c in rezultat)
+
+
+def test_text_fara_marcaj_de_provenienta_se_taie_la_limita_ca_inainte():
+    """Regresie: fără niciun marcaj de proveniență, tăietura la limita de 1000 de
+    caractere trebuie să rămână neschimbată (la ultimul spațiu găsit, neextinsă
+    artificial ca în testul de mai sus)."""
+    text = "\n1.1. " + "A" * 940 + " " + "C" * 200 + "\n"
+
+    rezultat = creeaza_chunkuri(text)
+
+    assert len(rezultat) == 2
+    assert all(len(chunk["text"]) <= 1000 for chunk in rezultat)
+    assert rezultat[0]["text"] == "A" * 940
+    assert rezultat[1]["text"] == "C" * 200
+
+
 def test_ultimele_statistici_numara_corect_pe_exemplu_mic():
     """Ar pica dacă oricare dintre cele patru statistici nu ar reflecta exact
     operațiile aplicate pe acest exemplu mic și controlat."""
@@ -484,6 +527,119 @@ def test_ultimele_statistici_numara_corect_pe_exemplu_mic():
     articole = {c["articol"] for c in rezultat}
     assert articole == {"1.1.1.", "2.1."}
     assert len([c for c in rezultat if c["articol"] == "2.1."]) == 1
+
+
+# --- D27 Runda 2: _propaga_marcaj_provenienta (goluri semnalate de reviewer) --
+#
+# Testate direct pe funcțiile private (nu prin creeaza_chunkuri): scenariul din
+# spec — un punct despărțit pe alineate de _aplica_split_secundar — cere un
+# chunk de bază de minimum 2000 caractere ca să declanșeze split-ul secundar;
+# construirea acelui text ar face testele fragile și greu de citit fără să
+# aducă vreo garanție suplimentară față de a apela direct funcția care conține
+# logica cerută (aceleași chei de articol "3.3.1.(1)"/"(2)"/"(4)" pe care le-ar
+# produce _aplica_split_secundar).
+
+MARCAJ_MODIFICAT_1 = "[Text modificat prin Ordinul nr. 6.025/2018, publicat în Monitorul Oficial nr. 977 din 19.11.2018]"
+MARCAJ_ABROGAT_1 = "[Abrogat prin Ordinul nr. 6.026/2018, publicat în Monitorul Oficial nr. 966 din 15.11.2018]"
+
+
+def test_propaga_marcaj_pe_punct_despartit_in_mai_multe_alineate():
+    """Scenariul din spec (P 118/3, 3.3.1): un punct împărțit pe alineate în mai
+    multe bucăți, unde doar una conține marcajul original. Ar pica dacă
+    propagarea nu ar grupa corect după articolul de bază, sau dacă bucata cu
+    marcajul original ar primi și ea dublura la nivel de articol."""
+    chunkuri = [
+        {"articol": "3.3.1.(1)", "text": "Primul alineat fara niciun marcaj propriu."},
+        {"articol": "3.3.1.(2)", "text": f"Al doilea alineat, chiar cel modificat.\n{MARCAJ_MODIFICAT_1}"},
+        {"articol": "3.3.1.(4)", "text": "Al patrulea alineat, tot fara marcaj propriu."},
+    ]
+
+    rezultat = _propaga_marcaj_provenienta(chunkuri)
+
+    marcaj_articol = "[Articol cu text modificat prin Ordinul nr. 6.025/2018, publicat în Monitorul Oficial nr. 977 din 19.11.2018]"
+    text_1 = next(c["text"] for c in rezultat if c["articol"] == "3.3.1.(1)")
+    text_2 = next(c["text"] for c in rezultat if c["articol"] == "3.3.1.(2)")
+    text_4 = next(c["text"] for c in rezultat if c["articol"] == "3.3.1.(4)")
+
+    assert text_1 == f"Primul alineat fara niciun marcaj propriu.\n{marcaj_articol}"
+    assert text_4 == f"Al patrulea alineat, tot fara marcaj propriu.\n{marcaj_articol}"
+    # Bucata cu marcajul original nu primește dublura la nivel de articol.
+    assert text_2 == f"Al doilea alineat, chiar cel modificat.\n{MARCAJ_MODIFICAT_1}"
+    assert text_2.count("[") == 1
+
+
+def test_propaga_marcaj_articol_fara_niciun_marcaj_ramane_byte_identic():
+    """Regresie explicit cerută: un articol ale cărui bucăți nu conțin niciun
+    marcaj de proveniență trebuie să rămână complet neatins. Ar pica dacă
+    propagarea ar adăuga vreun rând suplimentar în absența oricărui marcaj."""
+    chunkuri = [
+        {"articol": "4.1.(1)", "text": "Primul alineat, complet normal, fara nicio modificare."},
+        {"articol": "4.1.(2)", "text": "Al doilea alineat, la fel de normal, fara nicio modificare."},
+    ]
+
+    rezultat = _propaga_marcaj_provenienta(chunkuri)
+
+    assert rezultat == chunkuri
+
+
+def test_propaga_doua_marcaje_diferite_deduplicat_in_ordinea_primei_aparitii():
+    """Mai multe ordine/tipuri de marcaj pe același articol: fiecare altă bucată
+    primește câte un rând per marcaj distinct, în ordinea primei apariții în
+    listă (nu ordinea alfabetică), fără duplicate. Ar pica dacă deduplicarea nu
+    ar respecta ordinea primei apariții sau ar produce rânduri duplicate."""
+    chunkuri = [
+        {"articol": "5.1.(1)", "text": f"Primul alineat.\n{MARCAJ_ABROGAT_1}"},
+        {"articol": "5.1.(2)", "text": f"Al doilea alineat.\n{MARCAJ_MODIFICAT_1}"},
+        {"articol": "5.1.(3)", "text": "Al treilea alineat, fara marcaj propriu."},
+    ]
+
+    rezultat = _propaga_marcaj_provenienta(chunkuri)
+
+    marcaj_articol_abrogat = "[Articol cu text abrogat prin Ordinul nr. 6.026/2018, publicat în Monitorul Oficial nr. 966 din 15.11.2018]"
+    marcaj_articol_modificat = "[Articol cu text modificat prin Ordinul nr. 6.025/2018, publicat în Monitorul Oficial nr. 977 din 19.11.2018]"
+
+    text_1 = next(c["text"] for c in rezultat if c["articol"] == "5.1.(1)")
+    text_2 = next(c["text"] for c in rezultat if c["articol"] == "5.1.(2)")
+    text_3 = next(c["text"] for c in rezultat if c["articol"] == "5.1.(3)")
+
+    # Bucata (1) are deja marcajul abrogat original, primește doar dublura modificat.
+    assert text_1 == f"Primul alineat.\n{MARCAJ_ABROGAT_1}\n{marcaj_articol_modificat}"
+    # Bucata (2) are deja marcajul modificat original, primește doar dublura abrogat.
+    assert text_2 == f"Al doilea alineat.\n{MARCAJ_MODIFICAT_1}\n{marcaj_articol_abrogat}"
+    # Bucata (3), fara niciun marcaj propriu, primește ambele, in ordinea primei
+    # aparitii in lista (abrogat inaintea lui modificat).
+    assert text_3 == (
+        "Al treilea alineat, fara marcaj propriu.\n"
+        f"{marcaj_articol_abrogat}\n{marcaj_articol_modificat}"
+    )
+
+
+def test_respecta_limita_cu_marcaje_reimparte_bucata_care_depaseste_1000():
+    """O bucată de ~990 de caractere care primește un marcaj propagat depășește
+    1000 de caractere; trebuie re-împărțită astfel încât fiecare parte, cu
+    marcajul ei, să rămână ≤1000, fără să se piardă niciun cuvânt. Ar pica dacă
+    rezultatul ar depăși limita sau ar pierde conținut la re-împărțire."""
+    text_lung = ("Cuvant " * 141) + "Ultim."
+    assert len(text_lung) <= 1000  # ~990 caractere, sub limita, inainte de marcaj
+    chunkuri = [
+        {"articol": "6.1.(1)", "text": text_lung},
+        {"articol": "6.1.(2)", "text": f"Alineat scurt cu marcajul original.\n{MARCAJ_MODIFICAT_1}"},
+    ]
+
+    rezultat = _propaga_marcaj_provenienta(chunkuri)
+
+    marcaj_articol = "[Articol cu text modificat prin Ordinul nr. 6.025/2018, publicat în Monitorul Oficial nr. 977 din 19.11.2018]"
+    bucati_articolului_1 = [c for c in rezultat if c["articol"] == "6.1.(1)"]
+
+    assert len(bucati_articolului_1) >= 2
+    assert all(len(c["text"]) <= 1000 for c in bucati_articolului_1)
+    assert all(marcaj_articol in c["text"] for c in bucati_articolului_1)
+    # Niciun cuvant din textul original nu s-a pierdut la re-impartire.
+    text_recompus = " ".join(
+        c["text"].replace("\n" + marcaj_articol, "") for c in bucati_articolului_1
+    )
+    for cuvant in text_lung.split():
+        assert cuvant in text_recompus
 
 
 # --- Runda 2: numar lipit de majuscula (I7/NP 057) -----------------------------

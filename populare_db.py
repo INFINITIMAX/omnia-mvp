@@ -17,7 +17,7 @@ import psycopg2
 import voyageai
 from dotenv import load_dotenv
 
-from chunking_core import creeaza_chunkuri
+from chunking_core import acoperire_text_brut, creeaza_chunkuri
 
 ROOT_PROIECT = Path(__file__).resolve().parent
 FOLDER_DOCUMENTE = ROOT_PROIECT / "documente_noi"
@@ -350,15 +350,24 @@ def importa_document(cursor, client_voyage, metadata, chunkuri):
 def main():
     parser = argparse.ArgumentParser(description="Importa documente Omnia in Supabase")
     parser.add_argument("--dry-run", action="store_true", help="valideaza chunking-ul fara DB sau apeluri Voyage")
+    parser.add_argument(
+        "--document", action="append", dest="documente",
+        help="limiteaza procesarea la acest document_id (repetabil)",
+    )
     args = parser.parse_args()
 
     documente = []
     for metadata, cale_text in gaseste_documente():
+        if args.documente and metadata["document_id"] not in args.documente:
+            continue
         continut = cale_text.read_text(encoding="utf-8")
         chunkuri = creeaza_chunkuri(continut)
         valideaza_chunkuri(chunkuri)
         documente.append((metadata, chunkuri))
         print(f"  {metadata['document_id']}: {len(chunkuri)} chunk-uri")
+        if args.dry_run:
+            acoperire = acoperire_text_brut(continut, chunkuri)
+            print(f"    acoperire text brut: {acoperire:.1%}")
 
     if not documente:
         print("Nu exista documente valide de importat.")

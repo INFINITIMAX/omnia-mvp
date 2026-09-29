@@ -197,7 +197,7 @@ def test_exact_answered_are_citare_publica_si_zero_voyage(api):
         "raspuns": "Răspuns [C1].",
         "citari": [{
             "id": "C1", "cod_document": "NP 010-2022", "titlu_document": "Titlu oficial",
-            "articol": "4.4.7.2", "citat": "fragment public",
+            "articol": "4.4.7.2", "citat": "fragment public", "modificari": [],
         }],
         "intrebari_ramase": 9,
     }
@@ -1800,7 +1800,7 @@ def test_r06_endpoint_afiseaza_pasajul_literal_dupa_600_si_schema_publica(trunca
         "raspuns": answer + (f"\n\n{TRUNCATION_NOTICE}" if truncated else ""),
         "citari": [{
             "id": "C1", "cod_document": row[2], "titlu_document": row[3],
-            "articol": row[4], "citat": quote,
+            "articol": row[4], "citat": quote, "modificari": [],
         }],
         "intrebari_ramase": 9,
     }
@@ -2025,7 +2025,7 @@ def test_api_d12_scope_explicit_gasit_pastreaza_citatul_r06_si_schema(api, phras
     assert response.json() == {
         "status": "answered", "raspuns": "Răspuns [C1].",
         "citari": [{"id": "C1", "cod_document": "NP 010-2022", "titlu_document": "Titlu oficial",
-                    "articol": "4.4.7.2", "citat": "fragment public"}],
+                    "articol": "4.4.7.2", "citat": "fragment public", "modificari": []}],
         "intrebari_ramase": 9,
     }
     assert _interogari_semantice(connection) == [(True, ("[0.1,0.2]", ["doc-1"], "[0.1,0.2]", SEMANTIC_TOP_K))]
@@ -2052,7 +2052,7 @@ def test_api_p1_restrictia_cu_articol_cunoscut_pastreaza_ruta_exacta(api, phrase
         "status": "answered" if has_evidence else "not_found",
         "raspuns": "Răspuns [C1]." if has_evidence else main._NOT_FOUND,
         "citari": [{"id": "C1", "cod_document": "NP 010-2022", "titlu_document": "Titlu oficial",
-                    "articol": "4.4.7.2", "citat": "fragment public"}] if has_evidence else [],
+                    "articol": "4.4.7.2", "citat": "fragment public", "modificari": []}] if has_evidence else [],
         "intrebari_ramase": 9,
     }
     exact_calls = [(sql, parameters) for sql, parameters in connection.calls if "chunk.content_hash" in sql]
@@ -2535,6 +2535,46 @@ def test_un_succes_reseteaza_contorul_dupa_esecuri_repetate_prin_adaptoarele_rea
     recovered = api.get("/health/provideri")
     assert recovered.status_code == 200
     assert recovered.json() == {"status": "ok"}
+
+
+# --- D27: proveniența modificărilor în citare, expusă public ca listă JSON ---
+
+
+def test_intreaba_expune_modificari_ca_lista_json_cu_marcaj_din_dovada(api):
+    marker = (
+        "Text modificat prin Ordinul nr. 6.025/2018, publicat în Monitorul Oficial "
+        "nr. 977 din 19.11.2018"
+    )
+    quote = "Prevedere fictivă neschimbată de test."
+    content = f"[{marker}]\n{quote}"
+    row = EXACT_ROW[:6] + (content, EXACT_ROW[7])
+    connection = ConnectionFake(exact_rows=(row,))
+    generator = RawGeneratorFake(json.dumps({
+        "raspuns": f"{quote} [C1]",
+        "pasaje": [{"id": "C1", "citat": quote}],
+        "gasit": True,
+    }))
+
+    response = configure(api, connection, generator=generator).post(
+        "/intreaba", json={"intrebare": "NP 010-2022, art. 4.4.7.2"}
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    citation = body["citari"][0]
+    assert citation["modificari"] == [marker]
+    assert isinstance(citation["modificari"], list)
+
+
+def test_intreaba_fara_marcaj_in_dovada_expune_modificari_lista_goala(api):
+    connection = ConnectionFake()  # EXACT_ROW nu conține niciun marcaj
+
+    response = configure(api, connection).post(
+        "/intreaba", json={"intrebare": "NP 010-2022, art. 4.4.7.2"}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["citari"][0]["modificari"] == []
 
 
 def test_deploy_script_refuza_pe_conditii_nesigure_si_ruleaza_pytest_inaintea_lui_railway():
