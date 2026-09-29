@@ -172,12 +172,29 @@ def test_raspuns_si_citari_randate_prin_textcontent():
     ):
         assert unsafe not in SCRIPT
     # Niciun `citation.<câmp>` nu este folosit în altă parte decât într-o atribuire
-    # `.textContent` sau într-un simplu guard de prezență.
+    # `.textContent`, într-un simplu guard de prezență, sau — pentru `modificari`,
+    # singurul câmp care e o listă, nu un scalar — un guard `Array.isArray(...)` ori
+    # apelul `.forEach(...)` care iterează peste ea (bucla propriu-zisă tot ajunge
+    # într-o atribuire `.textContent`, verificată separat mai jos).
     for match in re.finditer(r"citation\.\w+", SCRIPT):
         start = SCRIPT.rfind("\n", 0, match.start()) + 1
         end = SCRIPT.find("\n", match.end())
         line = SCRIPT[start:end].strip()
-        assert ".textContent =" in line or line.startswith("if (citation."), line
+        assert (
+            ".textContent =" in line
+            or line.startswith("if (citation.")
+            or "Array.isArray(citation." in line
+            or re.match(r"^citation\.\w+\.forEach\(", line)
+        ), line
+
+
+def test_modificari_este_randat_exclusiv_prin_createelement_textcontent():
+    # Confirmă concret (nu doar prin pattern de linie) cele trei operații permise
+    # pentru `citation.modificari`: guard de tip listă, iterare, și scriere de text.
+    assert "if (Array.isArray(citation.modificari)) {" in SCRIPT
+    assert "citation.modificari.forEach((modificare) => {" in SCRIPT
+    assert "mod.textContent = modificare;" in SCRIPT
+    assert "mod.className = 'art-mod';" in SCRIPT
 
 
 def test_js_nu_citeste_cookie_httponly():
@@ -514,6 +531,54 @@ def _run_citation_cases(cases):
         )
     assert result.returncode == 0, result.stderr
     return json.loads(result.stdout)
+
+
+def test_citare_cu_modificari_randeaza_cate_un_rand_per_marcaj_prin_textcontent():
+    marker_a = "Text modificat prin Ordinul nr. 6.025/2018, publicat în Monitorul Oficial nr. 977 din 19.11.2018"
+    marker_b = "Abrogat prin Ordinul nr. 6.026/2018, publicat în Monitorul Oficial nr. 966 din 15.11.2018"
+    citation = {
+        "id": "C1",
+        "cod_document": "P 118/2-2013",
+        "titlu_document": "Titlu articol",
+        "articol": "7.183",
+        "citat": "Text citat",
+        "modificari": [marker_a, marker_b],
+    }
+    [result] = _run_citation_cases([{"text": "Vezi [C1].", "citations": [citation]}])
+
+    assert result["threw"] is None
+
+    def _art_mod_texts(node):
+        found = []
+        if node.get("className") == "art-mod":
+            found.append(_flatten_text(node))
+        for child in node.get("children", []):
+            found.extend(_art_mod_texts(child))
+        return found
+
+    rendered = _art_mod_texts(result["tree"])
+    assert rendered == [marker_a, marker_b]
+
+
+def test_citare_fara_modificari_nu_randeaza_niciun_rand_art_mod():
+    citation = {
+        "id": "C1",
+        "cod_document": "NP 010-2022",
+        "titlu_document": "Titlu articol",
+        "articol": "4.12",
+        "citat": "Text citat",
+        "modificari": [],
+    }
+    [result] = _run_citation_cases([{"text": "Vezi [C1].", "citations": [citation]}])
+
+    assert result["threw"] is None
+
+    def _has_art_mod(node):
+        if node.get("className") == "art-mod":
+            return True
+        return any(_has_art_mod(child) for child in node.get("children", []))
+
+    assert not _has_art_mod(result["tree"])
 
 
 def test_marcaj_citare_foloseste_id_real_din_api_nu_pozitie_css():

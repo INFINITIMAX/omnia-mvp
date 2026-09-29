@@ -88,8 +88,8 @@ class UngroundedReferenceError(GenerationValidationError):
 
 _NON_ALPHANUMERIC = re.compile(r"[^0-9A-Z]+")
 
-# Marcaj de proveniență (D27) pus de planner la începutul textului consolidat al P 118/2 și
-# P 118/3, când un articol a fost modificat/introdus/abrogat printr-un ordin ulterior. Derivat
+# Marcaj de proveniență (D27), pe rând propriu după textul consolidat al P 118/2 și P 118/3
+# modificat/introdus/abrogat printr-un ordin ulterior. Derivat
 # server-side din `Evidence.content`, niciodată din răspunsul modelului.
 _MODIFICATION_MARKER = re.compile(
     r"\[(Text modificat|Text introdus|Abrogat) prin Ordinul nr\. [0-9.]+/\d{4}, "

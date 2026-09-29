@@ -4,6 +4,10 @@ Acest fișier separă deciziile explicite ale lui Lucian de propunerile agențil
 
 ## Decizii active
 
+### D27 — normative consolidate cu proveniență vizibilă, aprobat Lucian (28-09-2026)
+
+P 118/2-2013 și P 118/3-2015 intră în bază în varianta în vigoare: modificările din Ordinele 6.026/2018 (MO 966/15.11.2018) și 6.025/2018 (MO 977/19.11.2018) se aplică în textul de bază (MO 595 bis/2013, respectiv 243 bis/2015). Textul nou vine literal din ordin, iar fiecare text modificat, introdus sau abrogat este urmat în dovadă de un marcaj fix („[Text modificat prin Ordinul nr. …, publicat în Monitorul Oficial nr. … din …]”). Serverul derivă din marcaj câmpul `modificari` al citării, afișat în interfață. Diferența față de NTPEE-2009 (respins ca „variantă agregată”): proveniența fiecărui fragment e vizibilă și verificabilă literal. Înlocuirile globale de sintagmă cerute de ordin (Art. II din 6.025/2018: „avertizare” → „alarmare”) se aplică fără marcaj per apariție și se menționează în titlul documentului. Documentele doar cu modificări rămân `disabled` (D23).
+
 ### D26 — refuz onest structurat și limita de răspuns, aprobat Lucian (28-09-2026)
 
 Evaluarea completă R23 a arătat: (1) 3 din 24 de generări tăiate la 1200 de tokeni → 503 pe site; (2) la o întrebare fără răspuns în corpus, modelul spunea corect că informația lipsește, dar contractul îl obliga să citeze articole irelevante. Decizii: `MAX_ANSWER_TOKENS` = 2000; tool-ul `return_grounded_answer` are câmpul obligatoriu `gasit` (boolean); `gasit=false` ⇒ fără pasaje și fără `[Cn]`, iar serverul răspunde `not_found` cu mesajul standard, fără citări. `gasit=true` păstrează neschimbate D20/D22 (pasaj literal verificat, ≥1 citare). Modifică D22 doar prin adăugarea câmpului `gasit`.
