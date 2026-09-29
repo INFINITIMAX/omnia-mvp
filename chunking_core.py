@@ -102,6 +102,9 @@ PRAG_MARCAJE_ART = 50
 LUNGIME_MINIMA_CHUNK = 15
 LUNGIME_PENTRU_SPLIT_SECUNDAR = 2000
 MAX_CHUNK_CHARS = 1000
+# D27: marcajul de proveniență din normativele consolidate (vezi consolidare_normative.py).
+PATTERN_MARCAJ_PROVENIENTA = re.compile(r"\[(?:Text modificat|Text introdus|Abrogat) prin Ordinul nr\. [^\]\n]{1,150}\]")
+LUNGIME_MAXIMA_MARCAJ = 200
 PROCENT_MAXIM_CAUTARE_CUPRINS = 0.20
 DISTANTA_MAXIMA_ANTET = 3
 NUMAR_MINIM_INTRARI_CUPRINS = 5
@@ -780,6 +783,11 @@ def _aplica_limita_caractere(chunkuri: list[dict[str, str]]) -> list[dict[str, s
             boundary = max(text.rfind("\n", 0, MAX_CHUNK_CHARS + 1), text.rfind(" ", 0, MAX_CHUNK_CHARS + 1))
             if boundary < LUNGIME_MINIMA_CHUNK:
                 boundary = MAX_CHUNK_CHARS
+            # D27: marcajul de proveniență nu se taie în două; bucata poate depăși limita cu
+            # cel mult lungimea lui, altfel nicio bucată nu l-ar mai conține întreg.
+            for marcaj in PATTERN_MARCAJ_PROVENIENTA.finditer(text, 0, boundary + LUNGIME_MAXIMA_MARCAJ):
+                if marcaj.start() < boundary < marcaj.end():
+                    boundary = marcaj.end()
             piece, text = text[:boundary].strip(), text[boundary:].strip()
             if piece:
                 rezultat.append({"articol": chunk["articol"], "text": piece})
