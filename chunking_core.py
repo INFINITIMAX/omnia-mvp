@@ -43,8 +43,12 @@ PATTERN_ARTICOL_FARA_PUNCT = re.compile(
 # corp („ANEXA 2.1, au caracter de recomandare...”, I9), nu un titlu — niciuna dintre
 # variantele de continuare acceptate mai jos nu se potrivește cu ele, deci rămân excluse
 # fără nicio verificare suplimentară.
+# Runda R28 (P 118/2, MO 595 bis): „NR.”/„Nr.” opțional între ANEXA și număr (cu sau
+# fără spațiu după punct — „ANEXA NR. 1”, „ANEXA NR.14bis”), și sufixul „bis” lipit de
+# număr, pe lângă litera unică deja acceptată.
 PATTERN_TITLU_ANEXA = re.compile(
-    r"\n[ \t]*ANEXA[ \t]+(\d+(?:\.\d+)?(?:\.?\([A-Za-z]\))?[A-Za-z]?)\.?[ \t]*"
+    r"\n[ \t]*ANEXA[ \t]+(?:(?:NR\.|Nr\.)[ \t]*)?"
+    r"(\d+(?:\.\d+)?(?:\.?\([A-Za-z]\))?(?:bis|[A-Za-z])?)\.?[ \t]*"
     r"(?=[\-–]|[A-ZĂÂÎȘȚŞŢ]|$)",
     re.MULTILINE,
 )
