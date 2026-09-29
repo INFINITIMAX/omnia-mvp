@@ -1,0 +1,19 @@
+{"versiune": 1, "cazuri": [
+  {"id": "COL-BOG-01", "tip": "semantic", "intrebare": "cat se considera debitul de aer pentru desfumare la o masina pentru un subsol fara isntaltie de sprinklere ? dar cu ?", "asteptat": [{"document_id": "np127_2009", "articol": "117"}]},
+  {"id": "COL-BOG-02", "tip": "semantic", "intrebare": "la ce distanta de cladire trebuie pusa desfumarea ?", "asteptat": [{"document_id": "np127_2009", "articol": "129"}, {"document_id": "np127_2009", "articol": "130"}, {"document_id": "p118_1_2025", "articol": "8.4.6"}]},
+  {"id": "COL-P118-02", "tip": "semantic", "intrebare": "ce rezistenta la foc tre sa aiba peretii antifoc intre compartimente", "asteptat": [{"document_id": "p118_1_2025", "articol": "2.3.2.1.2"}]},
+  {"id": "COL-P118-05", "tip": "semantic", "intrebare": "ce trebuie respectat la panourile fotovoltaice puse pe acoperis ca sa nu fie risc de incendiu", "asteptat": [{"document_id": "p118_1_2025", "articol": "2.4.18"}, {"document_id": "p118_1_2025", "articol": "anexa4.6"}]},
+  {"id": "COL-I7-02", "tip": "semantic", "intrebare": "unde se pun contoarele de curent la bloc", "asteptat": [{"document_id": "i7_2011", "articol": "3.1.5.7"}]},
+  {"id": "COL-I7-03", "tip": "semantic", "intrebare": "la ce foloseste paratrasnetul exterior", "asteptat": [{"document_id": "i7_2011", "articol": "6.2.3.1"}]},
+  {"id": "COL-I5-01", "tip": "semantic", "intrebare": "ce filtre pun la aerul proaspat daca e poluat afara", "asteptat": [{"document_id": "i5_2022", "articol": "5.4"}, {"document_id": "i5_2022", "articol": "5.7"}]},
+  {"id": "COL-I5-02", "tip": "semantic", "intrebare": "ce sistem de clima se foloseste la un magazin mic", "asteptat": [{"document_id": "i5_2022", "articol": "6.4"}]},
+  {"id": "COL-I9-02", "tip": "semantic", "intrebare": "cand fac doua bransamente de apa la o cladire", "asteptat": [{"document_id": "i9_2022", "articol": "6.13"}]},
+  {"id": "COL-I9-03", "tip": "semantic", "intrebare": "ce hidrofoare / vase sub presiune pot folosi la alimentarea cu apa", "asteptat": [{"document_id": "i9_2022", "articol": "6.41"}]},
+  {"id": "COL-NP015-01", "tip": "semantic", "intrebare": "din ce material fac tevile de gaze medicale in spital", "asteptat": [{"document_id": "spitale_2022", "articol": "3.9.6"}]},
+  {"id": "COL-NP015-02", "tip": "semantic", "intrebare": "am voie cu tavan fals in spital?", "asteptat": [{"document_id": "spitale_2022", "articol": "3.3"}]},
+  {"id": "COL-NP010-02", "tip": "semantic", "intrebare": "cu ce se doteaza locul de gunoi la o scoala", "asteptat": [{"document_id": "np010_2022", "articol": "4.4.5"}]},
+  {"id": "COL-NP004-01", "tip": "semantic", "intrebare": "la ce distanta pun rezervoarele verticale una de alta in cuva la benzinarie", "asteptat": [{"document_id": "np004_03", "articol": "2.20"}]},
+  {"id": "COL-P1182-03", "tip": "semantic", "intrebare": "in ce cladiri pun hidranti interiori", "asteptat": [{"document_id": "p118_2_2013", "articol": "4.1"}]},
+  {"id": "COL-P1183-02", "tip": "semantic", "intrebare": "unde e obligatorie detectia de incendiu", "asteptat": [{"document_id": "p118_3_2015", "articol": "3.3.1"}]},
+  {"id": "COL-NP064-01", "tip": "semantic", "intrebare": "ce inaltime minima tre sa aiba camerele la mansarda", "asteptat": [{"document_id": "np064_02", "articol": "2.2.2"}]}
+]}

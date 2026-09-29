@@ -392,7 +392,12 @@ def run_evaluation(
         catalog = PostgresApprovedCatalogRepository(connection).load()
         parser = catalog.create_parser()
         repository = PostgresRetrievalRepository(connection)
-        retrieval = RetrievalService(parser, repository, embedder, rewriter=rewriter)
+        # Fără `--rescriere`, apelul rămâne identic cu cel dinainte de R30.
+        retrieval = (
+            RetrievalService(parser, repository, embedder, rewriter=rewriter)
+            if rewriter is not None
+            else RetrievalService(parser, repository, embedder)
+        )
 
         for case in cases:
             try:
