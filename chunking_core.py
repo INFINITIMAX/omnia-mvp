@@ -65,6 +65,25 @@ PATTERN_MARCAJ_ANEXA_INTERN = re.compile(
 # `_este_titlu_capitol_simplu_valid` (lungime, punctuație finală, copil direct următor) —
 # altfel orice enumerare simplă din corpul unui articol ("1. text... 2. text...") ar fi
 # confundată cu un titlu de capitol.
+# Runda R29 (NP 127:2009): articole numerotate simplu, fără notație zecimală
+# ("Articolul 117 (1) Evacuarea..."), format unic acestui normativ (parcaje
+# subterane). Grupul capturat e doar cifra, fără punct — `_baza_articol` îl
+# adaugă, ca identificatorul rezultat să fie „117.”, la fel ca celelalte
+# formate. Lookahead-ul cere majusculă/„/( imediat după număr, ca la
+# PATTERN_ARTICOL_ART, ca să nu confundăm vreo trimitere ruptă pe rând nou.
+PATTERN_ARTICOL_NP127 = re.compile(
+    r"\n[ \t]*Articolul[ \t]+(\d+)[ \t]+(?=[A-ZĂÂÎȘȚŞŢ„(])"
+)
+# Titlurile de capitol/secțiune din NP 127 ("Capitolul I Dispoziții generale",
+# "Secţiunea a 2-a Terminologie") sunt rânduri întregi, eliminate direct din text
+# (ca `PATTERN_TITLU_ROMAN`/`_elimina_titluri_capitol_roman`, pentru alt format de
+# capitol roman) — nu devin articole și nu li se construiește un identificator
+# propriu; conținutul copiilor lor (articolele care urmează) rămâne neschimbat.
+PATTERN_TITLU_CAPITOL_NP127 = re.compile(r"\s*Capitolul[ \t]+[IVXLC]+[ \t]+\S")
+PATTERN_TITLU_SECTIUNE_NP127 = re.compile(r"\s*Sec[țţ]iunea[ \t]+(?:a[ \t]+\d+-a|\d+)[ \t]+\S")
+# Rândurile formate doar din „+” (separatoare vizuale în extragerea NP 127) nu
+# trebuie să apară în chunk-uri.
+PATTERN_LINIE_SEPARATOR_PLUS = re.compile(r"^\+$")
 PATTERN_TITLU_CAPITOL_SIMPLU = re.compile(r"\n\s*(\d{1,2}\.)[ \t]+([A-ZĂÂÎȘȚŞŢ].*)")
 PATTERN_LINIE_CUPRINS = re.compile(r"\.{4,}\s*\d{1,4}\s*(?=\n|$)")
 PATTERN_TITLU_CUPRINS = re.compile(r"^\s*\d+(?:\.\d+)*\.\s+\S.*$")
@@ -145,6 +164,7 @@ def creeaza_chunkuri(text: str) -> list[dict[str, str]]:
     continut = _elimina_colofon_mo(continut)
     continut = _elimina_cuprins(continut)
     continut = _elimina_titluri_capitol_roman(continut)
+    continut = _elimina_marcaje_capitol_np127(continut)
 
     segmente = _extrage_segmente(continut)
     _propaga_titluri_capitol_simplu(segmente)
@@ -291,6 +311,24 @@ def _elimina_titluri_capitol_roman(text: str) -> str:
     for linie in text.split("\n"):
         potrivire = PATTERN_TITLU_ROMAN.match(linie)
         if potrivire and _este_majoritar_majuscul(potrivire.group(1)):
+            continue
+        linii_pastrate.append(linie)
+    return "\n".join(linii_pastrate)
+
+
+def _elimina_marcaje_capitol_np127(text: str) -> str:
+    """Șterge, linie cu linie, separatoarele „+” și titlurile de capitol/secțiune
+    specifice NP 127 (Runda R29) — nu devin articole, nu li se păstrează textul."""
+    linii = text.split("\n")
+    linii_pastrate = []
+    for index, linie in enumerate(linii):
+        # „+” e separator doar înaintea unui titlu/articol de tip Portal Legislativ; în alte
+        # documente (I7, P 118/3, NP 015) un „+” pe rând propriu e semn dintr-o formulă.
+        if PATTERN_LINIE_SEPARATOR_PLUS.match(linie.strip()):
+            urmator = next((l for l in linii[index + 1:] if l.strip()), "")
+            if re.match(r"\s*(?:Articolul[ \t]+\d|Capitolul[ \t]+[IVXLC]|Sec[țţ]iunea[ \t])", urmator):
+                continue
+        if PATTERN_TITLU_CAPITOL_NP127.match(linie) or PATTERN_TITLU_SECTIUNE_NP127.match(linie):
             continue
         linii_pastrate.append(linie)
     return "\n".join(linii_pastrate)
@@ -575,6 +613,7 @@ def _extrage_segmente(continut: str) -> list[dict[str, object]]:
             *PATTERN_ARTICOL.finditer(sursa),
             *marcaje_art,
             *(PATTERN_ARTICOL_FARA_PUNCT.finditer(sursa) if fara_punct_activ else ()),
+            *PATTERN_ARTICOL_NP127.finditer(sursa),
             *PATTERN_TITLU_CAPITOL_SIMPLU.finditer(sursa),
             *PATTERN_TITLU_ANEXA.finditer(sursa),
             *PATTERN_MARCAJ_ANEXA_INTERN.finditer(sursa),
@@ -779,6 +818,8 @@ def _normalizeaza_pentru_acoperire(text: str) -> str:
     din document să fie comparabilă cu textul concatenat al chunk-urilor, care nu
     mai conține marcajul consumat ca delimitator."""
     text = _PATTERN_MARCAJ_ANEXA_INTERN_ACOPERIRE.sub("", text)
+    # R29: marcajul „Articolul N” de la început de rând (NP 127) e consumat ca delimitator.
+    text = re.sub(r"^\s*Articolul[ \t]+\d+[ \t]*", "", text)
     text = _PATTERN_MARCAJ_ARTICOL_ACOPERIRE.sub("", text)
     text = _PATTERN_SUBPUNCT_PARANTEZA_ACOPERIRE.sub("", text)
     return re.sub(r"\s+", " ", text).strip()
