@@ -14,6 +14,14 @@ Citește în ordine: această secțiune → `docs/DECISIONS.md` (D23–D27 sunt 
 - **Niciun task în lucru.** Ultimul: R28 (PR #33) — `PATTERN_TITLU_ANEXA` acceptă `ANEXA NR. N` / `Nr.` / `14bis`, anexele P 118/2 sunt regiuni proprii (Anexa 33 → `ANEXA 33.33.x.`); P 118/2 reimportat (1840 chunk-uri); evaluare căutare 34/36.
 - Idei de backlog (nedecise): numerotarea „(A).2.” din NP 057; PR-urile dependabot (atenție la `anthropic` major); I 13-2015 complet (textul de bază lipsește).
 
+### Regulile globale ale lui Lucian (rezumat — sursa completă e în afara repo-ului)
+Sursa: `~/.claude/CLAUDE.md` și `~/.agents/` pe calculatorul lui Lucian; un agent pornit în altă parte nu le vede, deci le respectă de aici:
+- Răspunde în română, clar și concis; date `DD-MM-YYYY`, fus orar EET. Nu ghici — întreabă când e ambiguu.
+- **Nimic instalat sau lucrat pe `C:\`** — proiecte, venv-uri, fișiere temporare doar pe `D:\` (excepție: configurările cerute de sistem în `%USERPROFILE%`).
+- Nu afișa niciodată secrete, chei API sau valori din `.env`.
+- Mașina e Windows, se lucrează în PowerShell; la etape mari se aplică disciplina `ai-native-sdlc` (intent → spec → plan → build + verificare → review → deploy gate).
+- Predarea între agenți se face **prin fișiere** (`docs/handoff/`), niciodată doar în conversație; nu suprascrie și nu șterge munca altui agent fără instrucțiuni explicite.
+
 ### Cum se lucrează aici (reguli + comenzi)
 - **Fluxul de 4 agenți** (planner rulează comenzi; coder/tester scriu; reviewer doar citește). Brief-uri și rapoarte în `docs/handoff/<ID>-<rol>.md`; verdictul reviewer-ului îl transcrie planner-ul integral în `<ID>-reviewer-raport.md`.
 - **Fără aprobarea explicită a lui Lucian:** merge/push în main, deploy, migrații/scrieri în DB de producție, apeluri plătite (Voyage/Anthropic). Lucian a spus: fără reîncărcare automată Anthropic, fără plafon zilnic de cost, fără unealtă de import self-service (normativele se adaugă prin agent). Doar normative publicate în Monitorul Oficial (niciodată SR/SR EN/STAS, versiuni abrogate, documente doar cu modificări).
