@@ -4,6 +4,10 @@ Acest fișier separă deciziile explicite ale lui Lucian de propunerile agențil
 
 ## Decizii active
 
+### D28 — NP 064-02 admis ca excepție punctuală de la regula „doar Monitorul Oficial”, aprobat Lucian (29-09-2026)
+
+NP 064-02 („Normativ pentru proiectarea mansardelor la clădiri de locuit”) e aprobat prin Ordinul MLPTL nr. 1.991/2002 (MO nr. 944/23.12.2002), dar textul normativului (anexa) a fost publicat doar în Buletinul Construcțiilor nr. 7/2003. Lucian a decis explicit: **regula de conținut din 04-09-2026 rămâne neschimbată și nereformulată**; NP 064-02 intră ca excepție punctuală. Precedent anterior în aceeași situație: NP 057-02. Orice alt normativ cu textul doar în Buletinul Construcțiilor cere o nouă excepție aprobată de Lucian. Sursa textului: PDF-ul din arhiva lui Lucian, identic cu cel public de pe migs.ro (80 de pagini, text nativ).
+
 ### D27 — normative consolidate cu proveniență vizibilă, aprobat Lucian (28-09-2026)
 
 P 118/2-2013 și P 118/3-2015 intră în bază în varianta în vigoare: modificările din Ordinele 6.026/2018 (MO 966/15.11.2018) și 6.025/2018 (MO 977/19.11.2018) se aplică în textul de bază (MO 595 bis/2013, respectiv 243 bis/2015). Textul nou vine literal din ordin, iar fiecare text modificat, introdus sau abrogat este urmat în dovadă de un marcaj fix („[Text modificat prin Ordinul nr. …, publicat în Monitorul Oficial nr. … din …]”). Serverul derivă din marcaj câmpul `modificari` al citării, afișat în interfață. Diferența față de NTPEE-2009 (respins ca „variantă agregată”): proveniența fiecărui fragment e vizibilă și verificabilă literal. Înlocuirile globale de sintagmă cerute de ordin (Art. II din 6.025/2018: „avertizare” → „alarmare”) se aplică fără marcaj per apariție și se menționează în titlul documentului. Documentele doar cu modificări rămân `disabled` (D23).

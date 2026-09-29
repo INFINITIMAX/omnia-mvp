@@ -47,6 +47,7 @@ DOCUMENTE_APROBATE: dict[str, str | None] = {
     "np091_2003": None,
     "p118_2_2013": "P118_2_2013_consolidat.txt",
     "p118_3_2015": "P118_3_2015_consolidat.txt",
+    "np064_02": "NP064_02_extras.txt",
 }
 
 # Pragurile D24, provizorii, ajustabile doar prin PR — identice cu
@@ -63,6 +64,7 @@ PRAGURI_ACOPERIRE: dict[str, float] = {
     "np091_2003": 0.95,
     "p118_2_2013": 0.98,
     "p118_3_2015": 0.94,
+    "np064_02": 0.98,
 }
 
 _SELECT_DOCUMENT_SQL = "SELECT document_id, source_key, status FROM public.documente WHERE document_id = %s"
