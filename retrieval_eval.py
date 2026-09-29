@@ -31,7 +31,8 @@ from scope_core import is_engineering_calculation_request
 
 
 MAX_CASES = 36
-MAX_EMBEDDING_CALLS = 36
+# R30: cu `--rescriere`, fiecare caz face două embedding-uri (original + rescris).
+MAX_EMBEDDING_CALLS = 2 * MAX_CASES
 # 36 de cazuri + marjă pentru reîncercarea unică a generării (referință nesusținută).
 MAX_GENERATION_CALLS = 45
 _TYPES = frozenset({"exact", "semantic", "negativ"})

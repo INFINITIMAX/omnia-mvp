@@ -10,7 +10,7 @@ import logging
 import os
 from typing import Protocol, Sequence
 
-from anthropic import Anthropic, AnthropicError
+from anthropic import Anthropic
 
 from retrieval_core import MAX_QUESTION_CHARS
 
@@ -76,16 +76,16 @@ class AnthropicQueryRewriter:
                     timeout=_ANTHROPIC_TIMEOUT_SECONDS,
                     max_retries=_ANTHROPIC_MAX_RETRIES,
                 )
+            # Fără `temperature`: SDK-ul anthropic 1.x îl respinge pentru acest model (TypeError).
             response = self._client.messages.create(
                 model=self.model,
                 max_tokens=_REWRITE_MAX_TOKENS,
-                temperature=0,
                 messages=[{"role": "user", "content": _build_prompt(question)}],
             )
-        except AnthropicError as error:
+            rewritten = self._validated_text(response)
+        except Exception as error:  # noqa: BLE001 — rescrierea e opțională: orice eșec revine la întrebarea originală
             _LOGGER.warning("query_rewrite_failed provider=anthropic category=%s", type(error).__name__)
             return question
-        rewritten = self._validated_text(response)
         return rewritten if rewritten is not None else question
 
     @staticmethod
